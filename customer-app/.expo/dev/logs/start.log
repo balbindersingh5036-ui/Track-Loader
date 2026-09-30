@@ -1,0 +1,24 @@
+{"_e":"root:init","_t":1790690821122,"format":"v0-jsonl","version":"57.0.27"}
+{"_e":"env:mode","_t":1790690821123,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1790690821125,"mode":"development","files":["../..\\..\\.env"],"env":{"EXPO_PUBLIC_API_URL":"http://localhost:5000/api"}}
+{"_e":"devserver:start","_t":1790690830569,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1790690840839,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1790690847886,"plugins":[]}
+{"_e":"metro:instantiate","_t":1790690860922,"atlas":false,"workers":8,"host":"::","port":8081}
+{"_e":"metro:bundling:started","_t":1790691301480,"id":"2","platform":"android","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:failed","_t":1790691318580,"id":"2","message":"SyntaxError: E:\\LoadBalbin\\customer-app\\src\\screens\\home\\HomeScreen.jsx: Identifier 'notificationService' has already been declared. (6:7)\n\n  4 | import notificationService from \"../../services/notificationService\";\n  5 | import configService from \"../../services/configService\";\n> 6 | import notificationService from \"../../services/notificationService\";\n    |        ^\n  7 | import vehicleService from \"../../services/vehicleService\";\n  8 | import { useAuth } from \"../../store/AuthContext\";\n  9 | import { subscribeToBookingEvents, subscribeToNotifications } from \"../../services/socketService\";","importStack":null,"filename":"src\\screens\\home\\HomeScreen.jsx","targetModuleName":null,"originModulePath":null}
+{"_e":"metro:bundling:started","_t":1790691355023,"id":"3","platform":"android","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:failed","_t":1790691355425,"id":"3","message":"SyntaxError: E:\\LoadBalbin\\customer-app\\src\\screens\\home\\HomeScreen.jsx: Identifier 'notificationService' has already been declared. (6:7)\n\n  4 | import notificationService from \"../../services/notificationService\";\n  5 | import configService from \"../../services/configService\";\n> 6 | import notificationService from \"../../services/notificationService\";\n    |        ^\n  7 | import vehicleService from \"../../services/vehicleService\";\n  8 | import { useAuth } from \"../../store/AuthContext\";\n  9 | import { subscribeToBookingEvents, subscribeToNotifications } from \"../../services/socketService\";","importStack":null,"filename":"src\\screens\\home\\HomeScreen.jsx","targetModuleName":null,"originModulePath":null}
+{"_e":"metro:bundling:started","_t":1790691557226,"id":"4","platform":"android","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:done","_t":1790691558114,"id":"4","total":1069,"ms":887.1006}
+{"_e":"metro:bundling:started","_t":1790691855196,"id":"5","platform":"android","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:done","_t":1790691855753,"id":"5","total":1,"ms":556.7926}
+{"_e":"metro:bundling:started","_t":1790691945270,"id":"6","platform":"android","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:done","_t":1790691945762,"id":"6","total":1,"ms":491.6419}
+{"_e":"root:init","_t":1790781131123,"format":"v0-jsonl","version":"57.0.27"}
+{"_e":"env:mode","_t":1790781131124,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1790781131127,"mode":"development","files":["../..\\..\\.env"],"env":{"EXPO_PUBLIC_API_URL":"http://localhost:5000/api"}}
+{"_e":"devserver:start","_t":1790781142954,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1790781159023,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1790781167036,"plugins":[]}
+{"_e":"metro:instantiate","_t":1790781190877,"atlas":false,"workers":8,"host":"::","port":8081}

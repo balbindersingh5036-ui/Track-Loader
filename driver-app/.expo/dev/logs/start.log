@@ -1,0 +1,7 @@
+{"_e":"root:init","_t":1790693869316,"format":"v0-jsonl","version":"57.0.27"}
+{"_e":"env:mode","_t":1790693869316,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1790693869320,"mode":"development","files":["../..\\..\\.env"],"env":{"EXPO_PUBLIC_API_URL":"http://localhost:5000/api\\n"}}
+{"_e":"devserver:start","_t":1790693871779,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1790693877548,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1790693880330,"plugins":[]}
+{"_e":"metro:instantiate","_t":1790693885278,"atlas":false,"workers":8,"host":"::","port":8082}
