@@ -11,12 +11,14 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchDashboard = async () => {
       try {
-        const [reportRes, bookingRes] = await Promise.all([
+        const [reportRes, revenueRes, bookingRes] = await Promise.all([
           api.get('/admin/reports/dashboard'),
+          api.get('/admin/reports/revenue'),
           api.get('/admin/bookings?limit=5')
         ]);
         setData({
           metrics: reportRes.data.data,
+          revenueSeries: revenueRes.data.data.series || [],
           recentBookings: bookingRes.data.data.bookings || []
         });
       } catch (err) {
@@ -32,7 +34,7 @@ export default function Dashboard() {
   if (error) return <div style={{color:'red'}}>{error}</div>;
   if (!data) return <div>No data available</div>;
 
-  const { metrics, recentBookings } = data;
+  const { metrics, revenueSeries, recentBookings } = data;
 
   const kpis = [
     { label: 'Total Bookings', value: metrics?.totalBookings || 0, icon: <Map size={24} /> },
@@ -41,15 +43,10 @@ export default function Dashboard() {
     { label: 'Total Drivers', value: metrics?.totalDrivers || 0, icon: <Car size={24} /> }
   ];
 
-  const chartData = metrics?.revenueChart || [
-    { name: 'Mon', revenue: 4000 },
-    { name: 'Tue', revenue: 3000 },
-    { name: 'Wed', revenue: 2000 },
-    { name: 'Thu', revenue: 2780 },
-    { name: 'Fri', revenue: 1890 },
-    { name: 'Sat', revenue: 2390 },
-    { name: 'Sun', revenue: 3490 },
-  ];
+  const chartData = revenueSeries.map((entry) => ({
+    name: entry._id,
+    revenue: entry.revenue
+  }));
 
   return (
     <div>
@@ -102,10 +99,10 @@ export default function Dashboard() {
                 recentBookings.map(b => (
                   <tr key={b._id}>
                     <td>{b._id.slice(-6)}</td>
-                    <td>{b.customer?.name || 'N/A'}</td>
-                    <td>{b.pickupLocation?.address} → {b.dropLocation?.address}</td>
-                    <td><span className={`badge ${b.status === 'completed' ? 'success' : 'warning'}`}>{b.status}</span></td>
-                    <td>₹{b.fare?.finalAmount || 0}</td>
+                    <td>{b.customer?.name || b.customer || 'N/A'}</td>
+                    <td>{b.pickup?.address} → {b.drop?.address}</td>
+                    <td><span className={`badge ${b.bookingStatus === 'completed' ? 'success' : 'warning'}`}>{b.bookingStatus}</span></td>
+                    <td>₹{b.finalFare || b.estimatedFare || 0}</td>
                   </tr>
                 ))
               )}

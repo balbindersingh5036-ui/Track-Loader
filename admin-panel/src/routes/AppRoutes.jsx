@@ -15,7 +15,8 @@ import Notifications from '../pages/notifications/Notifications';
 import Complaints from '../pages/complaints/Complaints';
 
 const ProtectedRoute = ({ children }) => {
-  const { token, user } = useSelector(state => state.auth);
+  const { token, user, restoring } = useSelector(state => state.auth);
+  if (restoring) return <div>Verifying admin session...</div>;
   if (!token || user?.role !== 'admin') {
     return <Navigate to="/login" />;
   }

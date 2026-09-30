@@ -7,7 +7,7 @@ export default function Vehicles() {
 
   useEffect(() => {
     api.get('/admin/vehicles')
-      .then(res => setData(res.data.data || []))
+      .then(res => setData(res.data.data.vehicles || []))
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
   }, []);
@@ -34,9 +34,9 @@ export default function Vehicles() {
               data.map(item => (
                 <tr key={item._id}>
                   <td>{item.vehicleNumber}</td>
-                  <td>{item.model}</td>
-                  <td>{item.type}</td>
-                  <td>{item.status}</td>
+                  <td>{item.vehicleModel}</td>
+                  <td>{item.vehicleType}</td>
+                  <td>{item.isActive ? (item.isAvailable ? 'Available' : 'Unavailable') : 'Inactive'}</td>
                 </tr>
               ))
             )}

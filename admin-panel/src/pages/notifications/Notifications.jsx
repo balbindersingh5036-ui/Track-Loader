@@ -7,7 +7,7 @@ export default function Notifications() {
 
   useEffect(() => {
     api.get('/notifications')
-      .then(res => setData(res.data.data || []))
+      .then(res => setData(res.data.data.notifications || []))
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
   }, []);

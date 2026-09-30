@@ -35,10 +35,10 @@ export default function Bookings() {
               data.map(item => (
                 <tr key={item._id}>
                   <td>{item._id.slice(-6)}</td>
-                  <td>{item.customer?.name || 'N/A'}</td>
-                  <td>{item.driver?.name || 'Unassigned'}</td>
-                  <td><span className={`badge default`}>{item.status}</span></td>
-                  <td>₹{item.fare?.finalAmount || 0}</td>
+                  <td>{item.customer?.name || item.customer || 'N/A'}</td>
+                  <td>{item.driver?.fullName || item.driver || 'Unassigned'}</td>
+                  <td><span className={`badge default`}>{item.bookingStatus}</span></td>
+                  <td>₹{item.finalFare || item.estimatedFare || 0}</td>
                 </tr>
               ))
             )}
