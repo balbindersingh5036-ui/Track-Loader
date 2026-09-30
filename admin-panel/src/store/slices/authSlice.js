@@ -90,6 +90,7 @@ const authSlice = createSlice({
       })
       .addCase(login.fulfilled, (state, action) => {
         state.loading = false;
+        state.restoring = false;
         state.token = action.payload.token;
         state.user = action.payload.user;
         localStorage.setItem('adminToken', action.payload.token);

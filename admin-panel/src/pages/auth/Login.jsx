@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { login, fetchProfile } from '../../store/slices/authSlice';
+import { login } from '../../store/slices/authSlice';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -15,8 +15,9 @@ export default function Login() {
     e.preventDefault();
     const resultAction = await dispatch(login({ email, password }));
     if (login.fulfilled.match(resultAction)) {
-      await dispatch(fetchProfile());
-      navigate('/dashboard');
+      // user + token already set by login.fulfilled reducer
+      // navigate immediately — ProtectedRoute will read from Redux
+      navigate('/dashboard', { replace: true });
     }
   };
 
