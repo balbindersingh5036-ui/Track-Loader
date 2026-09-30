@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api', // Adjust if backend is on a different port
+  baseURL: import.meta.env.VITE_API_URL || 'https://track-loader.onrender.com/api', // Uses env var or defaults to production
 });
 
 api.interceptors.request.use((config) => {
