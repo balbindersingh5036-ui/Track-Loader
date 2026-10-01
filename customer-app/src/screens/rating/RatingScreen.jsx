@@ -1,14 +1,34 @@
 import React, { useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { Button, Heading, Screen, colors } from "../../components/Phase12UI";
+import ratingService from "../../services/ratingService";
+import { getErrorMessage } from "../../utils/errorMessage";
+import { Button, Field, Heading, Notice, Screen, colors } from "../../components/Phase12UI";
 
 export default function RatingScreen({ navigation, route }) {
   const [rating, setRating] = useState(0);
+  const [feedback, setFeedback] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
-  const submit = () => {
-    if (rating < 1) return;
-    if (route.params?.onSubmit) route.params.onSubmit(rating);
-    navigation.goBack();
+  const submit = async () => {
+    if (rating < 1 || busy) {
+      if (rating < 1) setError("Please choose a rating from 1 to 5.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await ratingService.createRating({
+        bookingId: route.params?.bookingId,
+        rating,
+        feedback: feedback.trim()
+      });
+      navigation.goBack();
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -21,8 +41,9 @@ export default function RatingScreen({ navigation, route }) {
           </Pressable>
         ))}
       </View>
-      <Button title="Submit rating" disabled={rating < 1} onPress={submit} />
+      <Field label="Feedback (optional)" value={feedback} onChangeText={setFeedback} multiline placeholder="Share feedback about your delivery" />
+      {error ? <Notice message={error} /> : null}
+      <Button title="Submit rating" loading={busy} disabled={rating < 1} onPress={submit} />
     </Screen>
   );
 }
-

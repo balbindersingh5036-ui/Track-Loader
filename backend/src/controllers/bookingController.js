@@ -7,7 +7,7 @@ import * as fareService from "../services/fareService.js";
 import generateBookingId from "../utils/generateBookingId.js";
 import { errorResponse, successResponse } from "../utils/response.js";
 import { notifyCustomer, notifyDriver, notifyAdmins } from "../services/notificationService.js";
-import { emitToBooking } from "../sockets/socket.js";
+import { emitToBooking, emitToUser } from "../sockets/socket.js";
 import { isSettingEnabled } from "../services/systemSettingService.js";
 import { parsePagination } from "../utils/pagination.js";
 
@@ -24,14 +24,16 @@ const isFiniteNumericInput = (value) =>
   (typeof value === "number" || (typeof value === "string" && value.trim() !== "")) &&
   Number.isFinite(Number(value));
 
-const emitBookingEvent = (booking, eventName) => {
-  emitToBooking(booking._id, eventName, {
+const emitBookingEvent = (booking, eventName, userId = null) => {
+  const payload = {
     bookingId: booking.bookingId,
     bookingStatus: booking.bookingStatus,
     driverId: booking.driver,
     vehicleId: booking.vehicle,
     updatedAt: booking.updatedAt
-  });
+  };
+  emitToBooking(booking._id, eventName, payload);
+  if (userId) emitToUser(userId, eventName, payload);
 };
 
 export const createBooking = async (req, res) => {
@@ -114,7 +116,7 @@ export const createBooking = async (req, res) => {
 
     await notifyCustomer(req.user._id, "Booking Created", "Booking request created successfully", booking._id);
     await notifyAdmins("New Booking", `New booking ${booking.bookingId} created`, booking._id);
-    emitBookingEvent(booking, "booking:created");
+    emitBookingEvent(booking, "booking:created", req.user._id);
 
     return successResponse(res, { booking }, "Booking created", 201);
   } catch (error) {
@@ -152,7 +154,7 @@ export const getBookingById = async (req, res) => {
 
     const booking = await Booking.findById(id)
       .populate("customer", "name phone email profileImage")
-      .populate("driver", "user phone isApproved isActive")
+      .populate("driver", "user phone approvalStatus isActive")
       .populate("vehicle", "vehicleNumber vehicleModel vehicleType loadCapacity bodyType");
 
     if (!booking) return errorResponse(res, "Booking not found", 404);
@@ -215,7 +217,7 @@ export const getDriverRequests = async (req, res) => {
 
     const { page, limit, skip } = pagination;
     const driver = await Driver.findOne({ user: req.user._id });
-    if (!driver || !driver.isApproved || !driver.isActive) return errorResponse(res, "Not active/approved", 403);
+    if (!driver || driver.approvalStatus !== "approved" || !driver.isActive) return errorResponse(res, "Not active/approved", 403);
 
     const driverVehicles = await Vehicle.find({ driver: driver._id, isActive: true, isAvailable: true });
     const vehicleTypes = driverVehicles.map(v => v.vehicleType);
@@ -265,7 +267,7 @@ export const acceptBooking = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) return errorResponse(res, "Invalid ID", 400);
 
     const driver = await Driver.findOne({ user: req.user._id });
-    if (!driver || !driver.isApproved || !driver.isActive) return errorResponse(res, "Not approved", 403);
+    if (!driver || driver.approvalStatus !== "approved" || !driver.isActive) return errorResponse(res, "Not approved", 403);
 
     const booking = await Booking.findById(id);
     if (!booking) return errorResponse(res, "Not found", 404);
@@ -352,7 +354,7 @@ export const completeTrip = async (req, res) => {
 
     const booking = await Booking.findOneAndUpdate(
       { _id: id, driver: driver._id, bookingStatus: "in-progress" },
-      { $set: { bookingStatus: "completed", completedAt: new Date(), finalFare: "$estimatedFare" } },
+      { $set: { bookingStatus: "completed", completedAt: new Date() } },
       { new: true }
     );
     if (!booking) return errorResponse(res, "Not in progress", 400);
@@ -462,7 +464,7 @@ export const adminAssignDriver = async (req, res) => {
     if (booking.bookingStatus === "completed" || booking.bookingStatus === "cancelled") return errorResponse(res, "Cannot assign", 400);
 
     const driver = await Driver.findById(driverId);
-    if (!driver || !driver.isApproved || !driver.isActive) return errorResponse(res, "Driver unavailable", 400);
+    if (!driver || driver.approvalStatus !== "approved" || !driver.isActive) return errorResponse(res, "Driver unavailable", 400);
 
     let vehicle = booking.vehicle 
       ? await Vehicle.findOne({ _id: booking.vehicle, driver: driver._id, isAvailable: true, isActive: true })

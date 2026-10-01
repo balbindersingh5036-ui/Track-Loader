@@ -12,6 +12,10 @@ export const userService = {
   async changePassword(passwords) {
     const { data } = await api.put("/users/change-password", passwords);
     return data;
+  },
+  async getBookingsSummary() {
+    const { data } = await api.get("/users/bookings-summary");
+    return data.data;
   }
 };
 export default userService;

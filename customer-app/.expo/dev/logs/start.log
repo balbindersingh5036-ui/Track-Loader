@@ -22,3 +22,15 @@
 {"_e":"metro:config","_t":1790781159023,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
 {"_e":"expo:dev-tools-plugin:load","_t":1790781167036,"plugins":[]}
 {"_e":"metro:instantiate","_t":1790781190877,"atlas":false,"workers":8,"host":"::","port":8081}
+{"_e":"root:init","_t":1790789081927,"format":"v0-jsonl","version":"57.0.27"}
+{"_e":"env:mode","_t":1790789081928,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1790789081932,"mode":"development","files":["../..\\..\\.env"],"env":{"EXPO_PUBLIC_API_URL":"http://localhost:5000/api"}}
+{"_e":"root:init","_t":1790789161643,"format":"v0-jsonl","version":"57.0.27"}
+{"_e":"env:mode","_t":1790789161643,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1790789161646,"mode":"development","files":["../..\\..\\.env"],"env":{"EXPO_PUBLIC_API_URL":"http://10.0.2.2:5000/api"}}
+{"_e":"devserver:start","_t":1790789162047,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1790789162738,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1790789165299,"plugins":[]}
+{"_e":"metro:instantiate","_t":1790789171737,"atlas":false,"workers":8,"host":"::","port":8082}
+{"_e":"metro:bundling:started","_t":1790789246441,"id":"3","platform":"android","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:done","_t":1790789257785,"id":"3","total":1101,"ms":11343.7603}

@@ -78,8 +78,8 @@ export const Field = ({ label, style, multiline, ...props }) => (
 );
 
 export const Notice = ({ message, tone = "error" }) => message ? (
-  <View style={[styles.notice, tone === "warning" && styles.warningNotice]}>
-    <Text style={styles.noticeText}>{message}</Text>
+  <View style={[styles.notice, tone === "warning" && styles.warningNotice, tone === "success" && styles.successNotice]}>
+    <Text style={[styles.noticeText, tone === "success" && styles.successNoticeText]}>{message}</Text>
   </View>
 ) : null;
 
@@ -123,6 +123,8 @@ export const styles = StyleSheet.create({
   multiline: { minHeight: 88, paddingTop: 12, textAlignVertical: "top" },
   notice: { borderRadius: 10, padding: 12, backgroundColor: "#FDECEA" },
   warningNotice: { backgroundColor: "#FFF4D6" },
+  successNotice: { backgroundColor: "#E8F5EE" },
+  successNoticeText: { color: colors.success },
   noticeText: { color: colors.danger, fontSize: 14, lineHeight: 20 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12, padding: 24 },
   status: { alignSelf: "flex-start", color: colors.primaryDark, fontSize: 12, fontWeight: "800", letterSpacing: 0.5, backgroundColor: "#DDF3EF", overflow: "hidden", borderRadius: 20, paddingVertical: 5, paddingHorizontal: 9 },

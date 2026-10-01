@@ -9,6 +9,8 @@ import BookingConfirmScreen from "../screens/booking/BookingConfirmScreen";
 import BookingSuccessScreen from "../screens/booking/BookingSuccessScreen";
 import BookingDetailsScreen from "../screens/bookings/BookingDetailsScreen";
 import EditProfileScreen from "../screens/profile/EditProfileScreen";
+import RatingScreen from "../screens/rating/RatingScreen";
+import SupportScreen from "../screens/settings/SupportScreen";
 
 const Stack = createNativeStackNavigator();
 
@@ -24,6 +26,8 @@ export default function AppNavigator() {
       <Stack.Screen name="BookingSuccess" component={BookingSuccessScreen} options={{ title: "Booking created", headerBackVisible: false }} />
       <Stack.Screen name="BookingDetails" component={BookingDetailsScreen} options={{ title: "Booking details" }} />
       <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: "Edit profile" }} />
+      <Stack.Screen name="Rating" component={RatingScreen} options={{ title: "Rate delivery" }} />
+      <Stack.Screen name="Support" component={SupportScreen} options={{ title: "Support and complaints" }} />
     </Stack.Navigator>
   );
 }

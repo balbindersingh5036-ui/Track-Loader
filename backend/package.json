@@ -8,6 +8,7 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "test": "node --test",
+    "seed:test": "node scripts/seedTest.js",
     "seed:admin": "node seeds/adminSeed.js",
     "seed:driver": "node --env-file=.env ../database/seeds/driverSeed.js",
     "seed:system": "node seeds/systemSettingSeed.js"

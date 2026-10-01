@@ -1,50 +1,47 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import api from '../../services/api';
+import ApiListPage from '../../components/common/ApiListPage';
 
 export default function Bookings() {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    api.get('/admin/bookings')
-      .then(res => setData(res.data.data.bookings || []))
-      .catch(err => console.error(err))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) return <div>Loading bookings...</div>;
+  const assignDriver = async (booking) => {
+    const response = await api.get('/admin/drivers', { params: { approvalStatus: 'approved', limit: 100 } });
+    const drivers = response.data?.data?.drivers || [];
+    if (!drivers.length) throw new Error('No approved drivers are available.');
+    const choice = window.prompt(
+      `Choose a driver number:\n${drivers.map((driver, index) => `${index + 1}. ${driver.name} (${driver.phone})`).join('\n')}`
+    );
+    if (choice === null) return;
+    const index = Number(choice) - 1;
+    if (!Number.isInteger(index) || index < 0 || index >= drivers.length) throw new Error('Choose a valid driver number.');
+    await api.patch(`/admin/bookings/${booking._id}/assign-driver`, { driverId: drivers[index].id });
+  };
 
   return (
-    <div className="card">
-      <h2 className="card-title">Bookings</h2>
-      <div className="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Customer</th>
-              <th>Driver</th>
-              <th>Status</th>
-              <th>Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.length === 0 ? (
-              <tr><td colSpan="5" style={{textAlign: 'center'}}>No bookings found</td></tr>
-            ) : (
-              data.map(item => (
-                <tr key={item._id}>
-                  <td>{item._id.slice(-6)}</td>
-                  <td>{item.customer?.name || item.customer || 'N/A'}</td>
-                  <td>{item.driver?.fullName || item.driver || 'Unassigned'}</td>
-                  <td><span className={`badge default`}>{item.bookingStatus}</span></td>
-                  <td>₹{item.finalFare || item.estimatedFare || 0}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <ApiListPage
+      title="Bookings"
+      endpoint="/admin/bookings"
+      collection="bookings"
+      searchParam="bookingId"
+      detailPath={(item) => `/bookings/${item._id}`}
+      columns={[
+        { label: 'Booking', path: 'bookingId' },
+        { label: 'Customer', render: (item) => item.customer?.name || '—' },
+        { label: 'Driver', render: (item) => item.driver?.fullName || 'Unassigned' },
+        { label: 'Status', path: 'bookingStatus' },
+        { label: 'Fare', render: (item) => `₹${item.finalFare || item.estimatedFare || 0}` }
+      ]}
+      actions={[
+        {
+          label: 'Assign driver',
+          disabled: (item) => ['completed', 'cancelled'].includes(item.bookingStatus),
+          run: assignDriver
+        },
+        ...['accepted', 'cancelled'].map((status) => ({
+          label: status[0].toUpperCase() + status.slice(1),
+          disabled: (item) => ['completed', 'cancelled'].includes(item.bookingStatus) || item.bookingStatus === status,
+          run: (item) => api.patch(`/admin/bookings/${item._id}/status`, { status })
+        }))
+      ]}
+    />
   );
 }

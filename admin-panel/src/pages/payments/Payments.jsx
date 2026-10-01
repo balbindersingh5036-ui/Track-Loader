@@ -1,50 +1,31 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import api from '../../services/api';
+import ApiListPage from '../../components/common/ApiListPage';
 
 export default function Payments() {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    api.get('/admin/payments')
-      .then(res => setData(res.data.data || []))
-      .catch(err => console.error(err))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) return <div>Loading payments...</div>;
-
   return (
-    <div className="card">
-      <h2 className="card-title">Payments</h2>
-      <div className="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Booking</th>
-              <th>Amount</th>
-              <th>Status</th>
-              <th>Method</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.length === 0 ? (
-              <tr><td colSpan="5" style={{textAlign: 'center'}}>No payments found</td></tr>
-            ) : (
-              data.map(item => (
-                <tr key={item._id}>
-                  <td>{item._id.slice(-6)}</td>
-                  <td>{item.booking?.slice(-6) || 'N/A'}</td>
-                  <td>₹{item.amount}</td>
-                  <td><span className="badge default">{item.status}</span></td>
-                  <td>{item.method}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <ApiListPage
+      title="Payments"
+      endpoint="/admin/payments"
+      collection="payments"
+      rowKey="paymentId"
+      detailPath={(item) => `/payments/${item.paymentId}`}
+      columns={[
+        { label: 'Payment', render: (item) => String(item.paymentId || '').slice(-6) },
+        { label: 'Booking', render: (item) => item.bookingId?.bookingId || String(item.bookingId || '').slice(-6) },
+        { label: 'Customer', path: 'customer.name' },
+        { label: 'Amount', render: (item) => `₹${item.amount}` },
+        { label: 'Status', path: 'status' },
+        { label: 'Method', path: 'method' }
+      ]}
+      actions={[{
+        label: 'Refund full payment',
+        disabled: (item) => item.status !== 'success' || Boolean(item.refundId),
+        run: async (item) => {
+          if (!window.confirm('This sends a full refund request to the payment provider. Continue?')) return;
+          await api.post(`/admin/payments/${item.paymentId}/refund`);
+        }
+      }]}
+    />
   );
 }

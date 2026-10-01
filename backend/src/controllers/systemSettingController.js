@@ -116,23 +116,27 @@ export const deleteSetting = async (req, res) => {
   }
 };
 
-const PUBLIC_KEYS = [
-  "booking.enabled",
-  "payment.enabled",
-  "customer.registrationEnabled",
-  "driver.enabled",
-  "notification.enabled",
-  "system.maintenanceMode",
-  "system.supportPhone",
-  "system.supportEmail"
+const PUBLIC_SETTINGS = [
+  ["booking.enabled", "booking.enabled"],
+  ["payment.enabled", "payment.enabled"],
+  ["customer.registrationenabled", "customer.registrationEnabled"],
+  ["driver.enabled", "driver.enabled"],
+  ["notification.enabled", "notification.enabled"],
+  ["system.maintenancemode", "system.maintenanceMode"],
+  ["system.supportphone", "system.supportPhone"],
+  ["system.supportemail", "system.supportEmail"]
 ];
 
 export const getPublicSettings = async (req, res) => {
   try {
-    const settings = await SystemSetting.find({ key: { $in: PUBLIC_KEYS }, isActive: true });
+    const settings = await SystemSetting.find({
+      key: { $in: PUBLIC_SETTINGS.map(([key]) => key) },
+      isActive: true
+    });
     
     const config = settings.reduce((acc, curr) => {
-      acc[curr.key] = curr.value;
+      const [, publicKey] = PUBLIC_SETTINGS.find(([key]) => key === curr.key);
+      acc[publicKey] = curr.value;
       return acc;
     }, {});
 

@@ -9,13 +9,26 @@ import { Button, Card, Heading, Loading, Notice, Screen, styles } from "../../co
 export default function ProfileScreen({ navigation }) {
   const { signOut } = useAuth();
   const [profile, setProfile] = useState(null);
+  const [bookingSummary, setBookingSummary] = useState(null);
+  const [summaryError, setSummaryError] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     setError("");
     try {
-      setProfile(await userService.getProfile());
+      const [profileResult, summaryResult] = await Promise.allSettled([
+        userService.getProfile(),
+        userService.getBookingsSummary()
+      ]);
+      if (profileResult.status === "rejected") throw profileResult.reason;
+      setProfile(profileResult.value);
+      if (summaryResult.status === "fulfilled") {
+        setBookingSummary(summaryResult.value);
+        setSummaryError("");
+      } else {
+        setSummaryError(getErrorMessage(summaryResult.reason));
+      }
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -40,7 +53,19 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.muted}>{profile.email || "No email added"}</Text>
         </Card>
       ) : null}
+      {bookingSummary ? (
+        <Card>
+          <Text style={styles.cardTitle}>Booking summary</Text>
+          <Text style={styles.muted}>Total: {bookingSummary.totalBookings}</Text>
+          <Text style={styles.muted}>Pending: {bookingSummary.pendingBookings}</Text>
+          <Text style={styles.muted}>Accepted: {bookingSummary.acceptedBookings}</Text>
+          <Text style={styles.muted}>In progress: {bookingSummary.inProgressBookings}</Text>
+          <Text style={styles.muted}>Completed: {bookingSummary.completedBookings}</Text>
+          <Text style={styles.muted}>Cancelled: {bookingSummary.cancelledBookings}</Text>
+        </Card>
+      ) : summaryError ? <Notice message={summaryError} /> : null}
       <Button title="Edit profile and password" onPress={() => navigation.navigate("EditProfile", { profile })} />
+      <Button title="Support and complaints" secondary onPress={() => navigation.navigate("Support")} />
       <Button title="Sign out" secondary onPress={signOut} />
     </Screen>
   );

@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, Car, Map, CreditCard, 
-  Settings, Bell, AlertTriangle, FileText, TrendingUp
+  Settings, Bell, AlertTriangle, FileText, TrendingUp, Star
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -13,6 +13,7 @@ export default function Sidebar() {
     { path: '/drivers', name: 'Drivers', icon: <Users /> },
     { path: '/vehicles', name: 'Vehicles', icon: <Car /> },
     { path: '/payments', name: 'Payments', icon: <CreditCard /> },
+    { path: '/ratings', name: 'Ratings', icon: <Star /> },
     { path: '/earnings', name: 'Earnings', icon: <TrendingUp /> },
     { path: '/notifications', name: 'Notifications', icon: <Bell /> },
     { path: '/complaints', name: 'Complaints', icon: <AlertTriangle /> },

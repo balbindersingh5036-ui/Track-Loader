@@ -1,57 +1,38 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import api from '../../services/api';
+import ApiListPage from '../../components/common/ApiListPage';
 
 export default function Complaints() {
-  const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    api.get('/complaints')
-      .then(res => setData(res.data.data || []))
-      .catch(err => {
-        if (err.response?.status === 404) {
-          setError('Backend API not available');
-        }
-      })
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) return <div>Loading complaints...</div>;
-
+  const responseToComplaint = async (item) => {
+    const response = window.prompt('Enter an admin response');
+    if (response?.trim()) await api.patch(`/admin/complaints/${item._id}/response`, { response });
+  };
   return (
-    <div className="card">
-      <h2 className="card-title">Complaints</h2>
-      {error ? (
-        <p style={{ color: 'var(--danger)' }}>{error}</p>
-      ) : (
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>User</th>
-                <th>Subject</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.length === 0 ? (
-                <tr><td colSpan="4" style={{textAlign: 'center'}}>No complaints found</td></tr>
-              ) : (
-                data.map(item => (
-                  <tr key={item._id}>
-                    <td>{item._id.slice(-6)}</td>
-                    <td>{item.user?.name || 'N/A'}</td>
-                    <td>{item.subject}</td>
-                    <td>{item.status}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
+    <ApiListPage
+      title="Complaints"
+      endpoint="/admin/complaints"
+      collection="complaints"
+      searchParam="search"
+      detailPath={(item) => `/complaints/${item._id}`}
+      columns={[
+        { label: 'ID', render: (item) => String(item._id).slice(-6) },
+        { label: 'Customer', path: 'raisedBy.name' },
+        { label: 'Subject', path: 'subject' },
+        { label: 'Status', path: 'status' }
+      ]}
+      actions={[
+        {
+          label: 'Move to review',
+          disabled: (item) => item.status !== 'open',
+          run: (item) => api.patch(`/admin/complaints/${item._id}/status`, { status: 'in-review' })
+        },
+        {
+          label: 'Resolve',
+          disabled: (item) => !['open', 'in-review'].includes(item.status),
+          run: (item) => api.patch(`/admin/complaints/${item._id}/status`, { status: 'resolved' })
+        },
+        { label: 'Respond', run: responseToComplaint }
+      ]}
+    />
   );
 }

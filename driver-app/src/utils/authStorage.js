@@ -1,26 +1,7 @@
-export const saveToken = async (token) => {
-  try {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('token', token);
-    }
-  } catch (e) {}
-};
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const getToken = async () => {
-  try {
-    if (typeof localStorage !== 'undefined') {
-      return localStorage.getItem('token');
-    }
-    return null;
-  } catch (e) {
-    return null;
-  }
-};
+const TOKEN_KEY = 'loadbalbin.driver.token';
 
-export const removeToken = async () => {
-  try {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem('token');
-    }
-  } catch (e) {}
-};
+export const saveToken = (token) => AsyncStorage.setItem(TOKEN_KEY, token);
+export const getToken = () => AsyncStorage.getItem(TOKEN_KEY);
+export const removeToken = () => AsyncStorage.removeItem(TOKEN_KEY);

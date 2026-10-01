@@ -5,3 +5,24 @@
 {"_e":"metro:config","_t":1790693877548,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
 {"_e":"expo:dev-tools-plugin:load","_t":1790693880330,"plugins":[]}
 {"_e":"metro:instantiate","_t":1790693885278,"atlas":false,"workers":8,"host":"::","port":8082}
+{"_e":"root:init","_t":1790789081960,"format":"v0-jsonl","version":"57.0.27"}
+{"_e":"env:mode","_t":1790789081961,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1790789081965,"mode":"development","files":["../..\\..\\.env"],"env":{"EXPO_PUBLIC_API_URL":"http://localhost:5000/api\\n"}}
+{"_e":"root:init","_t":1790789161659,"format":"v0-jsonl","version":"57.0.27"}
+{"_e":"env:mode","_t":1790789161659,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1790789161662,"mode":"development","files":["../..\\..\\.env"],"env":{"EXPO_PUBLIC_API_URL":"http://10.0.2.2:5000/api"}}
+{"_e":"devserver:start","_t":1790789166892,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1790789179843,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1790789186547,"plugins":[]}
+{"_e":"metro:instantiate","_t":1790789198508,"atlas":false,"workers":8,"host":"::","port":8083}
+{"_e":"metro:bundling:started","_t":1790789257904,"id":"3","platform":"android","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:failed","_t":1790789257951,"id":"3","message":"Cannot read properties of undefined (reading 'transformFile')","importStack":null,"filename":null,"targetModuleName":null,"originModulePath":null}
+{"_e":"root:init","_t":1790789264751,"format":"v0-jsonl","version":"57.0.27"}
+{"_e":"env:mode","_t":1790789264752,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1790789264754,"mode":"development","files":["../..\\..\\.env"],"env":{"EXPO_PUBLIC_API_URL":"http://10.0.2.2:5000/api"}}
+{"_e":"devserver:start","_t":1790789264917,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1790789265173,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1790789265357,"plugins":[]}
+{"_e":"metro:instantiate","_t":1790789271271,"atlas":false,"workers":8,"host":"::","port":8083}
+{"_e":"metro:bundling:started","_t":1790789272735,"id":"1","platform":"android","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:done","_t":1790789286082,"id":"1","total":734,"ms":13346.305}

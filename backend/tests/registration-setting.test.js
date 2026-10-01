@@ -51,3 +51,32 @@ test("public customer configuration exposes the payment feature flag", async (t)
   assert.equal(response.statusCode, 200);
   assert.equal(response.body.data.config["payment.enabled"], true);
 });
+
+test("public customer settings query normalized database keys and preserve API aliases", async (t) => {
+  t.mock.method(SystemSetting, "find", async (filter) => {
+    assert.ok(filter.key.$in.includes("customer.registrationenabled"));
+    assert.ok(filter.key.$in.includes("system.maintenancemode"));
+    return [
+      { key: "customer.registrationenabled", value: true },
+      { key: "system.maintenancemode", value: false }
+    ];
+  });
+  const response = {
+    statusCode: 200,
+    body: undefined,
+    status(statusCode) {
+      this.statusCode = statusCode;
+      return this;
+    },
+    json(body) {
+      this.body = body;
+      return this;
+    }
+  };
+
+  await getPublicSettings({}, response);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.body.data.config["customer.registrationEnabled"], true);
+  assert.equal(response.body.data.config["system.maintenanceMode"], false);
+});

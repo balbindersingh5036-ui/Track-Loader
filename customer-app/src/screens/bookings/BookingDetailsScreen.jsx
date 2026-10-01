@@ -1,13 +1,15 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, Text } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import bookingService from "../../services/bookingService";
 import configService from "../../services/configService";
 import paymentService from "../../services/paymentService";
+import ratingService from "../../services/ratingService";
 import { joinBookingRoom, subscribeToBookingEvents } from "../../services/socketService";
 import { getErrorMessage } from "../../utils/errorMessage";
 import { Button, Card, Field, Heading, Loading, Notice, Screen, Status, styles } from "../../components/Phase12UI";
 
-export default function BookingDetailsScreen({ route }) {
+export default function BookingDetailsScreen({ route, navigation }) {
   const bookingId = route.params?.bookingId || route.params?.id;
   const [booking, setBooking] = useState(null);
   const [reason, setReason] = useState("");
@@ -17,6 +19,7 @@ export default function BookingDetailsScreen({ route }) {
   const [paymentInfo, setPaymentInfo] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [paymentEnabled, setPaymentEnabled] = useState(false);
+  const [hasRating, setHasRating] = useState(false);
 
   const load = useCallback(async () => {
     setError("");
@@ -24,6 +27,15 @@ export default function BookingDetailsScreen({ route }) {
       const currentBooking = await bookingService.getBooking(bookingId);
       setBooking(currentBooking);
       joinBookingRoom(currentBooking._id);
+      if (currentBooking.bookingStatus === "completed" && currentBooking.driver) {
+        try {
+          setHasRating(Boolean(await ratingService.getBookingRating(currentBooking._id)));
+        } catch (ratingError) {
+          setError(getErrorMessage(ratingError));
+        }
+      } else {
+        setHasRating(false);
+      }
       const config = await configService.getPublicConfig();
       const isPaymentEnabled = config["payment.enabled"] === true;
       setPaymentEnabled(isPaymentEnabled);
@@ -44,9 +56,9 @@ export default function BookingDetailsScreen({ route }) {
     }
   }, [bookingId]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     load();
-  }, [load]);
+  }, [load]));
 
   useEffect(() => {
     if (!booking) return undefined;
@@ -130,6 +142,17 @@ export default function BookingDetailsScreen({ route }) {
         <Card>
           <Field label="Cancellation reason (optional)" value={reason} onChangeText={setReason} multiline />
           <Button title="Cancel booking" secondary loading={busy} onPress={cancel} />
+        </Card>
+      ) : null}
+
+      {booking.bookingStatus === "completed" && booking.driver ? (
+        <Card>
+          <Text style={styles.cardTitle}>Rate your delivery</Text>
+          {hasRating ? (
+            <Text style={styles.muted}>This booking has already been rated.</Text>
+          ) : (
+            <Button title="Submit a rating" onPress={() => navigation.navigate("Rating", { bookingId: booking._id })} />
+          )}
         </Card>
       ) : null}
 

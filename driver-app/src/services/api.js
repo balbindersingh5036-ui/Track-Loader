@@ -1,15 +1,21 @@
 import axios from 'axios';
 import { getToken, removeToken } from '../utils/authStorage';
 
-const baseURL = process.env.EXPO_PUBLIC_API_URL || (typeof import !== "undefined" && import.meta.env?.VITE_API_URL) || 'http://localhost:5000/api';
+const baseURL = process.env.EXPO_PUBLIC_API_URL;
+if (!baseURL) throw new Error('EXPO_PUBLIC_API_URL must be configured for the driver app.');
 
 const api = axios.create({
-  baseURL,
+  baseURL: baseURL.replace(/\/+$/, ''),
   headers: {
     'Content-Type': 'application/json',
   },
   timeout: 10000,
 });
+
+let onAuthenticationExpired;
+export const setAuthenticationExpiredHandler = (handler) => {
+  onAuthenticationExpired = handler;
+};
 
 api.interceptors.request.use(async (config) => {
   const token = await getToken();
@@ -22,8 +28,9 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 && error.config?.headers?.Authorization) {
       await removeToken();
+      onAuthenticationExpired?.();
     }
     return Promise.reject(error);
   }
