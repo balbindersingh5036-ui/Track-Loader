@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { env } from "./env.js";
+import { ensureAdminUser } from "../../seeds/adminSeed.js";
 
 export const connectDB = async () => {
   try {
@@ -8,6 +9,8 @@ export const connectDB = async () => {
     console.log(
       `MongoDB connected: ${connection.connection.host}/${connection.connection.name}`
     );
+
+    await ensureAdminUser();
   } catch (error) {
     console.error("MongoDB connection failed:", error.message);
     process.exit(1);
