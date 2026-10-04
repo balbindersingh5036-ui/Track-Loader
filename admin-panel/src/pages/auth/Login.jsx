@@ -33,13 +33,13 @@ export default function Login() {
         
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>Email</label>
+            <label>Email or Phone</label>
             <input
-              type="email"
+              type="text"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@loadbalbin.com"
+              placeholder="Enter email or phone"
             />
           </div>
           <div className="form-group">

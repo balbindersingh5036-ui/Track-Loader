@@ -1,47 +1,33 @@
 import React, { useState } from "react";
-import { MapView, Marker } from "react-native-maps";
-import { Text, View } from "react-native";
-import { Button, Field, Heading, Notice, Screen, styles, colors } from "../../components/Phase12UI";
-
-const initialRegion = {
-  latitude: 20.5937,
-  longitude: 78.9629,
-  latitudeDelta: 12,
-  longitudeDelta: 12
-};
+import { Button, Field, Heading, Notice, Screen } from "../../components/Phase12UI";
 
 export default function LocationScreen({ route, navigation }) {
-  const [pickup, setPickup] = useState({ address: "", latitude: null, longitude: null });
-  const [drop, setDrop] = useState({ address: "", latitude: null, longitude: null });
-  const [mapTarget, setMapTarget] = useState("pickup");
+  const [pickupAddress, setPickupAddress] = useState("");
+  const [dropAddress, setDropAddress] = useState("");
   const [error, setError] = useState("");
-  const selected = mapTarget === "pickup" ? pickup : drop;
-  const markerCoordinate = Number.isFinite(selected.latitude) && Number.isFinite(selected.longitude)
-    ? { latitude: selected.latitude, longitude: selected.longitude }
-    : null;
-
-  const handleMapPress = ({ nativeEvent }) => {
-    const { latitude, longitude } = nativeEvent.coordinate;
-    const update = (location) => ({
-      ...location,
-      latitude,
-      longitude,
-      address: location.address || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`
-    });
-    if (mapTarget === "pickup") setPickup(update);
-    else setDrop(update);
-  };
 
   const continueToGoods = () => {
     setError("");
-    if (!pickup.address.trim() || !Number.isFinite(pickup.latitude) || !Number.isFinite(pickup.longitude)) {
-      setError("Enter a pickup address and select its point on the map.");
+    if (!pickupAddress.trim()) {
+      setError("Enter pickup location.");
       return;
     }
-    if (!drop.address.trim() || !Number.isFinite(drop.latitude) || !Number.isFinite(drop.longitude)) {
-      setError("Enter a drop-off address and select its point on the map.");
+    if (!dropAddress.trim()) {
+      setError("Enter drop location.");
       return;
     }
+
+    const pickup = {
+      address: pickupAddress.trim(),
+      latitude: 20.5937,
+      longitude: 78.9629
+    };
+    const drop = {
+      address: dropAddress.trim(),
+      latitude: 20.5937,
+      longitude: 78.9629
+    };
+
     navigation.navigate("BookingGoods", {
       pickup,
       drop,
@@ -52,32 +38,25 @@ export default function LocationScreen({ route, navigation }) {
 
   return (
     <Screen>
-      <Heading title="Pickup and drop-off" subtitle="Enter the addresses, then tap the map to place each point. Location is not tracked in the background." />
-      <Field label="Pickup address" value={pickup.address} onChangeText={(address) => setPickup((value) => ({ ...value, address }))} placeholder="Street, area, city" />
-      <Field label="Drop-off address" value={drop.address} onChangeText={(address) => setDrop((value) => ({ ...value, address }))} placeholder="Street, area, city" />
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        <Button title="Select pickup on map" secondary style={{ flex: 1 }} onPress={() => setMapTarget("pickup")} />
-        <Button title="Select drop on map" secondary style={{ flex: 1 }} onPress={() => setMapTarget("drop")} />
-      </View>
-      <Text style={styles.muted}>Tap map to set: {mapTarget === "pickup" ? "pickup" : "drop-off"}</Text>
-      <MapView
-        initialRegion={initialRegion}
-        onPress={handleMapPress}
-        style={{ height: 280, borderRadius: 14 }}
-        accessibilityLabel="Tap to choose the selected delivery location"
-      >
-        {markerCoordinate ? <Marker coordinate={markerCoordinate} title={mapTarget === "pickup" ? "Pickup" : "Drop-off"} /> : null}
-      </MapView>
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        <Text style={[styles.muted, { flex: 1 }]}>
-          Pickup: {Number.isFinite(pickup.latitude) ? `${pickup.latitude.toFixed(4)}, ${pickup.longitude.toFixed(4)}` : "Choose on map"}
-        </Text>
-        <Text style={[styles.muted, { flex: 1 }]}>
-          Drop: {Number.isFinite(drop.latitude) ? `${drop.latitude.toFixed(4)}, ${drop.longitude.toFixed(4)}` : "Choose on map"}
-        </Text>
-      </View>
+      <Heading
+        title="Pickup and drop location"
+        subtitle="Enter your pickup and drop locations to continue."
+      />
+      <Field
+        label="Pickup Location"
+        value={pickupAddress}
+        onChangeText={setPickupAddress}
+        placeholder="Enter pickup location"
+      />
+      <Field
+        label="Drop Location"
+        value={dropAddress}
+        onChangeText={setDropAddress}
+        placeholder="Enter drop location"
+      />
       <Notice message={error} />
       <Button title="Continue" onPress={continueToGoods} />
     </Screen>
   );
 }
+

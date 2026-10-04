@@ -327,27 +327,31 @@ export const adminLogin = async (req, res) => {
     const {
       phone,
       email,
-      password
+      password,
+      identifier
     } = req.body;
 
-    if (!password || (!phone && !email)) {
+    const input = String(email || phone || identifier || "").trim();
+
+    if (!password || !input) {
       return res.status(400).json({
         success: false,
         message: "Phone/email and password are required"
       });
     }
 
-    const query = {
-      role: "admin"
-    };
+    const normalizedPhone = input.replace(/\D/g, "");
+    const normalizedEmail = input.toLowerCase();
 
-    if (phone) {
-      query.phone = String(phone).replace(/\D/g, "");
-    } else {
-      query.email = String(email).trim().toLowerCase();
+    const queryOr = [{ email: normalizedEmail }];
+    if (normalizedPhone) {
+      queryOr.push({ phone: normalizedPhone });
     }
 
-    const admin = await User.findOne(query).select("+password");
+    const admin = await User.findOne({
+      role: "admin",
+      $or: queryOr
+    }).select("+password");
 
     if (!admin) {
       return res.status(401).json({

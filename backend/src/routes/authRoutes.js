@@ -23,6 +23,7 @@ router.post("/driver/login", driverLogin);
 
 /* Admin */
 router.post("/admin/login", adminLogin);
+router.post("/adminlogin", adminLogin);
 
 /* Logged-in user */
 router.get("/me", protect, getMe);
