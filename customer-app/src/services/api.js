@@ -1,10 +1,7 @@
 import axios from "axios";
 import { getToken, removeToken } from "../utils/authStorage";
 
-const baseURL = process.env.EXPO_PUBLIC_API_URL;
-if (!baseURL) {
-  throw new Error("EXPO_PUBLIC_API_URL must be configured for the customer app.");
-}
+const baseURL = process.env.EXPO_PUBLIC_API_URL || "https://track-loader.onrender.com/api";
 
 const api = axios.create({
   baseURL: baseURL.replace(/\/+$/, ""),

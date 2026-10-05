@@ -1,6 +1,14 @@
 {
   "expo": {
     "name": "LoadBalbin Driver",
-    "slug": "loadbalbin-driver"
+    "slug": "loadbalbin-driver",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "com.loadbalbin.driver",
+      "versionCode": 1,
+      "permissions": []
+    }
   }
 }
