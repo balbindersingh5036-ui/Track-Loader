@@ -26,6 +26,7 @@ import systemSettingRoutes from "./routes/systemSettingRoutes.js";
 import publicConfigRoutes from "./routes/publicConfigRoutes.js";
 import fareRoutes from "./routes/fareRoutes.js";
 import adminFareRoutes from "./routes/adminFareRoutes.js";
+import uploadRoutes from "./routes/uploadRoutes.js";
 import { checkMaintenanceMode } from "./middleware/maintenanceMiddleware.js";
 import {
   notFound,
@@ -90,6 +91,7 @@ app.use("/api/admin/reports", reportRoutes);
 app.use("/api/admin/settings", systemSettingRoutes);
 app.use("/api/fares", fareRoutes);
 app.use("/api/admin/fares", adminFareRoutes);
+app.use("/api/uploads", uploadRoutes);
 app.use(notFound);
 app.use(errorHandler);
 

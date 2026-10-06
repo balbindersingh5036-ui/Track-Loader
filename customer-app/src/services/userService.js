@@ -9,6 +9,20 @@ export const userService = {
     const { data } = await api.put("/users/profile", profile);
     return data.data;
   },
+  async uploadProfileImage(uri) {
+    const formData = new FormData();
+    formData.append("image", {
+      uri,
+      name: "profile.jpg",
+      type: "image/jpeg"
+    });
+    const { data } = await api.post("/uploads/image", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data"
+      }
+    });
+    return data.imageUrl;
+  },
   async changePassword(passwords) {
     const { data } = await api.put("/users/change-password", passwords);
     return data;
