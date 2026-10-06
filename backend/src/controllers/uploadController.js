@@ -1,5 +1,6 @@
 import cloudinary from "../config/cloudinary.js";
 import { Readable } from "stream";
+import { env } from "../config/env.js";
 
 export const uploadImage = async (req, res, next) => {
   try {
@@ -7,6 +8,13 @@ export const uploadImage = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         message: "No image file provided"
+      });
+    }
+
+    if (!env.cloudinary.apiKey) {
+      return res.status(503).json({
+        success: false,
+        message: "Image upload service is not configured"
       });
     }
 
