@@ -1,4 +1,5 @@
 import api from "./api";
+import { Platform } from "react-native";
 
 export const userService = {
   async getProfile() {
@@ -11,12 +12,21 @@ export const userService = {
   },
   async uploadProfileImage(uri) {
     const formData = new FormData();
-    formData.append("image", {
-      uri,
-      name: "profile.jpg",
-      type: "image/jpeg"
-    });
-    const { data } = await api.post("/uploads/image", formData, {
+    
+    if (Platform.OS === "web") {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const file = new File([blob], "profile.jpg", { type: blob.type || "image/jpeg" });
+      formData.append("image", file);
+    } else {
+      formData.append("image", {
+        uri,
+        name: "profile.jpg",
+        type: "image/jpeg"
+      });
+    }
+
+    const { data } = await api.post("/uploads/image", formData, Platform.OS === "web" ? {} : {
       headers: {
         "Content-Type": "multipart/form-data"
       }
