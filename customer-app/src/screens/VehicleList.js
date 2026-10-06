@@ -1,11 +1,1 @@
-import React from 'react';
-
-const VehicleList = () => {
-  return (
-    <div>
-      <h1>VehicleList Placeholder</h1>
-    </div>
-  );
-};
-
-export default VehicleList;
+export { default } from "./home/VehicleListScreen";

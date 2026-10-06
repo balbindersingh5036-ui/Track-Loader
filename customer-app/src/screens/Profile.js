@@ -1,11 +1,1 @@
-import React from 'react';
-
-const Profile = () => {
-  return (
-    <div>
-      <h1>Profile Placeholder</h1>
-    </div>
-  );
-};
-
-export default Profile;
+export { default } from "./profile/ProfileScreen";

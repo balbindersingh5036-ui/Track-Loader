@@ -1,7 +1,16 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Image, Pressable, Text, View, ScrollView, RefreshControl, StyleSheet, Dimensions } from "react-native";
+import {
+  Image,
+  Pressable,
+  Text,
+  View,
+  ScrollView,
+  RefreshControl,
+  StyleSheet,
+  Dimensions
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Feather, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import bookingService from "../../services/bookingService";
 import notificationService from "../../services/notificationService";
 import configService from "../../services/configService";
@@ -9,30 +18,43 @@ import vehicleService from "../../services/vehicleService";
 import { useAuth } from "../../store/AuthContext";
 import { subscribeToBookingEvents, subscribeToNotifications } from "../../services/socketService";
 import { getErrorMessage } from "../../utils/errorMessage";
-import { Loading, colors } from "../../components/Phase12UI";
+import { Card, Loading, Notice, Status } from "../../components/Phase12UI";
+import { colors, shadows } from "../../theme/theme";
 
 const vehicleTypes = ["mini-truck", "pickup", "small-truck", "medium-truck", "large-truck"];
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 const getVehicleIcon = (type) => {
   switch (type) {
-    case 'mini-truck': return 'truck-fast-outline';
-    case 'pickup': return 'truck-outline';
-    case 'small-truck': return 'truck-cargo-container';
-    case 'medium-truck': return 'truck-flatbed';
-    case 'large-truck': return 'truck-trailer';
-    default: return 'truck-outline';
+    case "mini-truck":
+      return "truck-fast-outline";
+    case "pickup":
+      return "truck-outline";
+    case "small-truck":
+      return "truck-cargo-container";
+    case "medium-truck":
+      return "truck-flatbed";
+    case "large-truck":
+      return "truck-trailer";
+    default:
+      return "truck-outline";
   }
 };
 
 const getVehicleTypeDescription = (type) => {
   switch (type) {
-    case 'mini-truck': return 'For small to medium goods';
-    case 'pickup': return 'For quick, light deliveries';
-    case 'small-truck': return 'For intra-city transport';
-    case 'medium-truck': return 'For regional logistics';
-    case 'large-truck': return 'For heavy freight';
-    default: return 'Standard transport';
+    case "mini-truck":
+      return "For small to medium goods";
+    case "pickup":
+      return "For quick, light deliveries";
+    case "small-truck":
+      return "For intra-city transport";
+    case "medium-truck":
+      return "For regional logistics";
+    case "large-truck":
+      return "For heavy freight";
+    default:
+      return "Standard transport";
   }
 };
 
@@ -56,9 +78,11 @@ export default function HomeScreen({ navigation }) {
       ]);
       setConfig(publicConfig);
       setVehicles(availableVehicles);
-      setActiveBooking(bookings.bookings?.find((booking) =>
-        ["pending", "accepted", "in-progress"].includes(booking.bookingStatus)
-      ) || null);
+      setActiveBooking(
+        bookings.bookings?.find((booking) =>
+          ["pending", "accepted", "in-progress"].includes(booking.bookingStatus)
+        ) || null
+      );
       if (publicConfig["notification.enabled"] === false) {
         setUnreadCount(0);
       } else {
@@ -92,230 +116,331 @@ export default function HomeScreen({ navigation }) {
 
   const isMaintenance = config["system.maintenanceMode"] === true;
   const isBookingDisabled = config["booking.enabled"] !== true;
-  const availableTypes = vehicleTypes.filter((type) => vehicles.some((vehicle) => vehicle.vehicleType === type));
+  const availableTypes = vehicleTypes.filter((type) =>
+    vehicles.some((vehicle) => vehicle.vehicleType === type)
+  );
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* HEADER SECTION */}
+    <SafeAreaView style={styles.safe} edges={["top"]}>
+      {/* HEADER BAR */}
       <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <View style={styles.brandContainer}>
-            <MaterialCommunityIcons name="truck-delivery" size={28} color={colors.primary} />
-            <Text style={styles.brandName}>LoadBalbin</Text>
+        <View style={styles.brandRow}>
+          <View style={styles.logoBadge}>
+            <MaterialCommunityIcons name="truck-fast" size={22} color={colors.white} />
           </View>
-          <Pressable 
-            style={styles.notificationBtn}
-            onPress={() => navigation.navigate("Notifications")}
-          >
-            <Feather name="bell" size={22} color={colors.ink} />
-            {unreadCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{unreadCount}</Text>
-              </View>
-            )}
-          </Pressable>
+          <View>
+            <Text style={styles.brandTitle}>LoadBalbin</Text>
+            <Text style={styles.brandTagline}>Goods Logistics</Text>
+          </View>
         </View>
-        <View style={styles.greetingContainer}>
-          <Text style={styles.greetingTitle}>Hello, {user?.name ? user.name.split(" ")[0] : "Customer"}</Text>
-          <Text style={styles.greetingSubtitle}>Move goods with confidence.</Text>
+
+        <View style={styles.headerActions}>
+          <Pressable
+            style={styles.iconBtn}
+            onPress={() => navigation.navigate("Notifications")}
+            hitSlop={8}
+          >
+            <Ionicons name="notifications-outline" size={22} color={colors.navy} />
+            {unreadCount > 0 ? (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadCount}>
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </Text>
+              </View>
+            ) : null}
+          </Pressable>
         </View>
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              load();
+            }}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
       >
-        {/* ALERTS */}
-        {isMaintenance && (
-          <View style={[styles.alertBanner, { backgroundColor: '#FFF4D6' }]}>
-            <Feather name="info" size={20} color={colors.warning} />
-            <Text style={[styles.alertText, { color: colors.warning }]}>Platform is under maintenance.</Text>
-          </View>
-        )}
-        {isBookingDisabled && !isMaintenance && (
-          <View style={[styles.alertBanner, { backgroundColor: '#FFF4D6' }]}>
-            <Feather name="info" size={20} color={colors.warning} />
-            <Text style={[styles.alertText, { color: colors.warning }]}>New bookings are temporarily unavailable.</Text>
-          </View>
-        )}
-        {error ? (
-          <View style={[styles.alertBanner, { backgroundColor: '#FDECEA' }]}>
-            <Feather name="alert-triangle" size={20} color={colors.danger} />
-            <Text style={[styles.alertText, { color: colors.danger }]}>{error}</Text>
-          </View>
-        ) : null}
-
-        {/* BOOKING CTA CARD */}
-        <View style={styles.ctaCard}>
-          <Text style={styles.ctaTitle}>Book a goods transport</Text>
-          <Text style={styles.ctaDescription}>Choose a vehicle type, add pickup and drop-off details, then review your request.</Text>
-          <Pressable 
-            style={({ pressed }) => [styles.ctaButton, (isMaintenance || isBookingDisabled) && styles.disabled, pressed && styles.pressed]}
-            disabled={isMaintenance || isBookingDisabled}
-            onPress={() => navigation.navigate("Vehicles")}
-          >
-            <View style={styles.ctaButtonContent}>
-              <Feather name="truck" size={18} color={colors.white} style={{ marginRight: 8 }} />
-              <Text style={styles.ctaButtonText}>Browse available vehicles</Text>
-            </View>
-            <Feather name="arrow-right" size={18} color={colors.white} />
-          </Pressable>
+        {/* GREETING SECTION */}
+        <View style={styles.greetingSection}>
+          <Text style={styles.greetingTitle}>
+            Hello, {user?.name || "Customer"} 👋
+          </Text>
+          <Text style={styles.greetingSubtitle}>Move goods with confidence.</Text>
         </View>
 
-        {/* VEHICLE TYPES */}
+        {/* SYSTEM STATUS ALERTS */}
+        {isMaintenance ? (
+          <Notice
+            message="System is currently in maintenance mode. Some features may be limited."
+            tone="warning"
+          />
+        ) : null}
+
+        {isBookingDisabled && !isMaintenance ? (
+          <Notice
+            message="New transport bookings are currently paused by the administrator."
+            tone="info"
+          />
+        ) : null}
+
+        {error ? <Notice message={error} /> : null}
+
+        {/* HERO ACTION / BOOKING CARD */}
+        <View style={[styles.heroCard, shadows.card]}>
+          <View style={styles.heroHeader}>
+            <View style={styles.heroIconBox}>
+              <Ionicons name="cube-outline" size={22} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.heroTitle}>Book a goods transport</Text>
+              <Text style={styles.heroSubtitle}>
+                Choose a vehicle type, add pickup and drop-off details, then review your request.
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.heroButtonRow}>
+            <Pressable
+              style={[
+                styles.primaryCta,
+                isBookingDisabled && styles.btnDisabled
+              ]}
+              disabled={isBookingDisabled}
+              onPress={() => navigation.navigate("BookingLocation")}
+            >
+              <Text style={styles.primaryCtaText}>Start Booking</Text>
+              <Ionicons name="arrow-forward" size={16} color={colors.white} />
+            </Pressable>
+
+            <Pressable
+              style={styles.secondaryCta}
+              onPress={() => navigation.navigate("VehicleList")}
+            >
+              <Text style={styles.secondaryCtaText}>Browse Vehicles</Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {/* ACTIVE BOOKING CARD (IF EXISTS) */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Vehicle types</Text>
-          <Pressable onPress={() => navigation.navigate("Vehicles")}>
+          <Text style={styles.sectionTitle}>Active Booking</Text>
+          {activeBooking ? (
+            <Pressable onPress={() => navigation.navigate("Bookings")}>
+              <Text style={styles.sectionLink}>View all</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
+        {activeBooking ? (
+          <Pressable
+            style={[styles.activeBookingCard, shadows.soft]}
+            onPress={() =>
+              navigation.navigate("BookingDetails", { bookingId: activeBooking._id })
+            }
+          >
+            <View style={styles.activeBookingTop}>
+              <View>
+                <Text style={styles.activeBookingId}>{activeBooking.bookingId}</Text>
+                <Text style={styles.activeBookingVehicle}>
+                  {activeBooking.vehicle?.vehicleModel ||
+                    activeBooking.vehicleType?.replaceAll("-", " ")}
+                </Text>
+              </View>
+              <Status value={activeBooking.bookingStatus} />
+            </View>
+
+            <View style={styles.activeBookingRoute}>
+              <View style={styles.routeRow}>
+                <Ionicons name="radio-button-on" size={14} color={colors.primary} />
+                <Text style={styles.routeText} numberOfLines={1}>
+                  {activeBooking.pickup?.address || "Pickup Location"}
+                </Text>
+              </View>
+              <View style={styles.routeLine} />
+              <View style={styles.routeRow}>
+                <Ionicons name="location" size={14} color={colors.danger} />
+                <Text style={styles.routeText} numberOfLines={1}>
+                  {activeBooking.drop?.address || "Drop Location"}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.activeBookingBottom}>
+              <Text style={styles.activeBookingFare}>
+                Fare: ₹{activeBooking.estimatedFare}
+              </Text>
+              <View style={styles.viewDetailsRow}>
+                <Text style={styles.viewDetailsText}>Track Details</Text>
+                <Ionicons name="chevron-forward" size={14} color={colors.primary} />
+              </View>
+            </View>
+          </Pressable>
+        ) : (
+          <View style={styles.emptyActiveBooking}>
+            <Ionicons name="clipboard-outline" size={24} color={colors.mutedLight} />
+            <Text style={styles.emptyActiveText}>No active bookings at the moment</Text>
+          </View>
+        )}
+
+        {/* VEHICLE TYPES CATEGORY SECTION */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Vehicle Types</Text>
+          <Pressable onPress={() => navigation.navigate("VehicleType")}>
             <Text style={styles.sectionLink}>See all</Text>
           </Pressable>
         </View>
-        
-        {availableTypes.length > 0 ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
-            {availableTypes.map((type) => {
-              const count = vehicles.filter((v) => v.vehicleType === type).length;
-              return (
-                <Pressable 
-                  key={type} 
-                  style={styles.typeCard}
-                  onPress={() => navigation.navigate("Vehicles", { vehicleType: type })}
-                >
-                  <View style={styles.typeIconContainer}>
-                    <MaterialCommunityIcons name={getVehicleIcon(type)} size={28} color={colors.primary} />
-                  </View>
-                  <View style={styles.typeInfo}>
-                    <Text style={styles.typeName}>{type.replace('-', ' ')}</Text>
-                    <Text style={styles.typeDesc}>{getVehicleTypeDescription(type)}</Text>
-                    <View style={styles.availabilityChip}>
-                      <View style={styles.dot} />
-                      <Text style={styles.availabilityText}>{count} available</Text>
-                    </View>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        ) : (
-          !error && (
-            <View style={styles.emptyState}>
-              <MaterialCommunityIcons name="truck-off-outline" size={32} color={colors.muted} />
-              <Text style={styles.emptyTitle}>No vehicles available</Text>
-              <Text style={styles.emptyDetail}>Please check again later.</Text>
-            </View>
-          )
-        )}
 
-        {/* AVAILABLE VEHICLES */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.typeScroll}
+        >
+          {vehicleTypes.map((type) => {
+            const count = vehicles.filter((v) => v.vehicleType === type && v.isAvailable).length;
+            const iconName = getVehicleIcon(type);
+            const typeLabel = type.replace(/-/g, " ");
+
+            return (
+              <Pressable
+                key={type}
+                style={[styles.typeCard, shadows.soft]}
+                onPress={() => navigation.navigate("VehicleList", { vehicleType: type })}
+              >
+                <View style={styles.typeIconBox}>
+                  <MaterialCommunityIcons name={iconName} size={28} color={colors.primary} />
+                </View>
+                <Text style={styles.typeCardName}>{typeLabel}</Text>
+                <Text style={styles.typeCardDesc} numberOfLines={2}>
+                  {getVehicleTypeDescription(type)}
+                </Text>
+                <View style={styles.typeBadge}>
+                  <Text style={styles.typeBadgeText}>
+                    {count} {count === 1 ? "available" : "available"}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {/* AVAILABLE VEHICLES SECTION */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Available vehicles</Text>
-          <Pressable onPress={() => navigation.navigate("Vehicles")}>
-            <Text style={styles.sectionLink}>View all</Text>
+          <Text style={styles.sectionTitle}>Available Vehicles</Text>
+          <Pressable onPress={() => navigation.navigate("VehicleList")}>
+            <Text style={styles.sectionLink}>View all ({vehicles.length})</Text>
           </Pressable>
         </View>
-        
-        <View style={styles.vehicleList}>
-          {vehicles.slice(0, 3).map((vehicle) => (
-            <Pressable 
-              key={vehicle._id} 
-              style={styles.vehicleCard}
-              onPress={() => navigation.navigate("VehicleDetails", { vehicleId: vehicle._id })}
-            >
-              <View style={styles.vehicleRow}>
+
+        {vehicles.length === 0 ? (
+          <View style={styles.emptyVehiclesBox}>
+            <MaterialCommunityIcons name="truck-outline" size={36} color={colors.mutedLight} />
+            <Text style={styles.emptyVehiclesTitle}>No vehicles available</Text>
+            <Text style={styles.emptyVehiclesDesc}>
+              Check back soon for available transport vehicles.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.vehicleGrid}>
+            {vehicles.slice(0, 4).map((vehicle) => (
+              <Pressable
+                key={vehicle._id}
+                style={[styles.vehicleItemCard, shadows.soft]}
+                onPress={() =>
+                  navigation.navigate("VehicleDetails", { vehicleId: vehicle._id })
+                }
+              >
                 {vehicle.vehicleImage ? (
-                  <Image source={{ uri: vehicle.vehicleImage }} style={styles.vehicleImage} />
+                  <Image
+                    source={{ uri: vehicle.vehicleImage }}
+                    style={styles.vehicleImg}
+                    resizeMode="cover"
+                  />
                 ) : (
-                  <View style={[styles.vehicleImage, styles.vehicleImagePlaceholder]}>
-                    <MaterialCommunityIcons name="truck-outline" size={24} color={colors.muted} />
+                  <View style={styles.vehiclePlaceholderImg}>
+                    <MaterialCommunityIcons
+                      name={getVehicleIcon(vehicle.vehicleType)}
+                      size={36}
+                      color={colors.mutedLight}
+                    />
                   </View>
                 )}
-                <View style={styles.vehicleDetails}>
-                  <Text style={styles.vehicleModel}>{vehicle.vehicleModel}</Text>
-                  <Text style={styles.vehicleType}>{vehicle.vehicleType.replace('-', ' ')}</Text>
-                  <View style={styles.chipsRow}>
-                    <View style={styles.chip}>
-                      <Text style={styles.chipText}>{vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit}</Text>
-                    </View>
-                    <View style={styles.chip}>
-                      <Text style={styles.chipText}>{vehicle.bodyType}</Text>
+
+                <View style={styles.vehicleInfo}>
+                  <View style={styles.vehicleHeaderRow}>
+                    <Text style={styles.vehicleModel} numberOfLines={1}>
+                      {vehicle.vehicleModel}
+                    </Text>
+                    <View
+                      style={[
+                        styles.availPill,
+                        vehicle.isAvailable ? styles.availYes : styles.availNo
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.availText,
+                          vehicle.isAvailable ? styles.availTextYes : styles.availTextNo
+                        ]}
+                      >
+                        {vehicle.isAvailable ? "Available" : "Busy"}
+                      </Text>
                     </View>
                   </View>
-                </View>
-              </View>
-              <View style={styles.vehicleAction}>
-                <Text style={styles.vehicleActionText}>Details</Text>
-                <Feather name="chevron-right" size={16} color={colors.primary} />
-              </View>
-            </Pressable>
-          ))}
-        </View>
 
-        {/* ACTIVE BOOKING */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Your active booking</Text>
-        </View>
-        
-        {activeBooking ? (
-          <Pressable 
-            style={styles.bookingCard}
-            onPress={() => navigation.navigate("BookingDetails", { bookingId: activeBooking._id })}
-          >
-            <View style={styles.bookingHeader}>
-              <Text style={styles.bookingId}>{activeBooking.bookingId}</Text>
-              <View style={styles.statusBadge}>
-                <Text style={styles.statusText}>{activeBooking.bookingStatus.toUpperCase()}</Text>
-              </View>
-            </View>
-            
-            <View style={styles.locationContainer}>
-              <View style={styles.locationTrack}>
-                <View style={styles.dotStart} />
-                <View style={styles.trackLine} />
-                <View style={styles.dotEnd} />
-              </View>
-              <View style={styles.locationDetails}>
-                <View style={styles.locationRow}>
-                  <Text style={styles.locationLabel}>Pickup</Text>
-                  <Text style={styles.locationText} numberOfLines={1}>{activeBooking.pickup?.address}</Text>
+                  <Text style={styles.vehicleTypeTag}>
+                    {vehicle.vehicleType?.replace(/-/g, " ")}
+                  </Text>
+
+                  <View style={styles.vehicleSpecsRow}>
+                    <View style={styles.specItem}>
+                      <Ionicons name="speedometer-outline" size={13} color={colors.muted} />
+                      <Text style={styles.specText}>
+                        {vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit}
+                      </Text>
+                    </View>
+                    <View style={styles.specItem}>
+                      <Ionicons name="cube-outline" size={13} color={colors.muted} />
+                      <Text style={styles.specText}>
+                        {vehicle.bodyType || "Open body"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.vehicleCardBottom}>
+                    <Text style={styles.viewSpecsLink}>View Details</Text>
+                    <Ionicons name="arrow-forward" size={14} color={colors.primary} />
+                  </View>
                 </View>
-                <View style={styles.locationRow}>
-                  <Text style={styles.locationLabel}>Drop-off</Text>
-                  <Text style={styles.locationText} numberOfLines={1}>{activeBooking.drop?.address}</Text>
-                </View>
-              </View>
-            </View>
-            
-            <View style={styles.bookingFooter}>
-              <Text style={styles.openBookingText}>Open booking</Text>
-              <Feather name="arrow-right" size={16} color={colors.primary} />
-            </View>
-          </Pressable>
-        ) : (
-          <View style={styles.emptyBooking}>
-            <View style={styles.emptyIconCircle}>
-              <Feather name="file-text" size={24} color={colors.primary} />
-            </View>
-            <Text style={styles.emptyTitle}>No active bookings</Text>
-            <Text style={styles.emptyDetail}>Your ongoing bookings will appear here.</Text>
+              </Pressable>
+            ))}
           </View>
         )}
 
-        {/* SUPPORT */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Support</Text>
+        {/* SUPPORT / HELP BANNER */}
+        <View style={[styles.supportBanner, shadows.soft]}>
+          <View style={styles.supportIconBox}>
+            <Ionicons name="headset-outline" size={22} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.supportTitle}>Need Help with Transport?</Text>
+            <Text style={styles.supportDesc}>
+              Contact support or submit a service inquiry.
+            </Text>
+          </View>
+          <Pressable
+            style={styles.supportBtn}
+            onPress={() => navigation.navigate("Support")}
+          >
+            <Text style={styles.supportBtnText}>Support</Text>
+          </Pressable>
         </View>
-        
-        <Pressable style={styles.supportCard} onPress={() => navigation.navigate("Settings")}>
-          <View style={styles.supportIconContainer}>
-            <Feather name="headphones" size={22} color={colors.primary} />
-          </View>
-          <View style={styles.supportInfo}>
-            <Text style={styles.supportTitle}>Need help?</Text>
-            <Text style={styles.supportDesc}>Contact our support team for any assistance.</Text>
-          </View>
-          <Feather name="chevron-right" size={20} color={colors.muted} />
-        </Pressable>
-        
       </ScrollView>
     </SafeAreaView>
   );
@@ -324,464 +449,466 @@ export default function HomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.canvas,
+    backgroundColor: colors.canvas
   },
   header: {
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 15,
-    backgroundColor: colors.canvas,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.line
   },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
+  brandRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10
   },
-  brandContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  brandName: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.ink,
-    letterSpacing: -0.5,
-  },
-  notificationBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  badge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    backgroundColor: colors.danger,
+  logoBadge: {
+    width: 38,
+    height: 38,
     borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.canvas,
+    backgroundColor: colors.primary,
+    alignItems: "center",
+    justifyContent: "center"
   },
-  badgeText: {
+  brandTitle: {
+    color: colors.navy,
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: -0.3
+  },
+  brandTagline: {
+    color: colors.muted,
+    fontSize: 11,
+    fontWeight: "500",
+    marginTop: -1
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12
+  },
+  iconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  unreadBadge: {
+    position: "absolute",
+    top: 4,
+    right: 4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.danger,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3
+  },
+  unreadCount: {
     color: colors.white,
-    fontSize: 10,
-    fontWeight: 'bold',
+    fontSize: 9,
+    fontWeight: "800"
   },
-  greetingContainer: {
-    gap: 4,
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 36,
+    gap: 18
+  },
+  greetingSection: {
+    gap: 2
   },
   greetingTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.ink,
-    letterSpacing: -0.5,
+    color: colors.navy,
+    fontSize: 22,
+    fontWeight: "800",
+    letterSpacing: -0.4
   },
   greetingSubtitle: {
-    fontSize: 16,
     color: colors.muted,
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-    gap: 24,
-  },
-  alertBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 14,
-    borderRadius: 12,
-    gap: 10,
-  },
-  alertText: {
-    flex: 1,
     fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 20,
+    fontWeight: "500"
   },
-  ctaCard: {
-    backgroundColor: colors.white,
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.03)',
-  },
-  ctaTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.ink,
-    marginBottom: 8,
-  },
-  ctaDescription: {
-    fontSize: 15,
-    color: colors.muted,
-    lineHeight: 22,
-    marginBottom: 24,
-  },
-  ctaButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  ctaButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ctaButtonText: {
-    color: colors.white,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  disabled: {
-    opacity: 0.6,
-  },
-  pressed: {
-    opacity: 0.8,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    marginBottom: -8,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.ink,
-  },
-  sectionLink: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  horizontalScroll: {
-    gap: 12,
-    paddingVertical: 4,
-  },
-  typeCard: {
-    backgroundColor: colors.white,
+  heroCard: {
+    backgroundColor: colors.surface,
     borderRadius: 16,
-    padding: 16,
-    width: width * 0.45,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  typeIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: '#F0F7F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  typeInfo: {
-    gap: 4,
-  },
-  typeName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.ink,
-    textTransform: 'capitalize',
-  },
-  typeDesc: {
-    fontSize: 12,
-    color: colors.muted,
-    marginBottom: 8,
-  },
-  availabilityChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#F8F9FA',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.success,
-  },
-  availabilityText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.muted,
-  },
-  emptyState: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 32,
-    alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.line,
-    borderStyle: 'dashed',
+    padding: 18,
+    gap: 16
   },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.ink,
-    marginTop: 12,
+  heroHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12
   },
-  emptyDetail: {
-    fontSize: 14,
-    color: colors.muted,
-    marginTop: 4,
-  },
-  vehicleList: {
-    gap: 12,
-  },
-  vehicleCard: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  vehicleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    marginBottom: 16,
-  },
-  vehicleImage: {
-    width: 64,
-    height: 64,
-    borderRadius: 12,
-  },
-  vehicleImagePlaceholder: {
-    backgroundColor: '#F8F9FA',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.line,
-  },
-  vehicleDetails: {
-    flex: 1,
-    gap: 4,
-  },
-  vehicleModel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.ink,
-  },
-  vehicleType: {
-    fontSize: 14,
-    color: colors.muted,
-    textTransform: 'capitalize',
-  },
-  chipsRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginTop: 4,
-  },
-  chip: {
-    backgroundColor: '#F4F7F6',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  chipText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.muted,
-    textTransform: 'capitalize',
-  },
-  vehicleAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 4,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F4F3',
-    paddingTop: 12,
-  },
-  vehicleActionText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  bookingCard: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  bookingHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  bookingId: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.ink,
-  },
-  statusBadge: {
-    backgroundColor: '#E8F5EE',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.success,
-    letterSpacing: 0.5,
-  },
-  locationContainer: {
-    flexDirection: 'row',
-    marginBottom: 20,
-  },
-  locationTrack: {
-    width: 24,
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  dotStart: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.primary,
-    marginTop: 4,
-  },
-  trackLine: {
-    width: 2,
-    flex: 1,
-    backgroundColor: '#E2E8E6',
-    marginVertical: 4,
-  },
-  dotEnd: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.danger,
-    marginBottom: 4,
-  },
-  locationDetails: {
-    flex: 1,
-    gap: 16,
-  },
-  locationRow: {
-    gap: 4,
-  },
-  locationLabel: {
-    fontSize: 12,
-    color: colors.muted,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  locationText: {
-    fontSize: 14,
-    color: colors.ink,
-    fontWeight: '500',
-  },
-  bookingFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 4,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F4F3',
-    paddingTop: 12,
-  },
-  openBookingText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  emptyBooking: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    elevation: 1,
-  },
-  emptyIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F0F7F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  supportCard: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.04)',
-  },
-  supportIconContainer: {
+  heroIconBox: {
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: '#F0F7F6',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: colors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 2
   },
-  supportInfo: {
+  heroTitle: {
+    color: colors.navy,
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: -0.3
+  },
+  heroSubtitle: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 3
+  },
+  heroButtonRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10
+  },
+  primaryCta: {
     flex: 1,
-    gap: 4,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    gap: 8
+  },
+  primaryCtaText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  secondaryCta: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10
+  },
+  secondaryCtaText: {
+    color: colors.navy,
+    fontSize: 14,
+    fontWeight: "600"
+  },
+  btnDisabled: {
+    opacity: 0.6
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  sectionTitle: {
+    color: colors.navy,
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: -0.3
+  },
+  sectionLink: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  activeBookingCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    padding: 16,
+    gap: 12
+  },
+  activeBookingTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  activeBookingId: {
+    color: colors.navy,
+    fontSize: 15,
+    fontWeight: "800"
+  },
+  activeBookingVehicle: {
+    color: colors.muted,
+    fontSize: 12,
+    textTransform: "capitalize",
+    marginTop: 1
+  },
+  activeBookingRoute: {
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 10,
+    padding: 12,
+    gap: 4
+  },
+  routeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8
+  },
+  routeLine: {
+    width: 1,
+    height: 10,
+    backgroundColor: colors.line,
+    marginLeft: 6,
+    marginVertical: 1
+  },
+  routeText: {
+    flex: 1,
+    color: colors.ink,
+    fontSize: 13,
+    fontWeight: "500"
+  },
+  activeBookingBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: colors.lineLight,
+    paddingTop: 10
+  },
+  activeBookingFare: {
+    color: colors.navy,
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  viewDetailsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4
+  },
+  viewDetailsText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  emptyActiveBooking: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 12,
+    padding: 16,
+    gap: 12
+  },
+  emptyActiveText: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: "500"
+  },
+  typeScroll: {
+    gap: 12,
+    paddingRight: 8
+  },
+  typeCard: {
+    width: 148,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    padding: 14,
+    gap: 6
+  },
+  typeIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: colors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4
+  },
+  typeCardName: {
+    color: colors.navy,
+    fontSize: 14,
+    fontWeight: "700",
+    textTransform: "capitalize"
+  },
+  typeCardDesc: {
+    color: colors.muted,
+    fontSize: 11,
+    lineHeight: 15,
+    minHeight: 30
+  },
+  typeBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 7,
+    marginTop: 4
+  },
+  typeBadgeText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: "700"
+  },
+  vehicleGrid: {
+    gap: 12
+  },
+  vehicleItemCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    overflow: "hidden"
+  },
+  vehicleImg: {
+    width: "100%",
+    height: 140,
+    backgroundColor: colors.surfaceAlt
+  },
+  vehiclePlaceholderImg: {
+    width: "100%",
+    height: 100,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  vehicleInfo: {
+    padding: 14,
+    gap: 6
+  },
+  vehicleHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8
+  },
+  vehicleModel: {
+    flex: 1,
+    color: colors.navy,
+    fontSize: 16,
+    fontWeight: "700"
+  },
+  availPill: {
+    borderRadius: 6,
+    paddingVertical: 2,
+    paddingHorizontal: 7
+  },
+  availYes: {
+    backgroundColor: colors.successBg
+  },
+  availNo: {
+    backgroundColor: colors.warningBg
+  },
+  availText: {
+    fontSize: 10,
+    fontWeight: "800"
+  },
+  availTextYes: {
+    color: colors.successText
+  },
+  availTextNo: {
+    color: colors.warningText
+  },
+  vehicleTypeTag: {
+    color: colors.muted,
+    fontSize: 12,
+    textTransform: "capitalize"
+  },
+  vehicleSpecsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    marginVertical: 4
+  },
+  specItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5
+  },
+  specText: {
+    color: colors.inkSecondary,
+    fontSize: 12,
+    fontWeight: "500"
+  },
+  vehicleCardBottom: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: colors.lineLight,
+    paddingTop: 10,
+    marginTop: 4
+  },
+  viewSpecsLink: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  emptyVehiclesBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 14,
+    padding: 24,
+    gap: 8
+  },
+  emptyVehiclesTitle: {
+    color: colors.navy,
+    fontSize: 15,
+    fontWeight: "700"
+  },
+  emptyVehiclesDesc: {
+    color: colors.muted,
+    fontSize: 13,
+    textAlign: "center"
+  },
+  supportBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.line,
+    padding: 16,
+    gap: 12
+  },
+  supportIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: colors.primaryLight,
+    alignItems: "center",
+    justifyContent: "center"
   },
   supportTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.ink,
+    color: colors.navy,
+    fontSize: 15,
+    fontWeight: "700"
   },
   supportDesc: {
-    fontSize: 13,
     color: colors.muted,
+    fontSize: 12,
+    marginTop: 2
+  },
+  supportBtn: {
+    backgroundColor: colors.surfaceAlt,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8
+  },
+  supportBtnText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: "700"
   }
 });
