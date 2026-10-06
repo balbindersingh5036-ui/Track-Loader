@@ -22,10 +22,14 @@ export const uploadImage = async (req, res, next) => {
       { folder: "loadbalbin_profiles" },
       (error, result) => {
         if (error) {
-          console.error("Cloudinary Upload Error:", error);
+          console.error("Cloudinary Upload Error:", {
+            message: error.message || error.error?.message || "Unknown error",
+            http_code: error.http_code || error.error?.http_code || null,
+            name: error.name || null
+          });
           return res.status(500).json({
             success: false,
-            message: "Failed to upload image"
+            message: "Failed to upload image. Please try again."
           });
         }
 
