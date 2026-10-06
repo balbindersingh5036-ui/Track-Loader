@@ -26,7 +26,7 @@ export const userService = {
       });
     }
 
-    const { data } = await api.post("/uploads/image", formData, Platform.OS === "web" ? {} : {
+    const { data } = await api.post("/uploads/image", formData, {
       headers: {
         "Content-Type": "multipart/form-data"
       }
