@@ -15,11 +15,15 @@ describe("Fare API", () => {
 
   before(async () => {
     await mongoose.connect(process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/loadbalbin_test");
-    await Fare.deleteMany({});
-    await SystemSetting.deleteMany({});
-    await User.deleteMany({});
+    await User.deleteMany({ phone: { $in: ["+911234567891", "+911234567892", "+911234567893"] } });
+    await Fare.deleteMany({ vehicleType: { $in: ["pickup", "small-truck"] } });
 
-    await SystemSetting.create({ key: "fare.enabled", value: true, type: "boolean", category: "booking" });
+    await SystemSetting.findOneAndUpdate(
+      { key: "fare.enabled" },
+      { value: true, type: "boolean", category: "booking" },
+      { upsert: true }
+    );
+    clearCache("fare.enabled");
 
     const customer = await User.create({ name: "Cust", phone: "+911234567891", email: "cust@test.com", role: "customer", password: "password123" });
     const driver = await User.create({ name: "Drv", phone: "+911234567892", email: "drv@test.com", role: "driver", password: "password123" });
@@ -32,25 +36,31 @@ describe("Fare API", () => {
     driverToken = generateToken({ userId: driver._id, role: driver.role });
     adminToken = generateToken({ userId: admin._id, role: admin.role });
 
-    await Fare.create({
-      vehicleType: "mini-truck",
-      baseFare: 100,
-      perKmRate: 15,
-      perTonRate: 50,
-      minimumFare: 150,
-      loadingCharge: 10,
-      unloadingCharge: 10
-    });
+    await Fare.findOneAndUpdate(
+      { vehicleType: "mini-truck" },
+      {
+        baseFare: 100,
+        perKmRate: 15,
+        perTonRate: 50,
+        minimumFare: 150,
+        loadingCharge: 10,
+        unloadingCharge: 10,
+        isActive: true
+      },
+      { upsert: true, new: true }
+    );
   });
 
   after(async () => {
+    await User.deleteMany({ phone: { $in: ["+911234567891", "+911234567892", "+911234567893"] } });
+    await Fare.deleteMany({ vehicleType: { $in: ["pickup", "small-truck"] } });
     await mongoose.connection.close();
   });
 
   it("1. Public fare list", async () => {
     const res = await request(app).get("/api/fares");
     assert.strictEqual(res.status, 200);
-    assert.strictEqual(res.body.data.fares.length, 1);
+    assert.ok(res.body.data.fares.length >= 1);
   });
 
   it("2. Public active fare filtering", async () => {

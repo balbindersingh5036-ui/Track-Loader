@@ -101,6 +101,18 @@ export const register = async (req, res) => {
 };
 
 
+export const normalizePhoneNumber = (phone) => {
+  if (!phone) return "";
+  const raw = String(phone).replace(/\D/g, "");
+  if (raw.length === 12 && raw.startsWith("91")) {
+    return raw.slice(2);
+  }
+  if (raw.length === 11 && raw.startsWith("0")) {
+    return raw.slice(1);
+  }
+  return raw;
+};
+
 /* =========================================================
    CUSTOMER LOGIN
 ========================================================= */
@@ -109,20 +121,34 @@ export const login = async (req, res) => {
   try {
     const {
       phone,
+      email,
+      identifier,
       password
     } = req.body;
 
-    if (!phone || !password) {
+    const input = String(phone || email || identifier || "").trim();
+
+    if (!input || !password) {
       return res.status(400).json({
         success: false,
         message: "Phone and password are required"
       });
     }
 
-    const normalizedPhone = String(phone).replace(/\D/g, "");
+    const rawPhone = input.replace(/\D/g, "");
+    const normalizedPhone = normalizePhoneNumber(input);
+    const phoneCandidates = Array.from(new Set([normalizedPhone, rawPhone])).filter(Boolean);
+
+    const queryOr = [];
+    if (phoneCandidates.length > 0) {
+      queryOr.push({ phone: { $in: phoneCandidates } });
+    }
+    if (input.includes("@")) {
+      queryOr.push({ email: input.toLowerCase() });
+    }
 
     const user = await User.findOne({
-      phone: normalizedPhone
+      $or: queryOr.length > 0 ? queryOr : [{ phone: normalizedPhone }]
     }).select("+password");
 
     if (!user) {
@@ -201,21 +227,35 @@ export const driverLogin = async (req, res) => {
   try {
     const {
       phone,
+      email,
+      identifier,
       password
     } = req.body;
 
-    if (!phone || !password) {
+    const input = String(phone || email || identifier || "").trim();
+
+    if (!input || !password) {
       return res.status(400).json({
         success: false,
         message: "Phone and password are required"
       });
     }
 
-    const normalizedPhone = String(phone).replace(/\D/g, "");
+    const rawPhone = input.replace(/\D/g, "");
+    const normalizedPhone = normalizePhoneNumber(input);
+    const phoneCandidates = Array.from(new Set([normalizedPhone, rawPhone])).filter(Boolean);
+
+    const queryOr = [];
+    if (phoneCandidates.length > 0) {
+      queryOr.push({ phone: { $in: phoneCandidates } });
+    }
+    if (input.includes("@")) {
+      queryOr.push({ email: input.toLowerCase() });
+    }
 
     const user = await User.findOne({
-      phone: normalizedPhone,
-      role: "driver"
+      role: "driver",
+      $or: queryOr.length > 0 ? queryOr : [{ phone: normalizedPhone }]
     }).select("+password");
 
     if (!user) {
