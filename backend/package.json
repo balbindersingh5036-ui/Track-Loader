@@ -11,7 +11,8 @@
     "seed:test": "node scripts/seedTest.js",
     "seed:admin": "node seeds/adminSeed.js",
     "seed:driver": "node --env-file=.env ../database/seeds/driverSeed.js",
-    "seed:system": "node seeds/systemSettingSeed.js"
+    "seed:system": "node seeds/systemSettingSeed.js",
+    "seed:demo": "node scripts/seedDemoData.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
