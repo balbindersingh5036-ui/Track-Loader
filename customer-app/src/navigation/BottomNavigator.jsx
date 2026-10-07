@@ -1,6 +1,7 @@
 import React from "react";
 import { View, StyleSheet, Platform } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import HomeScreen from "../screens/home/HomeScreen";
 import VehicleListScreen from "../screens/home/VehicleListScreen";
@@ -13,6 +14,11 @@ import { colors } from "../theme/theme";
 const Tab = createBottomTabNavigator();
 
 export default function BottomNavigator() {
+  const insets = useSafeAreaInsets();
+  // Ensure a minimum padding if there's no safe area (like older Androids)
+  const bottomPadding = Math.max(insets.bottom, 12);
+  const navHeight = 64 + bottomPadding;
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -23,13 +29,13 @@ export default function BottomNavigator() {
           backgroundColor: colors.surface,
           borderTopColor: colors.line,
           borderTopWidth: 1,
-          height: Platform.OS === "ios" ? 88 : 64,
-          paddingBottom: Platform.OS === "ios" ? 28 : 10,
+          height: navHeight,
+          paddingBottom: bottomPadding,
           paddingTop: 8,
           elevation: 8,
           shadowColor: "#0F172A",
           shadowOffset: { width: 0, height: -2 },
-          shadowOpacity: 0.04,
+          shadowOpacity: 0.1,
           shadowRadius: 6
         },
         tabBarLabelStyle: {
@@ -75,19 +81,20 @@ export default function BottomNavigator() {
           tabBarIcon: ({ color }) => (
             <View style={{
               backgroundColor: colors.accent,
-              width: 46,
-              height: 46,
-              borderRadius: 23,
+              width: 50,
+              height: 50,
+              borderRadius: 25,
               alignItems: "center",
               justifyContent: "center",
-              marginBottom: 10,
+              marginBottom: Platform.OS === "ios" ? 0 : 20, // push up slightly on android to prevent clipping
               shadowColor: colors.accent,
               shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.4,
               shadowRadius: 5,
-              elevation: 5
+              elevation: 5,
+              top: Platform.OS === "ios" ? -8 : 0 // visually center on iOS
             }}>
-              <MaterialCommunityIcons name="truck-fast" size={24} color={colors.text} />
+              <MaterialCommunityIcons name="truck-fast" size={26} color={colors.text} />
             </View>
           )
         }}

@@ -213,6 +213,7 @@ export default function HomeScreen({ navigation }) {
               disabled={isBookingDisabled}
               onPress={() => navigation.navigate("BookingLocation")}
             >
+              <Ionicons name="search" size={18} color={colors.white} />
               <Text style={styles.primaryCtaText}>Find a Truck</Text>
             </Pressable>
 
@@ -482,7 +483,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 36,
+    paddingBottom: 140, // Increased to clear bottom navigation completely
     gap: 18
   },
   greetingSection: {
@@ -543,11 +544,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.accent,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    backgroundColor: colors.primary, // #08A9F5
+    paddingVertical: 14,
+    paddingHorizontal: 10,
     borderRadius: 10,
-    gap: 8
+    gap: 8,
+    minHeight: 50
   },
   primaryCtaText: {
     color: colors.white,
@@ -558,17 +560,18 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.surface,
+    backgroundColor: colors.surfaceAlt, // Secondary surface
     borderWidth: 1.5,
-    borderColor: colors.line,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10
+    borderColor: colors.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    minHeight: 50
   },
   secondaryCtaText: {
-    color: colors.text,
+    color: colors.white,
     fontSize: 14,
-    fontWeight: "600"
+    fontWeight: "700"
   },
   btnDisabled: {
     opacity: 0.6
