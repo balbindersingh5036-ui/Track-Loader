@@ -7,6 +7,7 @@ import VehicleListScreen from "../screens/home/VehicleListScreen";
 import MyBookingsScreen from "../screens/bookings/MyBookingsScreen";
 import NotificationsScreen from "../screens/settings/NotificationScreen";
 import ProfileScreen from "../screens/profile/ProfileScreen";
+import BookingLocationScreen from "../screens/booking/BookingLocationScreen";
 import { colors } from "../theme/theme";
 
 const Tab = createBottomTabNavigator();
@@ -53,20 +54,6 @@ export default function BottomNavigator() {
         }}
       />
       <Tab.Screen
-        name="Vehicles"
-        component={VehicleListScreen}
-        options={{
-          tabBarLabel: "Vehicles",
-          tabBarIcon: ({ color, focused }) => (
-            <MaterialCommunityIcons
-              name={focused ? "truck-fast" : "truck-fast-outline"}
-              size={23}
-              color={color}
-            />
-          )
-        }}
-      />
-      <Tab.Screen
         name="Bookings"
         component={MyBookingsScreen}
         options={{
@@ -81,10 +68,35 @@ export default function BottomNavigator() {
         }}
       />
       <Tab.Screen
+        name="Book"
+        component={BookingLocationScreen}
+        options={{
+          tabBarLabel: "Book",
+          tabBarIcon: ({ color }) => (
+            <View style={{
+              backgroundColor: colors.accent,
+              width: 46,
+              height: 46,
+              borderRadius: 23,
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: 10,
+              shadowColor: colors.accent,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.4,
+              shadowRadius: 5,
+              elevation: 5
+            }}>
+              <MaterialCommunityIcons name="truck-fast" size={24} color={colors.text} />
+            </View>
+          )
+        }}
+      />
+      <Tab.Screen
         name="Notifications"
         component={NotificationsScreen}
         options={{
-          tabBarLabel: "Alerts",
+          tabBarLabel: "Notifications",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
               name={focused ? "notifications" : "notifications-outline"}

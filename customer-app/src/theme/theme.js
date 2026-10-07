@@ -1,28 +1,23 @@
 export const colors = {
-  // Brand Primary
-  primary: "#086B64",
-  primaryDark: "#064D49",
-  primaryLight: "#E6F4F2",
-  primaryMuted: "#CCECE7",
-
-  // Deep Navy & Inks
-  navy: "#0F172A",
-  navyLight: "#1E293B",
-  ink: "#1E293B",
-  inkSecondary: "#334155",
-  muted: "#64748B",
-  mutedLight: "#94A3B8",
-
-  // Canvas & Surfaces
-  canvas: "#F8FAFC",
-  surface: "#FFFFFF",
-  surfaceAlt: "#F1F5F9",
-  surfaceSubtle: "#F8FAFC",
+  // Brand Colors
+  primary: "#08A9F5",     // Primary Blue
+  secondary: "#14B8A6",   // Secondary Teal
+  accent: "#FF7A00",      // Accent Orange
+  
+  // Backgrounds & Surfaces
+  background: "#0B1118",  // Very dark navy / charcoal
+  surface: "#101820",     // Dark blue-gray cards
+  surfaceAlt: "#1A2430",  // Slightly lighter card / hover
+  
+  // Text
+  text: "#FFFFFF",        // White headings/primary text
+  textMuted: "#9CA3AF",   // Light gray secondary text
+  textLight: "#E5E7EB",
 
   // Borders & Lines
-  line: "#E2E8F0",
-  lineLight: "#F1F5F9",
-  lineFocus: "#086B64",
+  line: "#2A3746",
+  lineLight: "#374151",
+  lineFocus: "#08A9F5",
 
   // Status & Feedback Colors
   success: "#10B981",
@@ -53,50 +48,50 @@ export const typography = {
   h1: {
     fontSize: 24,
     fontWeight: "800",
-    color: colors.navy,
+    color: colors.text,
     letterSpacing: -0.5
   },
   h2: {
     fontSize: 20,
     fontWeight: "700",
-    color: colors.navy,
+    color: colors.text,
     letterSpacing: -0.3
   },
   h3: {
     fontSize: 17,
     fontWeight: "700",
-    color: colors.navy
+    color: colors.text
   },
   h4: {
     fontSize: 15,
     fontWeight: "600",
-    color: colors.navy
+    color: colors.text
   },
   body: {
     fontSize: 14,
     fontWeight: "400",
-    color: colors.ink,
+    color: colors.textLight,
     lineHeight: 20
   },
   bodyBold: {
     fontSize: 14,
     fontWeight: "600",
-    color: colors.ink
+    color: colors.text
   },
   caption: {
     fontSize: 12,
     fontWeight: "500",
-    color: colors.muted
+    color: colors.textMuted
   },
   captionBold: {
     fontSize: 12,
     fontWeight: "700",
-    color: colors.muted
+    color: colors.textMuted
   },
   number: {
     fontSize: 22,
     fontWeight: "800",
-    color: colors.navy
+    color: colors.text
   }
 };
 
@@ -121,25 +116,25 @@ export const radius = {
 
 export const shadows = {
   soft: {
-    shadowColor: "#0F172A",
+    shadowColor: "#000000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 2
   },
   card: {
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
     shadowRadius: 8,
-    elevation: 3
+    elevation: 4
   },
   elevated: {
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
     shadowRadius: 14,
-    elevation: 5
+    elevation: 6
   }
 };
 

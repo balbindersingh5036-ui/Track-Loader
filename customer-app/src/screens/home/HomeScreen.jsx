@@ -448,7 +448,7 @@ export default function HomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.canvas
+    backgroundColor: colors.background
   },
   header: {
     flexDirection: "row",
@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
     justifyContent: "center"
   },
   brandTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 18,
     fontWeight: "800",
     letterSpacing: -0.3
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
     gap: 2
   },
   greetingTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 22,
     fontWeight: "800",
     letterSpacing: -0.4
@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
     marginTop: 2
   },
   heroTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 18,
     fontWeight: "800",
     letterSpacing: -0.3
@@ -578,7 +578,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accent,
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
     borderRadius: 10
   },
   secondaryCtaText: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 14,
     fontWeight: "600"
   },
@@ -614,7 +614,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between"
   },
   sectionTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 18,
     fontWeight: "800",
     letterSpacing: -0.3
@@ -638,7 +638,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between"
   },
   activeBookingId: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 15,
     fontWeight: "800"
   },
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
   },
   routeText: {
     flex: 1,
-    color: colors.ink,
+    color: colors.textLight,
     fontSize: 13,
     fontWeight: "500"
   },
@@ -681,7 +681,7 @@ const styles = StyleSheet.create({
     paddingTop: 10
   },
   activeBookingFare: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 14,
     fontWeight: "700"
   },
@@ -733,7 +733,7 @@ const styles = StyleSheet.create({
     marginBottom: 4
   },
   typeCardName: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 14,
     fontWeight: "700",
     textTransform: "capitalize"
@@ -791,7 +791,7 @@ const styles = StyleSheet.create({
   },
   vehicleModel: {
     flex: 1,
-    color: colors.navy,
+    color: colors.text,
     fontSize: 16,
     fontWeight: "700"
   },
