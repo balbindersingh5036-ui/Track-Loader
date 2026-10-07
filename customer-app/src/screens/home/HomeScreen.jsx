@@ -199,9 +199,9 @@ export default function HomeScreen({ navigation }) {
               <Ionicons name="cube-outline" size={22} color={colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.heroTitle}>Book a goods transport</Text>
+              <Text style={styles.heroTitle}>Find the right truck for your load.</Text>
               <Text style={styles.heroSubtitle}>
-                Choose a vehicle type, add pickup and drop-off details, then review your request.
+                Book reliable goods transport for every delivery.
               </Text>
             </View>
           </View>
@@ -215,15 +215,14 @@ export default function HomeScreen({ navigation }) {
               disabled={isBookingDisabled}
               onPress={() => navigation.navigate("BookingLocation")}
             >
-              <Text style={styles.primaryCtaText}>Start Booking</Text>
-              <Ionicons name="arrow-forward" size={16} color={colors.white} />
+              <Text style={styles.primaryCtaText}>Find a Truck</Text>
             </Pressable>
 
             <Pressable
               style={styles.secondaryCta}
               onPress={() => navigation.navigate("VehicleList")}
             >
-              <Text style={styles.secondaryCtaText}>Browse Vehicles</Text>
+              <Text style={styles.secondaryCtaText}>Book a Transport</Text>
             </Pressable>
           </View>
         </View>
