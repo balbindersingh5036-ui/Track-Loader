@@ -7,7 +7,7 @@ import VehicleListScreen from "../screens/home/VehicleListScreen";
 import MyBookingsScreen from "../screens/bookings/MyBookingsScreen";
 import NotificationsScreen from "../screens/settings/NotificationScreen";
 import ProfileScreen from "../screens/profile/ProfileScreen";
-import BookingLocationScreen from "../screens/booking/BookingLocationScreen";
+import LocationScreen from "../screens/booking/LocationScreen";
 import { colors } from "../theme/theme";
 
 const Tab = createBottomTabNavigator();
@@ -69,7 +69,7 @@ export default function BottomNavigator() {
       />
       <Tab.Screen
         name="Book"
-        component={BookingLocationScreen}
+        component={LocationScreen}
         options={{
           tabBarLabel: "Book",
           tabBarIcon: ({ color }) => (

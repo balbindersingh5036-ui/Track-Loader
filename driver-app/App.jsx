@@ -19,7 +19,17 @@ import { connectSocket, disconnectSocket, joinBookingRoom, subscribeToSocketEven
 import { getToken, removeToken, saveToken } from './src/utils/authStorage';
 
 const tabs = ['Requests', 'Trips', 'Earnings', 'Alerts', 'Profile'];
-const colors = { ink: '#172B4D', muted: '#667085', teal: '#087F78', border: '#E4E7EC', bg: '#F6F8FA', danger: '#B42318' };
+const colors = { 
+  ink: '#FFFFFF', 
+  muted: '#9CA3AF', 
+  teal: '#14B8A6', 
+  border: '#2A3746', 
+  bg: '#0B1118', 
+  danger: '#EF4444',
+  primary: '#08A9F5',
+  accent: '#FF7A00',
+  surface: '#101820'
+};
 
 const messageFor = (error) => {
   if (!error?.response) return 'Unable to connect to the service. Check your network and try again.';
@@ -33,8 +43,8 @@ function ActionButton({ label, onPress, secondary = false, disabled = false }) {
       disabled={disabled}
       onPress={onPress}
       style={{
-        backgroundColor: secondary ? '#FFFFFF' : colors.teal,
-        borderColor: colors.teal,
+        backgroundColor: secondary ? colors.surface : colors.primary,
+        borderColor: secondary ? colors.border : colors.primary,
         borderWidth: 1,
         paddingVertical: 11,
         paddingHorizontal: 14,
@@ -43,7 +53,7 @@ function ActionButton({ label, onPress, secondary = false, disabled = false }) {
         alignItems: 'center'
       }}
     >
-      <Text style={{ color: secondary ? colors.teal : '#FFFFFF', fontWeight: '700' }}>{label}</Text>
+      <Text style={{ color: secondary ? colors.muted : '#FFFFFF', fontWeight: '700' }}>{label}</Text>
     </Pressable>
   );
 }
@@ -67,7 +77,7 @@ function Login({ onLogin, onRetry, initialError }) {
   };
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', padding: 24 }}>
-      <View style={{ backgroundColor: '#FFFFFF', padding: 22, borderRadius: 16, gap: 14 }}>
+      <View style={{ backgroundColor: colors.surface, padding: 22, borderRadius: 16, gap: 14 }}>
         <Text style={{ fontSize: 28, fontWeight: '800', color: colors.ink }}>Driver sign in</Text>
         <Text style={{ color: colors.muted }}>Use the phone number registered with your driver account.</Text>
         <TextInput
@@ -101,7 +111,7 @@ const inputStyle = {
   borderRadius: 9,
   padding: 12,
   color: colors.ink,
-  backgroundColor: '#FFFFFF'
+  backgroundColor: colors.surface
 };
 
 export default function App() {
@@ -298,14 +308,14 @@ export default function App() {
   const bookings = activeTab === 'Requests' ? requests : trips;
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
-      <View style={{ backgroundColor: '#FFFFFF', padding: 16, borderBottomWidth: 1, borderColor: colors.border }}>
+      <View style={{ backgroundColor: colors.surface, padding: 16, borderBottomWidth: 1, borderColor: colors.border }}>
         <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>LoadBalbin Driver</Text>
         <Text style={{ color: colors.muted, marginTop: 3 }}>{user.name || user.phone}</Text>
       </View>
-      <View style={{ flexDirection: 'row', backgroundColor: '#FFFFFF', paddingHorizontal: 8, borderBottomWidth: 1, borderColor: colors.border }}>
+      <View style={{ flexDirection: 'row', backgroundColor: colors.surface, paddingHorizontal: 8, borderBottomWidth: 1, borderColor: colors.border }}>
         {tabs.map((tab) => (
-          <Pressable key={tab} onPress={() => { setActiveTab(tab); setError(''); }} style={{ padding: 11, borderBottomWidth: activeTab === tab ? 2 : 0, borderColor: colors.teal }}>
-            <Text style={{ color: activeTab === tab ? colors.teal : colors.muted, fontWeight: '700' }}>{tab}{tab === 'Alerts' && unreadCount ? ` (${unreadCount})` : ''}</Text>
+          <Pressable key={tab} onPress={() => { setActiveTab(tab); setError(''); }} style={{ padding: 11, borderBottomWidth: activeTab === tab ? 2 : 0, borderColor: colors.primary }}>
+            <Text style={{ color: activeTab === tab ? colors.primary : colors.muted, fontWeight: '700' }}>{tab}{tab === 'Alerts' && unreadCount ? ` (${unreadCount})` : ''}</Text>
           </Pressable>
         ))}
       </View>
@@ -427,7 +437,7 @@ function BookingCard({ booking, actions, onAction }) {
   );
 }
 
-const cardStyle = { backgroundColor: '#FFFFFF', borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 14, gap: 8 };
+const cardStyle = { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 14, gap: 8 };
 const sectionTitle = { color: colors.ink, fontSize: 17, fontWeight: '800' };
 const bodyText = { color: colors.ink, fontWeight: '700' };
 const mutedText = { color: colors.muted };
