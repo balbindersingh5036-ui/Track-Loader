@@ -5,13 +5,13 @@ export const colors = {
   accent: "#FF7A00",      // Accent Orange
   
   // Backgrounds & Surfaces
-  background: "#0B1118",  // Very dark navy / charcoal
-  surface: "#101820",     // Dark blue-gray cards
-  surfaceAlt: "#1A2430",  // Slightly lighter card / hover
+  background: "#08111F",  // Deep navy/black background
+  surface: "#111D2B",     // Professional rounded cards
+  surfaceAlt: "#162536",  
   
   // Text
   text: "#FFFFFF",        // White headings/primary text
-  textMuted: "#9CA3AF",   // Light gray secondary text
+  textMuted: "#AAB4C0",   // Light gray secondary text
   textLight: "#E5E7EB",
 
   // Borders & Lines

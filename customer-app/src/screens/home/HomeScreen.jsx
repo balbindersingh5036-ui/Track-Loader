@@ -331,7 +331,7 @@ export default function HomeScreen({ navigation }) {
 
         {/* AVAILABLE VEHICLES SECTION */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Available Vehicles</Text>
+          <Text style={styles.sectionTitle}>Available Trucks</Text>
           <Pressable onPress={() => navigation.navigate("VehicleList")}>
             <Text style={styles.sectionLink}>View all ({vehicles.length})</Text>
           </Pressable>
@@ -339,87 +339,52 @@ export default function HomeScreen({ navigation }) {
 
         {vehicles.length === 0 ? (
           <View style={styles.emptyVehiclesBox}>
-            <MaterialCommunityIcons name="truck-outline" size={36} color={colors.mutedLight} />
-            <Text style={styles.emptyVehiclesTitle}>No vehicles available</Text>
+            <MaterialCommunityIcons name="truck-outline" size={36} color={colors.textMuted} />
+            <Text style={styles.emptyVehiclesTitle}>No trucks available</Text>
             <Text style={styles.emptyVehiclesDesc}>
               Check back soon for available transport vehicles.
             </Text>
           </View>
         ) : (
-          <View style={styles.vehicleGrid}>
-            {vehicles.slice(0, 4).map((vehicle) => (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingRight: 16 }}>
+            {vehicles.slice(0, 5).map((vehicle) => (
               <Pressable
                 key={vehicle._id}
-                style={[styles.vehicleItemCard, shadows.soft]}
-                onPress={() =>
-                  navigation.navigate("VehicleDetails", { vehicleId: vehicle._id })
-                }
+                style={[{ width: 260, backgroundColor: colors.surface, borderRadius: 16, overflow: "hidden", borderWidth: 1, borderColor: colors.line }, shadows.soft]}
+                onPress={() => navigation.navigate("VehicleDetails", { vehicleId: vehicle._id })}
               >
                 {vehicle.vehicleImage ? (
-                  <Image
-                    source={{ uri: vehicle.vehicleImage }}
-                    style={styles.vehicleImg}
-                    resizeMode="cover"
-                  />
+                  <Image source={{ uri: vehicle.vehicleImage }} style={{ width: "100%", height: 160 }} resizeMode="cover" />
                 ) : (
-                  <View style={styles.vehiclePlaceholderImg}>
-                    <MaterialCommunityIcons
-                      name={getVehicleIcon(vehicle.vehicleType)}
-                      size={36}
-                      color={colors.mutedLight}
-                    />
+                  <View style={{ width: "100%", height: 160, backgroundColor: colors.surfaceAlt, alignItems: "center", justifyContent: "center" }}>
+                    <MaterialCommunityIcons name={getVehicleIcon(vehicle.vehicleType)} size={48} color={colors.textMuted} />
                   </View>
                 )}
-
-                <View style={styles.vehicleInfo}>
-                  <View style={styles.vehicleHeaderRow}>
-                    <Text style={styles.vehicleModel} numberOfLines={1}>
-                      {vehicle.vehicleModel}
+                <View style={{ padding: 16, gap: 8 }}>
+                  <Text style={{ color: colors.text, fontSize: 18, fontWeight: "700" }} numberOfLines={1}>{vehicle.vehicleModel}</Text>
+                  <Text style={{ color: colors.textMuted, fontSize: 13, textTransform: "capitalize" }}>{vehicle.vehicleType?.replace(/-/g, " ")}</Text>
+                  
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Ionicons name="speedometer-outline" size={14} color={colors.textMuted} />
+                      <Text style={{ color: colors.textMuted, fontSize: 13 }}>{vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit}</Text>
+                    </View>
+                    <Text style={{ color: colors.accent, fontSize: 14, fontWeight: "700" }}>₹{vehicle.baseFare || "Est."}</Text>
+                  </View>
+                  
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
+                    <Text style={{ color: vehicle.isAvailable ? colors.success : colors.danger, fontSize: 12, fontWeight: "700" }}>
+                      {vehicle.isAvailable ? "Available" : "Busy"}
                     </Text>
-                    <View
-                      style={[
-                        styles.availPill,
-                        vehicle.isAvailable ? styles.availYes : styles.availNo
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.availText,
-                          vehicle.isAvailable ? styles.availTextYes : styles.availTextNo
-                        ]}
-                      >
-                        {vehicle.isAvailable ? "Available" : "Busy"}
-                      </Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "700" }}>View Details</Text>
+                      <Ionicons name="arrow-forward" size={14} color={colors.primary} />
                     </View>
-                  </View>
-
-                  <Text style={styles.vehicleTypeTag}>
-                    {vehicle.vehicleType?.replace(/-/g, " ")}
-                  </Text>
-
-                  <View style={styles.vehicleSpecsRow}>
-                    <View style={styles.specItem}>
-                      <Ionicons name="speedometer-outline" size={13} color={colors.muted} />
-                      <Text style={styles.specText}>
-                        {vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit}
-                      </Text>
-                    </View>
-                    <View style={styles.specItem}>
-                      <Ionicons name="cube-outline" size={13} color={colors.muted} />
-                      <Text style={styles.specText}>
-                        {vehicle.bodyType || "Open body"}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.vehicleCardBottom}>
-                    <Text style={styles.viewSpecsLink}>View Details</Text>
-                    <Ionicons name="arrow-forward" size={14} color={colors.primary} />
                   </View>
                 </View>
               </Pressable>
             ))}
-          </View>
+          </ScrollView>
         )}
 
         {/* SUPPORT / HELP BANNER */}

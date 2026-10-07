@@ -29,11 +29,11 @@ export default function AppNavigator() {
         headerStyle: {
           backgroundColor: colors.surface
         },
-        headerTintColor: colors.navy,
+        headerTintColor: colors.text,
         headerTitleStyle: {
           fontWeight: "700",
           fontSize: 17,
-          color: colors.navy
+          color: colors.text
         },
         headerShadowVisible: false,
         headerBackTitleVisible: false
