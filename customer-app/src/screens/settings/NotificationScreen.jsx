@@ -135,7 +135,7 @@ export default function NotificationScreen() {
                     <Ionicons
                       name={isUnread ? "notifications" : "notifications-outline"}
                       size={18}
-                      color={isUnread ? colors.primary : colors.muted}
+                      color={isUnread ? colors.primary : colors.textMuted}
                     />
                   </View>
                 </View>
@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
     justifyContent: "center"
   },
   iconCircleUnread: {
-    backgroundColor: colors.primaryLight
+    backgroundColor: colors.surfaceAlt
   },
   iconCircleRead: {
     backgroundColor: colors.surfaceAlt
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between"
   },
   cardTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 14,
     fontWeight: "600",
     flex: 1
@@ -232,12 +232,12 @@ const styles = StyleSheet.create({
     marginLeft: 6
   },
   cardMessage: {
-    color: colors.inkSecondary,
+    color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18
   },
   cardTime: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11,
     marginTop: 2
   }

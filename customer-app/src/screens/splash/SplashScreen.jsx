@@ -2,16 +2,16 @@ import React from "react";
 import { Text, View, StyleSheet, ActivityIndicator } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Button, Notice } from "../../components/Phase12UI";
+import LoadBalbinLogo from "../../components/LoadBalbinLogo";
 import { colors } from "../../theme/theme";
 
 export default function SplashScreen({ error, onRetry }) {
   return (
     <View style={styles.container}>
       <View style={styles.logoWrap}>
-        <View style={styles.iconBadge}>
-          <MaterialCommunityIcons name="truck-fast" size={44} color={colors.white} />
-        </View>
-        <Text style={styles.brandTitle}>LoadBalbin</Text>
+        <LoadBalbinLogo width={200} height={60} />
+      </View>
+      <View style={styles.logoWrap}>
         <Text style={styles.tagline}>Move goods with confidence.</Text>
       </View>
 
@@ -35,7 +35,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     padding: 24,
-    backgroundColor: colors.canvas
+    backgroundColor: colors.background
   },
   logoWrap: {
     alignItems: "center",
@@ -56,13 +56,13 @@ const styles = StyleSheet.create({
     elevation: 6
   },
   brandTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 32,
     fontWeight: "800",
     letterSpacing: -0.5
   },
   tagline: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 15,
     fontWeight: "500"
   },

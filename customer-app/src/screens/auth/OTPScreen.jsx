@@ -42,7 +42,7 @@ export default function OTPScreen({ navigation, route }) {
           hitSlop={10}
           style={styles.backBtn}
         >
-          <Ionicons name="arrow-back" size={24} color={colors.navy} />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
 
         <View style={styles.iconWrap}>
@@ -62,7 +62,7 @@ export default function OTPScreen({ navigation, route }) {
             keyboardType="number-pad"
             maxLength={6}
             placeholder="1234"
-            icon={<Ionicons name="key-outline" size={18} color={colors.muted} />}
+            icon={<Ionicons name="key-outline" size={18} color={colors.textMuted} />}
           />
 
           <Notice message={error} />
@@ -106,21 +106,21 @@ const styles = StyleSheet.create({
     width: 68,
     height: 68,
     borderRadius: 20,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "center",
     marginBottom: 8
   },
   title: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 24,
     fontWeight: "800",
     textAlign: "center",
     letterSpacing: -0.4
   },
   subtitle: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 14,
     textAlign: "center",
     lineHeight: 20,

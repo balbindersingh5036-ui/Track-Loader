@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     marginBottom: 4
   },
   cardHeaderTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 15,
     fontWeight: "700"
   },
@@ -176,12 +176,12 @@ const styles = StyleSheet.create({
     gap: 10
   },
   routeRoleLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: "600"
   },
   routeAddressText: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 13,
     fontWeight: "600",
     marginTop: 1
@@ -205,12 +205,12 @@ const styles = StyleSheet.create({
     gap: 2
   },
   gridLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: "500"
   },
   gridValue: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 13,
     fontWeight: "700"
   },
@@ -221,12 +221,12 @@ const styles = StyleSheet.create({
     gap: 2
   },
   noteLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: "600"
   },
   noteText: {
-    color: colors.ink,
+    color: colors.textLight,
     fontSize: 13,
     fontStyle: "italic"
   },
@@ -239,17 +239,17 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center"
   },
   vehicleTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 15,
     fontWeight: "700"
   },
   vehicleSubtitle: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     textTransform: "capitalize",
     marginTop: 1

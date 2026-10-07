@@ -141,7 +141,7 @@ export default function BookingDetailsScreen({ route, navigation }) {
     return (
       <Screen>
         <Card style={{ padding: 24, alignItems: "center" }}>
-          <Text style={{ color: colors.navy, fontSize: 16, fontWeight: "700" }}>
+          <Text style={{ color: colors.text, fontSize: 16, fontWeight: "700" }}>
             Booking not found
           </Text>
           <Button
@@ -230,7 +230,7 @@ export default function BookingDetailsScreen({ route, navigation }) {
           </View>
         ) : (
           <View style={styles.unassignedBox}>
-            <Ionicons name="hourglass-outline" size={18} color={colors.muted} />
+            <Ionicons name="hourglass-outline" size={18} color={colors.textMuted} />
             <Text style={styles.unassignedText}>
               Driver assignment is in progress. You will be notified once a driver accepts.
             </Text>
@@ -379,12 +379,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between"
   },
   bookingId: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 17,
     fontWeight: "800"
   },
   bookingDate: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     marginTop: 2
   },
@@ -398,12 +398,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between"
   },
   fareLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 13,
     fontWeight: "500"
   },
   fareValue: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 20,
     fontWeight: "800"
   },
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
     marginBottom: 4
   },
   sectionTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 15,
     fontWeight: "700"
   },
@@ -430,12 +430,12 @@ const styles = StyleSheet.create({
     gap: 10
   },
   routeLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: "500"
   },
   routeText: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 13,
     fontWeight: "600",
     marginTop: 1
@@ -459,17 +459,17 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center"
   },
   driverName: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 14,
     fontWeight: "700"
   },
   driverPhone: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     marginTop: 1
   },
@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
   },
   unassignedText: {
     flex: 1,
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     lineHeight: 17
   },
@@ -494,11 +494,11 @@ const styles = StyleSheet.create({
     paddingVertical: 3
   },
   infoLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 13
   },
   infoValue: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 13,
     fontWeight: "600",
     textTransform: "capitalize"
@@ -515,12 +515,12 @@ const styles = StyleSheet.create({
     gap: 2
   },
   cargoLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: "500"
   },
   cargoVal: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 13,
     fontWeight: "700"
   },
@@ -531,12 +531,12 @@ const styles = StyleSheet.create({
     gap: 2
   },
   noteLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: "600"
   },
   noteVal: {
-    color: colors.ink,
+    color: colors.textLight,
     fontSize: 12,
     fontStyle: "italic"
   },

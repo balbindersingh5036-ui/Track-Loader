@@ -119,7 +119,7 @@ export default function EditProfileScreen({ route }) {
           onChangeText={setName}
           autoComplete="name"
           placeholder="e.g. Amit Sharma"
-          icon={<Ionicons name="person-outline" size={18} color={colors.muted} />}
+          icon={<Ionicons name="person-outline" size={18} color={colors.textMuted} />}
         />
 
         <Field
@@ -129,7 +129,7 @@ export default function EditProfileScreen({ route }) {
           keyboardType="email-address"
           autoCapitalize="none"
           placeholder="name@example.com"
-          icon={<Ionicons name="mail-outline" size={18} color={colors.muted} />}
+          icon={<Ionicons name="mail-outline" size={18} color={colors.textMuted} />}
         />
 
         <View style={styles.photoContainer}>
@@ -183,12 +183,12 @@ export default function EditProfileScreen({ route }) {
           secureTextEntry={!showCurrentPass}
           autoComplete="current-password"
           placeholder="Enter current password"
-          icon={<Ionicons name="lock-closed-outline" size={18} color={colors.muted} />}
+          icon={<Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} />}
           rightIcon={
             <Ionicons
               name={showCurrentPass ? "eye-off-outline" : "eye-outline"}
               size={18}
-              color={colors.muted}
+              color={colors.textMuted}
             />
           }
           onRightIconPress={() => setShowCurrentPass(!showCurrentPass)}
@@ -201,12 +201,12 @@ export default function EditProfileScreen({ route }) {
           secureTextEntry={!showNewPass}
           autoComplete="new-password"
           placeholder="Minimum 6 characters"
-          icon={<Ionicons name="key-outline" size={18} color={colors.muted} />}
+          icon={<Ionicons name="key-outline" size={18} color={colors.textMuted} />}
           rightIcon={
             <Ionicons
               name={showNewPass ? "eye-off-outline" : "eye-outline"}
               size={18}
-              color={colors.muted}
+              color={colors.textMuted}
             />
           }
           onRightIconPress={() => setShowNewPass(!showNewPass)}
@@ -226,12 +226,12 @@ export default function EditProfileScreen({ route }) {
 
 const styles = StyleSheet.create({
   cardHeaderTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 16,
     fontWeight: "700"
   },
   cardHeaderSub: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     marginTop: -4,
     marginBottom: 4
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
   },
   photoLabel: {
     fontSize: 13,
-    color: colors.inkSecondary,
+    color: colors.textMuted,
     fontWeight: "600",
     marginBottom: 8
   },
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center"
   },

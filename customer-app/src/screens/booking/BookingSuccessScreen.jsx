@@ -109,13 +109,13 @@ const styles = StyleSheet.create({
     marginBottom: 4
   },
   title: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 24,
     fontWeight: "800",
     letterSpacing: -0.4
   },
   subtitle: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 14,
     textAlign: "center",
     maxWidth: 300,
@@ -131,12 +131,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between"
   },
   bookingIdLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: "500"
   },
   bookingIdValue: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 17,
     fontWeight: "800",
     marginTop: 2
@@ -151,17 +151,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between"
   },
   infoLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 13
   },
   infoValue: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 14,
     fontWeight: "600",
     textTransform: "capitalize"
   },
   infoFare: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 18,
     fontWeight: "800"
   },
@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   },
   routeText: {
     flex: 1,
-    color: colors.ink,
+    color: colors.textLight,
     fontSize: 12,
     fontWeight: "500"
   },
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
     paddingTop: 8
   },
   paymentLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12
   },
   paymentVal: {
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
   errorTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 16,
     fontWeight: "700"
   }

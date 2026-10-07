@@ -146,7 +146,7 @@ export default function ProfileScreen({ navigation }) {
             <Ionicons name="person-outline" size={18} color={colors.primary} />
           </View>
           <Text style={styles.menuTitle}>Edit Profile & Password</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         </Pressable>
 
         <View style={styles.divider} />
@@ -159,7 +159,7 @@ export default function ProfileScreen({ navigation }) {
             <Ionicons name="headset-outline" size={18} color={colors.primary} />
           </View>
           <Text style={styles.menuTitle}>Support & Complaints</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         </Pressable>
 
         <View style={styles.divider} />
@@ -172,7 +172,7 @@ export default function ProfileScreen({ navigation }) {
             <Ionicons name="settings-outline" size={18} color={colors.primary} />
           </View>
           <Text style={styles.menuTitle}>Settings & Privacy</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
         </Pressable>
       </Card>
 
@@ -206,23 +206,23 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center"
   },
   userName: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 17,
     fontWeight: "800"
   },
   userPhone: {
-    color: colors.inkSecondary,
+    color: colors.textMuted,
     fontSize: 13,
     fontWeight: "500",
     marginTop: 2
   },
   userEmail: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     marginTop: 1
   },
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     justifyContent: "center"
   },
   cardHeaderTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 15,
     fontWeight: "700",
     marginBottom: 4
@@ -255,12 +255,12 @@ const styles = StyleSheet.create({
     gap: 2
   },
   statNumber: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 18,
     fontWeight: "800"
   },
   statLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: "600"
   },
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
   },
   menuTitle: {
     flex: 1,
-    color: colors.navy,
+    color: colors.text,
     fontSize: 14,
     fontWeight: "700"
   },

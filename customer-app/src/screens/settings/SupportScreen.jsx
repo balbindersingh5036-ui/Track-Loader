@@ -127,7 +127,7 @@ export default function SupportScreen({ route }) {
           value={bookingId}
           onChangeText={setBookingId}
           placeholder="e.g. BK-12345"
-          icon={<Ionicons name="barcode-outline" size={18} color={colors.muted} />}
+          icon={<Ionicons name="barcode-outline" size={18} color={colors.textMuted} />}
         />
 
         <Field
@@ -135,7 +135,7 @@ export default function SupportScreen({ route }) {
           value={subject}
           onChangeText={setSubject}
           placeholder="Brief summary of the issue"
-          icon={<Ionicons name="alert-circle-outline" size={18} color={colors.muted} />}
+          icon={<Ionicons name="alert-circle-outline" size={18} color={colors.textMuted} />}
         />
 
         <Field
@@ -144,7 +144,7 @@ export default function SupportScreen({ route }) {
           onChangeText={setDescription}
           multiline
           placeholder="Describe what happened with as much detail as possible..."
-          icon={<Ionicons name="document-text-outline" size={18} color={colors.muted} />}
+          icon={<Ionicons name="document-text-outline" size={18} color={colors.textMuted} />}
         />
 
         {error ? <Notice message={error} /> : null}
@@ -218,12 +218,12 @@ export default function SupportScreen({ route }) {
 
 const styles = StyleSheet.create({
   cardHeaderTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 16,
     fontWeight: "700"
   },
   cardHeaderSub: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     marginTop: -4,
     marginBottom: 4
@@ -243,12 +243,12 @@ const styles = StyleSheet.create({
     gap: 10
   },
   contactLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: "500"
   },
   contactVal: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 12,
     fontWeight: "700"
   },
@@ -271,12 +271,12 @@ const styles = StyleSheet.create({
   },
   complaintSubject: {
     flex: 1,
-    color: colors.navy,
+    color: colors.text,
     fontSize: 14,
     fontWeight: "700"
   },
   complaintDesc: {
-    color: colors.inkSecondary,
+    color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18
   },
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     marginTop: 2
   },
   complaintDate: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11
   },
   viewDetailsLink: {

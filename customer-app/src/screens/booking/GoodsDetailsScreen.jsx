@@ -84,7 +84,7 @@ export default function GoodsDetailsScreen({ route, navigation }) {
           value={goods}
           onChangeText={setGoods}
           placeholder="e.g. Commercial cartons, furniture, metal pipes"
-          icon={<Ionicons name="cube-outline" size={18} color={colors.muted} />}
+          icon={<Ionicons name="cube-outline" size={18} color={colors.textMuted} />}
         />
 
         <View style={styles.weightRow}>
@@ -95,7 +95,7 @@ export default function GoodsDetailsScreen({ route, navigation }) {
             onChangeText={setWeightValue}
             keyboardType="decimal-pad"
             placeholder="e.g. 500"
-            icon={<Ionicons name="speedometer-outline" size={18} color={colors.muted} />}
+            icon={<Ionicons name="speedometer-outline" size={18} color={colors.textMuted} />}
           />
 
           <View style={styles.unitSelector}>
@@ -132,7 +132,7 @@ export default function GoodsDetailsScreen({ route, navigation }) {
             value={preferredPickupDate}
             onChangeText={setPreferredPickupDate}
             placeholder="YYYY-MM-DD"
-            icon={<Ionicons name="calendar-outline" size={18} color={colors.muted} />}
+            icon={<Ionicons name="calendar-outline" size={18} color={colors.textMuted} />}
           />
 
           <Field
@@ -141,7 +141,7 @@ export default function GoodsDetailsScreen({ route, navigation }) {
             value={preferredPickupTime}
             onChangeText={setPreferredPickupTime}
             placeholder="HH:MM (24h)"
-            icon={<Ionicons name="time-outline" size={18} color={colors.muted} />}
+            icon={<Ionicons name="time-outline" size={18} color={colors.textMuted} />}
           />
         </View>
 
@@ -151,7 +151,7 @@ export default function GoodsDetailsScreen({ route, navigation }) {
           onChangeText={setCustomerNote}
           multiline
           placeholder="e.g. Loading dock at gate 3, handle with care"
-          icon={<Ionicons name="document-text-outline" size={18} color={colors.muted} />}
+          icon={<Ionicons name="document-text-outline" size={18} color={colors.textMuted} />}
         />
       </Card>
 
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary
   },
   stepNum: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: "700"
   },
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   stepLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: "600",
     marginLeft: 4
@@ -233,7 +233,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary
   },
   cardSectionTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 15,
     fontWeight: "700",
     marginBottom: 2
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     paddingBottom: 2
   },
   unitLabel: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 13,
     fontWeight: "600"
   },
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary
   },
   unitPillText: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: "700"
   },

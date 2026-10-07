@@ -63,7 +63,7 @@ export default function VehicleDetailsScreen({ route, navigation }) {
               <MaterialCommunityIcons
                 name="truck-outline"
                 size={54}
-                color={colors.mutedLight}
+                color={colors.textLight}
               />
             </View>
           )}
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceAlt
   },
   cardHeaderTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 16,
     fontWeight: "700",
     marginBottom: 4
@@ -238,12 +238,12 @@ const styles = StyleSheet.create({
     gap: 8
   },
   specLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 13,
     fontWeight: "500"
   },
   specValue: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 14,
     fontWeight: "600",
     textTransform: "capitalize"
@@ -288,22 +288,22 @@ const styles = StyleSheet.create({
     gap: 2
   },
   fareLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: "600"
   },
   fareNumber: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 16,
     fontWeight: "800"
   },
   fareNotice: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 13,
     fontStyle: "italic"
   },
   fareFooterNote: {
-    color: colors.mutedLight,
+    color: colors.textLight,
     fontSize: 11,
     lineHeight: 16,
     marginTop: 2

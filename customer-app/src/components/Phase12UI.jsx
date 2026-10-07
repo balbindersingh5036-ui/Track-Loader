@@ -231,7 +231,7 @@ export const Empty = ({
 }) => (
   <Card style={[styles.emptyCard, style]}>
     <View style={styles.emptyIconWrap}>
-      <Ionicons name={icon} size={36} color={colors.muted} />
+      <Ionicons name={icon} size={36} color={colors.textMuted} />
     </View>
     <Text style={styles.emptyTitle}>{title}</Text>
     {detail ? <Text style={styles.emptyDetail}>{detail}</Text> : null}
@@ -275,7 +275,7 @@ export const AppHeader = ({ title, subtitle, right, onBack, showBack = false }) 
     <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
       {showBack ? (
         <Pressable onPress={onBack} hitSlop={10} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={22} color={colors.navy} />
+          <Ionicons name="arrow-back" size={22} color={colors.text} />
         </Pressable>
       ) : null}
       <View style={{ flex: 1 }}>
@@ -290,7 +290,7 @@ export const AppHeader = ({ title, subtitle, right, onBack, showBack = false }) 
 export const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.canvas
+    backgroundColor: colors.background
   },
   content: {
     padding: 16,
@@ -305,13 +305,13 @@ export const styles = StyleSheet.create({
     gap: 12
   },
   title: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 24,
     fontWeight: "800",
     letterSpacing: -0.4
   },
   subtitle: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
     marginTop: 2
@@ -324,13 +324,13 @@ export const styles = StyleSheet.create({
     marginBottom: 2
   },
   sectionTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 17,
     fontWeight: "700",
     letterSpacing: -0.2
   },
   sectionSubtitle: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 13,
     marginTop: 1
   },
@@ -347,12 +347,12 @@ export const styles = StyleSheet.create({
     transform: [{ scale: 0.995 }]
   },
   cardTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 16,
     fontWeight: "700"
   },
   muted: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 20
   },
@@ -401,7 +401,7 @@ export const styles = StyleSheet.create({
     gap: 6
   },
   label: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 13,
     fontWeight: "600"
   },
@@ -422,7 +422,7 @@ export const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    color: colors.ink,
+    color: colors.textLight,
     fontSize: 15,
     paddingVertical: 8
   },
@@ -440,7 +440,7 @@ export const styles = StyleSheet.create({
     padding: 4
   },
   fieldHelper: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12
   },
   fieldErrorText: {
@@ -498,7 +498,7 @@ export const styles = StyleSheet.create({
     padding: 24
   },
   loadingText: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: "500"
   },
@@ -520,13 +520,13 @@ export const styles = StyleSheet.create({
     marginBottom: 4
   },
   emptyTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 16,
     fontWeight: "700",
     textAlign: "center"
   },
   emptyDetail: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 13,
     textAlign: "center",
     lineHeight: 18,
@@ -570,7 +570,7 @@ export const styles = StyleSheet.create({
     borderColor: colors.line
   },
   statusTextNeutral: {
-    color: colors.muted
+    color: colors.textMuted
   },
   row: {
     flexDirection: "row",
@@ -594,12 +594,12 @@ export const styles = StyleSheet.create({
     borderBottomColor: colors.line
   },
   appHeaderTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 17,
     fontWeight: "700"
   },
   appHeaderSubtitle: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     marginTop: 1
   },

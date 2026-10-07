@@ -205,7 +205,7 @@ const styles = StyleSheet.create({
   },
   selectedCard: {
     borderColor: colors.primary,
-    backgroundColor: colors.primaryLight
+    backgroundColor: colors.surfaceAlt
   },
   radioRow: {
     flexDirection: "row",
@@ -227,12 +227,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceAlt
   },
   optionTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 15,
     fontWeight: "700"
   },
   optionSubtitle: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     marginTop: 2,
     textTransform: "capitalize"
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     borderWidth: 2,
-    borderColor: colors.mutedLight,
+    borderColor: colors.textLight,
     alignItems: "center",
     justifyContent: "center"
   },

@@ -139,12 +139,12 @@ const styles = StyleSheet.create({
     justifyContent: "center"
   },
   brandTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 16,
     fontWeight: "800"
   },
   invoiceSub: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: "500"
   },
@@ -161,12 +161,12 @@ const styles = StyleSheet.create({
     gap: 2
   },
   metaLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: "500"
   },
   metaValue: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 14,
     fontWeight: "700"
   },
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     gap: 6
   },
   sectionLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: "700",
     textTransform: "uppercase",
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
   },
   routeVal: {
     flex: 1,
-    color: colors.navy,
+    color: colors.text,
     fontSize: 12,
     fontWeight: "600"
   },
@@ -201,11 +201,11 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
   specKey: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12
   },
   specVal: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 12,
     fontWeight: "600",
     textTransform: "capitalize"
@@ -219,17 +219,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between"
   },
   fareLabel: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 14,
     fontWeight: "700"
   },
   fareTotal: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 22,
     fontWeight: "800"
   },
   paymentStatusLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12
   },
   paymentStatusVal: {
@@ -238,7 +238,7 @@ const styles = StyleSheet.create({
     fontWeight: "800"
   },
   disclaimer: {
-    color: colors.mutedLight,
+    color: colors.textLight,
     fontSize: 11,
     textAlign: "center",
     lineHeight: 16,

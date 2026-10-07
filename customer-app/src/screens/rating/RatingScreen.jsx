@@ -61,7 +61,7 @@ export default function RatingScreen({ navigation, route }) {
                 <Ionicons
                   name={isFilled ? "star" : "star-outline"}
                   size={36}
-                  color={isFilled ? "#F59E0B" : colors.mutedLight}
+                  color={isFilled ? "#F59E0B" : colors.textLight}
                 />
               </Pressable>
             );
@@ -78,7 +78,7 @@ export default function RatingScreen({ navigation, route }) {
           onChangeText={setFeedback}
           multiline
           placeholder="e.g. Prompt arrival, polite driver, careful handling of cargo..."
-          icon={<Ionicons name="chatbox-ellipses-outline" size={18} color={colors.muted} />}
+          icon={<Ionicons name="chatbox-ellipses-outline" size={18} color={colors.textMuted} />}
         />
 
         <Notice message={error} />
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     alignItems: "stretch"
   },
   cardHeaderTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 16,
     fontWeight: "700",
     textAlign: "center"

@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
   },
   categoryCardSelected: {
     borderColor: colors.primary,
-    backgroundColor: colors.primaryLight
+    backgroundColor: colors.surfaceAlt
   },
   cardHeader: {
     flexDirection: "row",
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center"
   },
@@ -161,18 +161,18 @@ const styles = StyleSheet.create({
     gap: 8
   },
   cardTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 16,
     fontWeight: "700"
   },
   idealText: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: "500",
     marginTop: 2
   },
   descText: {
-    color: colors.inkSecondary,
+    color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18
   },

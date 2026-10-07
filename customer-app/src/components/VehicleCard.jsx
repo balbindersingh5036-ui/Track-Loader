@@ -12,9 +12,9 @@ export default function VehicleCard({ vehicle, onPress }) {
           <Image source={{ uri: vehicle.vehicleImage }} style={{ width: 84, height: 64, borderRadius: 10 }} resizeMode="cover" />
         ) : null}
         <View style={{ flex: 1, gap: 4 }}>
-          <Text style={{ color: colors.ink, fontSize: 16, fontWeight: "700" }}>{vehicle.vehicleModel || "Vehicle"}</Text>
-          <Text style={{ color: colors.muted }}>{vehicle.vehicleType ? vehicle.vehicleType.replace(/-/g, " ") : "Unknown type"}</Text>
-          <Text style={{ color: colors.muted }}>
+          <Text style={{ color: colors.textLight, fontSize: 16, fontWeight: "700" }}>{vehicle.vehicleModel || "Vehicle"}</Text>
+          <Text style={{ color: colors.textMuted }}>{vehicle.vehicleType ? vehicle.vehicleType.replace(/-/g, " ") : "Unknown type"}</Text>
+          <Text style={{ color: colors.textMuted }}>
             {vehicle.loadCapacity?.value || vehicle.capacity || "—"} {vehicle.loadCapacity?.unit || "units"}
           </Text>
         </View>

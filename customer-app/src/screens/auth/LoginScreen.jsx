@@ -11,6 +11,7 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import authService from "../../services/authService";
 import { Button, Field, Notice, Screen } from "../../components/Phase12UI";
 import { colors } from "../../theme/theme";
+import LoadBalbinLogo from "../../components/LoadBalbinLogo";
 import { useAuth } from "../../store/AuthContext";
 import { getErrorMessage } from "../../utils/errorMessage";
 
@@ -51,10 +52,7 @@ export default function LoginScreen({ navigation }) {
       >
         <View style={styles.header}>
           <View style={styles.logoRow}>
-            <View style={styles.logoBadge}>
-              <MaterialCommunityIcons name="truck-fast" size={24} color={colors.white} />
-            </View>
-            <Text style={styles.brandName}>LoadBalbin</Text>
+            <LoadBalbinLogo width={160} height={45} />
           </View>
           <Text style={styles.title}>Welcome back</Text>
           <Text style={styles.subtitle}>
@@ -70,7 +68,7 @@ export default function LoginScreen({ navigation }) {
             keyboardType="phone-pad"
             autoComplete="tel"
             placeholder="e.g. 9001000001"
-            icon={<Ionicons name="call-outline" size={18} color={colors.muted} />}
+            icon={<Ionicons name="call-outline" size={18} color={colors.textMuted} />}
           />
 
           <Field
@@ -80,12 +78,12 @@ export default function LoginScreen({ navigation }) {
             secureTextEntry={!showPassword}
             autoComplete="current-password"
             placeholder="Enter your password"
-            icon={<Ionicons name="lock-closed-outline" size={18} color={colors.muted} />}
+            icon={<Ionicons name="lock-closed-outline" size={18} color={colors.textMuted} />}
             rightIcon={
               <Ionicons
                 name={showPassword ? "eye-off-outline" : "eye-outline"}
                 size={18}
-                color={colors.muted}
+                color={colors.textMuted}
               />
             }
             onRightIconPress={() => setShowPassword(!showPassword)}
@@ -146,19 +144,19 @@ const styles = StyleSheet.create({
     justifyContent: "center"
   },
   brandName: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 22,
     fontWeight: "800",
     letterSpacing: -0.4
   },
   title: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 26,
     fontWeight: "800",
     letterSpacing: -0.5
   },
   subtitle: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 14,
     textAlign: "center",
     lineHeight: 20
@@ -184,7 +182,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8
   },
   footerText: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 14
   },
   registerLink: {

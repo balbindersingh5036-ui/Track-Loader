@@ -18,7 +18,7 @@ export default function BottomNavigator() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.muted,
+        tabBarInactiveTintColor: colors.textLight,
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.line,

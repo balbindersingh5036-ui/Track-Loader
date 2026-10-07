@@ -30,7 +30,7 @@ export default function SettingsScreen({ navigation }) {
               <Text style={styles.menuTitle}>Edit Profile</Text>
               <Text style={styles.menuSub}>Update name, email, and password</Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
           </Pressable>
 
           <View style={styles.divider} />
@@ -46,7 +46,7 @@ export default function SettingsScreen({ navigation }) {
               <Text style={styles.menuTitle}>Notification Center</Text>
               <Text style={styles.menuSub}>View updates and alerts</Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
           </Pressable>
         </Card>
       </View>
@@ -66,7 +66,7 @@ export default function SettingsScreen({ navigation }) {
               <Text style={styles.menuTitle}>Support & Complaints</Text>
               <Text style={styles.menuSub}>Help desk and dispute resolution</Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+            <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
           </Pressable>
 
           <View style={styles.divider} />
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     gap: 8
   },
   sectionLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",
@@ -135,12 +135,12 @@ const styles = StyleSheet.create({
     marginTop: 1
   },
   menuTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 14,
     fontWeight: "700"
   },
   menuSub: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     marginTop: 1,
     lineHeight: 16

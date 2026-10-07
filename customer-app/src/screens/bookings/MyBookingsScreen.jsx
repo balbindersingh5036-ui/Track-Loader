@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary
   },
   filterChipText: {
-    color: colors.inkSecondary,
+    color: colors.textMuted,
     fontSize: 13,
     fontWeight: "600"
   },
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.25)"
   },
   countText: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 10,
     fontWeight: "700"
   },
@@ -267,12 +267,12 @@ const styles = StyleSheet.create({
     justifyContent: "space-between"
   },
   bookingId: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 15,
     fontWeight: "800"
   },
   vehicleType: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     textTransform: "capitalize",
     marginTop: 1
@@ -296,7 +296,7 @@ const styles = StyleSheet.create({
   },
   routeText: {
     flex: 1,
-    color: colors.ink,
+    color: colors.textLight,
     fontSize: 12,
     fontWeight: "500"
   },
@@ -309,11 +309,11 @@ const styles = StyleSheet.create({
     paddingTop: 10
   },
   fareLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11
   },
   fareValue: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 15,
     fontWeight: "800"
   },

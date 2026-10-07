@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
     flexDirection: "row"
   },
   vehiclePill: {
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.surfaceAlt,
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 6
@@ -82,12 +82,12 @@ const styles = StyleSheet.create({
     textTransform: "capitalize"
   },
   fareTitle: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 13,
     fontWeight: "600"
   },
   fareAmount: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 34,
     fontWeight: "800",
     letterSpacing: -0.5
@@ -109,12 +109,12 @@ const styles = StyleSheet.create({
     gap: 4
   },
   detailLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: "500"
   },
   detailValue: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 14,
     fontWeight: "700"
   },

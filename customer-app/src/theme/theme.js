@@ -1,44 +1,31 @@
 export const colors = {
   // Brand Colors
   primary: "#08A9F5",     // Primary Blue
-  secondary: "#14B8A6",   // Secondary Teal
-  accent: "#FF7A00",      // Accent Orange
+  primaryBright: "#19B5FF", // Bright Blue
+  secondary: "#14B8A6",   // Teal
+  accent: "#FF7A00",      // Primary Orange
+  accentHover: "#E96800", // Orange Hover/Pressed
   
   // Backgrounds & Surfaces
-  background: "#08111F",  // Deep navy/black background
-  surface: "#111D2B",     // Professional rounded cards
-  surfaceAlt: "#162536",  
+  background: "#08111F",  // Background
+  surface: "#0F1B29",     // Primary Surface
+  surfaceAlt: "#142334",  // Secondary Surface
   
   // Text
-  text: "#FFFFFF",        // White headings/primary text
-  textMuted: "#AAB4C0",   // Light gray secondary text
-  textLight: "#E5E7EB",
+  text: "#FFFFFF",        // Primary Text
+  textMuted: "#B8C4D1",   // Secondary Text
+  textLight: "#8A98A8",   // Muted Text
+  textHighlight: "#FFB866", // Price highlight
 
   // Borders & Lines
-  line: "#2A3746",
-  lineLight: "#374151",
+  line: "#25364A",        // Card Border
+  lineLight: "#25364A",
   lineFocus: "#08A9F5",
 
   // Status & Feedback Colors
-  success: "#10B981",
-  successBg: "#ECFDF5",
-  successBorder: "#A7F3D0",
-  successText: "#065F46",
-
-  warning: "#D97706",
-  warningBg: "#FFFBEB",
-  warningBorder: "#FDE68A",
-  warningText: "#92400E",
-
+  success: "#22C55E",
+  warning: "#F59E0B",
   danger: "#EF4444",
-  dangerBg: "#FEF2F2",
-  dangerBorder: "#FECACA",
-  dangerText: "#991B1B",
-
-  info: "#0284C7",
-  infoBg: "#F0F9FF",
-  infoBorder: "#BAE6FD",
-  infoText: "#075985",
 
   white: "#FFFFFF",
   black: "#000000"

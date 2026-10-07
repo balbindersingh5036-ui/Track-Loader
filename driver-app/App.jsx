@@ -17,6 +17,7 @@ import earningsService from './src/services/earningsService';
 import notificationService from './src/services/notificationService';
 import { connectSocket, disconnectSocket, joinBookingRoom, subscribeToSocketEvents } from './src/services/socketService';
 import { getToken, removeToken, saveToken } from './src/utils/authStorage';
+import LoadBalbinLogo from './src/components/LoadBalbinLogo';
 
 const tabs = ['Requests', 'Trips', 'Earnings', 'Alerts', 'Profile'];
 const colors = { 
@@ -78,7 +79,8 @@ function Login({ onLogin, onRetry, initialError }) {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', padding: 24 }}>
       <View style={{ backgroundColor: colors.surface, padding: 22, borderRadius: 16, gap: 14 }}>
-        <Text style={{ fontSize: 28, fontWeight: '800', color: colors.ink }}>Driver sign in</Text>
+        <LoadBalbinLogo width={180} height={50} style={{ alignSelf: 'center', marginBottom: 16 }} />
+        <Text style={{ fontSize: 24, fontWeight: '800', color: colors.ink }}>Driver sign in</Text>
         <Text style={{ color: colors.muted }}>Use the phone number registered with your driver account.</Text>
         <TextInput
           accessibilityLabel="Phone number"
@@ -308,9 +310,11 @@ export default function App() {
   const bookings = activeTab === 'Requests' ? requests : trips;
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
-      <View style={{ backgroundColor: colors.surface, padding: 16, borderBottomWidth: 1, borderColor: colors.border }}>
-        <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>LoadBalbin Driver</Text>
-        <Text style={{ color: colors.muted, marginTop: 3 }}>{user.name || user.phone}</Text>
+      <View style={{ backgroundColor: colors.surface, padding: 16, borderBottomWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <View>
+          <LoadBalbinLogo width={130} height={35} style={{ alignSelf: 'flex-start' }} />
+          <Text style={{ color: colors.muted, marginTop: 6 }}>{user.name || user.phone}</Text>
+        </View>
       </View>
       <View style={{ flexDirection: 'row', backgroundColor: colors.surface, paddingHorizontal: 8, borderBottomWidth: 1, borderColor: colors.border }}>
         {tabs.map((tab) => (

@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary
   },
   stepNum: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: "700"
   },
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   stepLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: "600",
     marginLeft: 4
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center"
   },
@@ -191,7 +191,7 @@ const styles = StyleSheet.create({
     justifyContent: "center"
   },
   fieldLabel: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 14,
     fontWeight: "700"
   },
@@ -204,6 +204,6 @@ const styles = StyleSheet.create({
     height: 16,
     borderStyle: "dashed",
     borderWidth: 1,
-    borderColor: colors.mutedLight
+    borderColor: colors.textLight
   }
 });

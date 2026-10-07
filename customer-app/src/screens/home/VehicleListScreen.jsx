@@ -213,7 +213,7 @@ export default function VehicleListScreen({ navigation, route }) {
                   <MaterialCommunityIcons
                     name="truck-outline"
                     size={36}
-                    color={colors.mutedLight}
+                    color={colors.textLight}
                   />
                 </View>
               )}
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary
   },
   chipText: {
-    color: colors.inkSecondary,
+    color: colors.textMuted,
     fontSize: 13,
     fontWeight: "600"
   },
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     gap: 12
   },
   filterPanelTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 14,
     fontWeight: "700"
   },
@@ -372,12 +372,12 @@ const styles = StyleSheet.create({
     gap: 8
   },
   modelName: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 16,
     fontWeight: "700"
   },
   typeLabel: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     textTransform: "capitalize",
     marginTop: 1
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8
   },
   specVal: {
-    color: colors.ink,
+    color: colors.textLight,
     fontSize: 12,
     fontWeight: "500"
   },

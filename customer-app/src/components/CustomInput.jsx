@@ -5,7 +5,7 @@ import { colors } from "./Phase12UI";
 export default function CustomInput({ label, value, onChangeText, placeholder, secureTextEntry, keyboardType, style, ...props }) {
   return (
     <View style={[{ gap: 6, marginBottom: 12 }, style]}>
-      {label ? <Text style={{ color: colors.ink, fontWeight: "600", fontSize: 14 }}>{label}</Text> : null}
+      {label ? <Text style={{ color: colors.textLight, fontWeight: "600", fontSize: 14 }}>{label}</Text> : null}
       <TextInput
         value={value}
         onChangeText={onChangeText}
@@ -20,7 +20,7 @@ export default function CustomInput({ label, value, onChangeText, placeholder, s
           borderColor: colors.line,
           backgroundColor: "#FFFFFF",
           paddingHorizontal: 12,
-          color: colors.ink,
+          color: colors.textLight,
           fontSize: 15
         }}
         {...props}

@@ -125,13 +125,11 @@ export default function HomeScreen({ navigation }) {
       {/* HEADER BAR */}
       <View style={styles.header}>
         <View style={styles.brandRow}>
-          <View style={styles.logoBadge}>
-            <MaterialCommunityIcons name="truck-fast" size={22} color={colors.white} />
-          </View>
-          <View>
-            <Text style={styles.brandTitle}>LoadBalbin</Text>
-            <Text style={styles.brandTagline}>Goods Logistics</Text>
-          </View>
+          <Image 
+            source={require("../../../assets/logo.png")} 
+            style={{ width: 140, height: 40 }} 
+            resizeMode="contain" 
+          />
         </View>
 
         <View style={styles.headerActions}>
@@ -140,7 +138,7 @@ export default function HomeScreen({ navigation }) {
             onPress={() => navigation.navigate("Notifications")}
             hitSlop={8}
           >
-            <Ionicons name="notifications-outline" size={22} color={colors.navy} />
+            <Ionicons name="notifications-outline" size={22} color={colors.text} />
             {unreadCount > 0 ? (
               <View style={styles.unreadBadge}>
                 <Text style={styles.unreadCount}>
@@ -283,7 +281,7 @@ export default function HomeScreen({ navigation }) {
           </Pressable>
         ) : (
           <View style={styles.emptyActiveBooking}>
-            <Ionicons name="clipboard-outline" size={24} color={colors.mutedLight} />
+            <Ionicons name="clipboard-outline" size={24} color={colors.textLight} />
             <Text style={styles.emptyActiveText}>No active bookings at the moment</Text>
           </View>
         )}
@@ -369,13 +367,15 @@ export default function HomeScreen({ navigation }) {
                       <Ionicons name="speedometer-outline" size={14} color={colors.textMuted} />
                       <Text style={{ color: colors.textMuted, fontSize: 13 }}>{vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit}</Text>
                     </View>
-                    <Text style={{ color: colors.accent, fontSize: 14, fontWeight: "700" }}>₹{vehicle.baseFare || "Est."}</Text>
+                    <Text style={{ color: colors.textHighlight, fontSize: 14, fontWeight: "700" }}>₹{vehicle.baseFare || "Est."}</Text>
                   </View>
                   
                   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
-                    <Text style={{ color: vehicle.isAvailable ? colors.success : colors.danger, fontSize: 12, fontWeight: "700" }}>
-                      {vehicle.isAvailable ? "Available" : "Busy"}
-                    </Text>
+                    <View style={{ backgroundColor: vehicle.isAvailable ? colors.secondary : colors.surfaceAlt, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
+                      <Text style={{ color: vehicle.isAvailable ? colors.background : colors.textMuted, fontSize: 11, fontWeight: "800", textTransform: "uppercase" }}>
+                        {vehicle.isAvailable ? "Available" : "Busy"}
+                      </Text>
+                    </View>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                       <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "700" }}>View Details</Text>
                       <Ionicons name="arrow-forward" size={14} color={colors.primary} />
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3
   },
   brandTagline: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: "500",
     marginTop: -1
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4
   },
   greetingSubtitle: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 14,
     fontWeight: "500"
   },
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 2
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3
   },
   heroSubtitle: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
     marginTop: 3
@@ -608,7 +608,7 @@ const styles = StyleSheet.create({
     fontWeight: "800"
   },
   activeBookingVehicle: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     textTransform: "capitalize",
     marginTop: 1
@@ -671,7 +671,7 @@ const styles = StyleSheet.create({
     gap: 12
   },
   emptyActiveText: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 13,
     fontWeight: "500"
   },
@@ -692,7 +692,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 12,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 4
@@ -704,7 +704,7 @@ const styles = StyleSheet.create({
     textTransform: "capitalize"
   },
   typeCardDesc: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 11,
     lineHeight: 15,
     minHeight: 30
@@ -782,7 +782,7 @@ const styles = StyleSheet.create({
     color: colors.warningText
   },
   vehicleTypeTag: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     textTransform: "capitalize"
   },
@@ -798,7 +798,7 @@ const styles = StyleSheet.create({
     gap: 5
   },
   specText: {
-    color: colors.inkSecondary,
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: "500"
   },
@@ -827,12 +827,12 @@ const styles = StyleSheet.create({
     gap: 8
   },
   emptyVehiclesTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 15,
     fontWeight: "700"
   },
   emptyVehiclesDesc: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 13,
     textAlign: "center"
   },
@@ -850,17 +850,17 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: colors.primaryLight,
+    backgroundColor: colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center"
   },
   supportTitle: {
-    color: colors.navy,
+    color: colors.text,
     fontSize: 15,
     fontWeight: "700"
   },
   supportDesc: {
-    color: colors.muted,
+    color: colors.textMuted,
     fontSize: 12,
     marginTop: 2
   },
