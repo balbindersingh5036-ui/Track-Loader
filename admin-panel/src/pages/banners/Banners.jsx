@@ -8,6 +8,7 @@ export default function Banners() {
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentBanner, setCurrentBanner] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
   
   const [formData, setFormData] = useState({
     title: '', subtitle: '', ctaText: '', ctaAction: '',
@@ -71,6 +72,8 @@ export default function Banners() {
 
   const saveBanner = async (e) => {
     e.preventDefault();
+    if (isSaving) return;
+    setIsSaving(true);
     try {
       let imageUrl = imagePreview;
       
@@ -79,11 +82,12 @@ export default function Banners() {
         const formData = new FormData();
         formData.append('image', imageFile);
         const uploadRes = await api.post('/uploads/image', formData);
-        imageUrl = uploadRes.data.url;
+        imageUrl = uploadRes.data.imageUrl; // FIXED: was uploadRes.data.url
       }
 
-      if (!imageUrl) {
+      if (!imageUrl || imageUrl.startsWith('data:')) {
         alert('Image is required');
+        setIsSaving(false);
         return;
       }
 
@@ -103,6 +107,8 @@ export default function Banners() {
       load();
     } catch (err) {
       alert(err.response?.data?.message || 'Error saving banner');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -243,8 +249,10 @@ export default function Banners() {
               </label>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
-                <button type="button" className="btn" onClick={() => setIsModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn" style={{ background: 'var(--primary)' }}>Save Banner</button>
+                <button type="button" className="btn" onClick={() => setIsModalOpen(false)} disabled={isSaving}>Cancel</button>
+                <button type="submit" className="btn" style={{ background: 'var(--primary)' }} disabled={isSaving}>
+                  {isSaving ? 'Saving...' : 'Save Banner'}
+                </button>
               </div>
             </form>
           </div>
