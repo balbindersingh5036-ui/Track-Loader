@@ -126,7 +126,7 @@ export default function HomeScreen({ navigation }) {
       {/* HEADER BAR */}
       <View style={styles.header}>
         <View style={styles.brandRow}>
-          <LoadBalbinLogo width={120} height={40} />
+          <LoadBalbinLogo />
         </View>
 
         <View style={styles.headerActions}>
@@ -210,7 +210,7 @@ export default function HomeScreen({ navigation }) {
               disabled={isBookingDisabled}
               onPress={() => navigation.navigate("BookingLocation")}
             >
-              <Ionicons name="search" size={18} color={colors.white} />
+              <Ionicons name="search" size={18} color="#FFFFFF" />
               <Text style={styles.primaryCtaText}>Find a Truck</Text>
             </Pressable>
 
@@ -417,16 +417,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    minHeight: 65,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.line
   },
   brandRow: {
+    flex: 1,
     flexDirection: "row",
-    alignItems: "center",
-    gap: 10
+    alignItems: "flex-start",
+    justifyContent: "center",
   },
   logoBadge: {
     width: 38,
@@ -549,7 +551,7 @@ const styles = StyleSheet.create({
     minHeight: 50
   },
   primaryCtaText: {
-    color: colors.white,
+    color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "700"
   },
@@ -566,7 +568,7 @@ const styles = StyleSheet.create({
     minHeight: 50
   },
   secondaryCtaText: {
-    color: colors.white,
+    color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "700"
   },
