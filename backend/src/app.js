@@ -28,6 +28,7 @@ import fareRoutes from "./routes/fareRoutes.js";
 import adminFareRoutes from "./routes/adminFareRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
 import bannerRoutes from "./routes/bannerRoutes.js";
+import smokeTestRoutes from "./routes/smokeTest.js";
 import { checkMaintenanceMode } from "./middleware/maintenanceMiddleware.js";
 import {
   notFound,
@@ -94,6 +95,7 @@ app.use("/api/fares", fareRoutes);
 app.use("/api/admin/fares", adminFareRoutes);
 app.use("/api/uploads", uploadRoutes);
 app.use("/api/banners", bannerRoutes);
+app.use("/api/smoke-test", smokeTestRoutes);
 app.use(notFound);
 app.use(errorHandler);
 
