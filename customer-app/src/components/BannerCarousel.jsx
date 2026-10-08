@@ -10,8 +10,8 @@ import {
   ActivityIndicator
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import api from "../../services/api";
-import colors from "../../constants/colors";
+import api from "../services/api";
+import colors from "../constants/colors";
 
 const { width } = Dimensions.get("window");
 
