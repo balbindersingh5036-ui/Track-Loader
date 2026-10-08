@@ -11,7 +11,7 @@ export default function Banners() {
   
   const [formData, setFormData] = useState({
     title: '', subtitle: '', ctaText: '', ctaAction: '',
-    targetAudience: 'all', serviceType: 'all', sortOrder: 0,
+    targetAudience: 'all', sortOrder: 0,
     isActive: true, startDate: '', endDate: ''
   });
   const [imageFile, setImageFile] = useState(null);
@@ -41,7 +41,6 @@ export default function Banners() {
         title: banner.title || '', subtitle: banner.subtitle || '',
         ctaText: banner.ctaText || '', ctaAction: banner.ctaAction || '',
         targetAudience: banner.targetAudience || 'all',
-        serviceType: banner.serviceType || 'all',
         sortOrder: banner.sortOrder || 0,
         isActive: banner.isActive ?? true,
         startDate: banner.startDate ? new Date(banner.startDate).toISOString().slice(0, 16) : '',
@@ -51,7 +50,7 @@ export default function Banners() {
     } else {
       setFormData({
         title: '', subtitle: '', ctaText: '', ctaAction: '',
-        targetAudience: 'all', serviceType: 'all', sortOrder: 0,
+        targetAudience: 'all', sortOrder: 0,
         isActive: true, startDate: '', endDate: ''
       });
       setImagePreview(null);
@@ -159,7 +158,7 @@ export default function Banners() {
                 <th>Image</th>
                 <th>Title</th>
                 <th>Audience</th>
-                <th>Service</th>
+
                 <th>Status</th>
                 <th>Order</th>
                 <th>Actions</th>
@@ -173,7 +172,7 @@ export default function Banners() {
                   </td>
                   <td>{banner.title}</td>
                   <td style={{ textTransform: 'capitalize' }}>{banner.targetAudience}</td>
-                  <td style={{ textTransform: 'capitalize' }}>{banner.serviceType}</td>
+
                   <td>
                     <span style={{ color: banner.isActive ? 'var(--success)' : 'var(--danger)' }}>
                       {banner.isActive ? 'Active' : 'Inactive'}
@@ -219,19 +218,11 @@ export default function Banners() {
                 <input style={{ flex: 1 }} placeholder="CTA Action (e.g. FindTruck)" value={formData.ctaAction} onChange={e => setFormData({ ...formData, ctaAction: e.target.value })} />
               </div>
 
-              <div style={{ display: 'flex', gap: '1rem' }}>
-                <select value={formData.targetAudience} onChange={e => setFormData({ ...formData, targetAudience: e.target.value })}>
+                <select style={{ flex: 1 }} value={formData.targetAudience} onChange={e => setFormData({ ...formData, targetAudience: e.target.value })}>
                   <option value="all">All Audiences</option>
                   <option value="customer">Customer App</option>
                   <option value="driver">Driver App</option>
                 </select>
-                <select value={formData.serviceType} onChange={e => setFormData({ ...formData, serviceType: e.target.value })}>
-                  <option value="all">All Services</option>
-                  <option value="bus">Bus</option>
-                  <option value="ev-sewa">EV-Sewa</option>
-                  <option value="car">Car</option>
-                </select>
-              </div>
 
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <div>

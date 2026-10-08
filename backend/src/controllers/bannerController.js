@@ -5,7 +5,7 @@ import Banner from "../models/Banner.js";
 // @access  Public
 export const getActiveBanners = async (req, res) => {
   try {
-    const { audience, serviceType } = req.query;
+    const { audience } = req.query;
 
     const query = {
       isActive: true,
@@ -29,9 +29,7 @@ export const getActiveBanners = async (req, res) => {
       query.targetAudience = { $in: ["all", audience] };
     }
 
-    if (serviceType) {
-      query.serviceType = { $in: ["all", serviceType] };
-    }
+
 
     const banners = await Banner.find(query).sort({ sortOrder: 1 });
 

@@ -29,10 +29,7 @@ const bannerSchema = new mongoose.Schema(
       enum: ["all", "customer", "driver"],
       default: "all"
     },
-    serviceType: {
-      type: String,
-      default: "all"
-    },
+
     isActive: {
       type: Boolean,
       default: true
