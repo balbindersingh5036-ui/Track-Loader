@@ -4,6 +4,14 @@ import cloudinary from '../config/cloudinary.js';
 
 const router = express.Router();
 
+router.get('/cloudinary-env', (req, res) => {
+  res.json({
+    cloudName: env.cloudinary.cloudName,
+    apiKey: env.cloudinary.apiKey,
+    // Do not return secret
+  });
+});
+
 router.post('/cloudinary-smoke', async (req, res) => {
   try {
     const timestamp = Math.round(new Date().getTime() / 1000);
