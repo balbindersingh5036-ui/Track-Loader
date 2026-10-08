@@ -1440,3 +1440,107 @@
 {"_e":"metro:client_log","_t":1791461212408,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
 {"_e":"metro:bundling:started","_t":1791461476366,"id":"a","platform":"web","environment":null,"entry":"src\\components\\LoadBalbinLogo.jsx"}
 {"_e":"metro:bundling:started","_t":1791461529100,"id":"b","platform":"web","environment":null,"entry":"src\\screens\\home\\HomeScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1791461932200,"id":"d","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791461932200,"id":"d","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791461932236,"id":"d","total":1,"ms":35.9672}
+{"_e":"metro:client_log","_t":1791461933262,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1791461933262,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791461933912,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:bundling:started","_t":1791461957551,"id":"i","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791461957552,"id":"i","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791461957576,"id":"i","total":1,"ms":24.8137}
+{"_e":"metro:client_log","_t":1791461957847,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1791461957847,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791461958283,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:bundling:started","_t":1791462068686,"id":"q","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791462068686,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791462068710,"id":"q","total":1,"ms":24.1511}
+{"_e":"metro:client_log","_t":1791462068969,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791462068970,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1791462068970,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791462069534,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:bundling:started","_t":1791462099100,"id":"w","platform":"web","environment":null,"entry":"src\\components\\LoadBalbinLogo.jsx"}
+{"_e":"metro:client_log","_t":1791462100018,"level":"warn","data":["Image: style.resizeMode is deprecated. Please use props.resizeMode."]}
+{"_e":"metro:bundling:started","_t":1791462110060,"id":"x","platform":"web","environment":null,"entry":"src\\screens\\home\\HomeScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1791462127807,"id":"y","platform":"web","environment":null,"entry":"src\\screens\\home\\HomeScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1791462314333,"id":"z","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791462314334,"id":"z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791462314372,"id":"z","total":1,"ms":38.0282}
+{"_e":"metro:client_log","_t":1791462314688,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791462314688,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1791462314688,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791462314688,"level":"warn","data":["Image: style.resizeMode is deprecated. Please use props.resizeMode."]}
+{"_e":"metro:client_log","_t":1791462315318,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1791462320366,"level":"warn","data":["Cannot record touch end without a touch start.\n","Touch End: {\"identifier\":0,\"pageX\":455,\"pageY\":31,\"timestamp\":6081.10000000149}\n","Touch Bank: []"]}
+{"_e":"metro:bundling:started","_t":1791462456923,"id":"17","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791462456923,"id":"17","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791462456948,"id":"17","total":1,"ms":25.2749}
+{"_e":"metro:client_log","_t":1791462457236,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1791462457237,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791462457237,"level":"warn","data":["Image: style.resizeMode is deprecated. Please use props.resizeMode."]}
+{"_e":"metro:client_log","_t":1791462457795,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:bundling:started","_t":1791462564852,"id":"1d","platform":"web","environment":null,"entry":"src\\components\\LoadBalbinLogo.jsx"}
+{"_e":"metro:client_log","_t":1791462605853,"level":"warn","data":["Cannot record touch end without a touch start.\n","Touch End: {\"identifier\":0,\"pageX\":278,\"pageY\":190,\"timestamp\":148973.5}\n","Touch Bank: []"]}
+{"_e":"metro:bundling:started","_t":1791462608790,"id":"1f","platform":"web","environment":null,"entry":"src\\components\\LoadBalbinLogo.jsx"}
+{"_e":"metro:bundling:started","_t":1791462643332,"id":"1g","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791462643333,"id":"1g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791462643358,"id":"1g","total":1,"ms":25.3927}
+{"_e":"metro:client_log","_t":1791462643562,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791462643562,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1791462643562,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791462643562,"level":"warn","data":["Image: style.resizeMode is deprecated. Please use props.resizeMode."]}
+{"_e":"metro:client_log","_t":1791462644278,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1791462647421,"level":"warn","data":["Cannot record touch end without a touch start.\n","Touch End: {\"identifier\":0,\"pageX\":779,\"pageY\":42,\"timestamp\":4118.79999999702}\n","Touch Bank: []"]}
+{"_e":"root:init","_t":1791462875586,"format":"v0-jsonl","version":"57.0.27"}
+{"_e":"env:mode","_t":1791462875587,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1791462875591,"mode":"development","files":["../..\\..\\.env"],"env":{"EXPO_PUBLIC_API_URL":"https://track-loader.onrender.com/api"}}
+{"_e":"devserver:start","_t":1791462879496,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1791462880203,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1791462880855,"plugins":[]}
+{"_e":"metro:instantiate","_t":1791462894166,"atlas":false,"workers":8,"host":"::","port":8082}
+{"_e":"metro:bundling:started","_t":1791462894892,"id":"1","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791462894892,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791462894896,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791462895460,"id":"1","progress":0.010000000000000002,"total":1,"current":1}
+{"_e":"metro:bundling:progress","_t":1791462895565,"id":"1","progress":0.010000000000000002,"total":3,"current":1}
+{"_e":"metro:bundling:progress","_t":1791462896427,"id":"1","progress":0.04000000000000001,"total":3,"current":2}
+{"_e":"metro:bundling:progress","_t":1791462896536,"id":"1","progress":0.16000000000000003,"total":10,"current":4}
+{"_e":"metro:bundling:progress","_t":1791462896946,"id":"1","progress":0.25,"total":10,"current":5}
+{"_e":"metro:bundling:progress","_t":1791462897046,"id":"1","progress":0.25,"total":44,"current":14}
+{"_e":"metro:bundling:progress","_t":1791462897146,"id":"1","progress":0.2736094674556213,"total":65,"current":34}
+{"_e":"metro:bundling:progress","_t":1791462897247,"id":"1","progress":0.2736094674556213,"total":134,"current":53}
+{"_e":"metro:bundling:progress","_t":1791462897346,"id":"1","progress":0.2736094674556213,"total":158,"current":72}
+{"_e":"metro:bundling:progress","_t":1791462897447,"id":"1","progress":0.2736094674556213,"total":186,"current":95}
+{"_e":"metro:bundling:progress","_t":1791462897552,"id":"1","progress":0.2736094674556213,"total":227,"current":109}
+{"_e":"metro:bundling:progress","_t":1791462897654,"id":"1","progress":0.2736094674556213,"total":244,"current":119}
+{"_e":"metro:bundling:progress","_t":1791462897754,"id":"1","progress":0.28003451982618965,"total":257,"current":136}
+{"_e":"metro:bundling:progress","_t":1791462897854,"id":"1","progress":0.38005678241543667,"total":279,"current":172}
+{"_e":"metro:bundling:progress","_t":1791462897954,"id":"1","progress":0.43593852728468113,"total":312,"current":206}
+{"_e":"metro:bundling:progress","_t":1791462898054,"id":"1","progress":0.43593852728468113,"total":372,"current":232}
+{"_e":"metro:bundling:progress","_t":1791462898155,"id":"1","progress":0.43593852728468113,"total":438,"current":264}
+{"_e":"metro:bundling:progress","_t":1791462898258,"id":"1","progress":0.43593852728468113,"total":452,"current":292}
+{"_e":"metro:bundling:progress","_t":1791462898544,"id":"1","progress":0.43593852728468113,"total":452,"current":293}
+{"_e":"metro:bundling:progress","_t":1791462898644,"id":"1","progress":0.542604166189033,"total":467,"current":344}
+{"_e":"metro:bundling:progress","_t":1791462898745,"id":"1","progress":0.5749649955604125,"total":484,"current":367}
+{"_e":"metro:bundling:progress","_t":1791462898846,"id":"1","progress":0.5776,"total":525,"current":399}
+{"_e":"metro:bundling:progress","_t":1791462898947,"id":"1","progress":0.6663890045814245,"total":539,"current":440}
+{"_e":"metro:bundling:progress","_t":1791462899049,"id":"1","progress":0.6801998086938037,"total":582,"current":480}
+{"_e":"metro:bundling:progress","_t":1791462899149,"id":"1","progress":0.6895169393544749,"total":619,"current":514}
+{"_e":"metro:bundling:progress","_t":1791462899251,"id":"1","progress":0.7397640790514634,"total":629,"current":541}
+{"_e":"metro:bundling:progress","_t":1791462899353,"id":"1","progress":0.8097226739727588,"total":649,"current":584}
+{"_e":"metro:bundling:progress","_t":1791462899454,"id":"1","progress":0.8796166207529844,"total":660,"current":619}
+{"_e":"metro:bundling:progress","_t":1791462899554,"id":"1","progress":0.8796166207529844,"total":708,"current":651}
+{"_e":"metro:bundling:progress","_t":1791462899654,"id":"1","progress":0.8861152936315465,"total":733,"current":690}
+{"_e":"metro:bundling:progress","_t":1791462899755,"id":"1","progress":0.9679593659258506,"total":743,"current":731}
+{"_e":"metro:bundling:progress","_t":1791462899855,"id":"1","progress":0.9868162285490327,"total":756,"current":751}
+{"_e":"metro:bundling:progress","_t":1791462899963,"id":"1","progress":0.9973562470255593,"total":756,"current":755}
+{"_e":"metro:bundling:progress","_t":1791462900663,"id":"1","progress":0.999,"total":756,"current":756}
+{"_e":"metro:bundling:progress","_t":1791462900769,"id":"1","progress":0.999,"total":760,"current":760}
+{"_e":"metro:bundling:done","_t":1791462900802,"id":"1","total":760,"ms":5909.5602}
+{"_e":"metro:client_log","_t":1791462901024,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791462901025,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1791462901025,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791462901025,"level":"warn","data":["Image: style.resizeMode is deprecated. Please use props.resizeMode."]}
+{"_e":"metro:client_log","_t":1791462901586,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1791462909940,"level":"warn","data":["Cannot record touch end without a touch start.\n","Touch End: {\"identifier\":0,\"pageX\":630,\"pageY\":90,\"timestamp\":15108.80000000447}\n","Touch Bank: []"]}
+{"_e":"metro:bundling:started","_t":1791463004870,"id":"9","platform":"web","environment":null,"entry":"src\\components\\LoadBalbinLogo.jsx"}

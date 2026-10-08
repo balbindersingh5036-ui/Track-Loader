@@ -3,10 +3,10 @@ import { Image, View, StyleSheet } from "react-native";
 
 export default function LoadBalbinLogo({ style, width = 140, height = 45 }) {
   return (
-    <View style={[styles.container, style, { width, height, overflow: "visible" }]}>
+    <View style={[styles.container, style]}>
       <Image 
-        source={require("../../assets/logo.png")} 
-        style={{ width: width * 1.8, height: height * 1.8, resizeMode: "contain", transform: [{ scale: 1.2 }] }} 
+        source={require("../../assets/loadbalbin-logo-header.png")} 
+        style={{ width, height, resizeMode: "contain" }} 
       />
     </View>
   );
