@@ -7,9 +7,9 @@ if (
   env.cloudinary.apiSecret
 ) {
   cloudinary.config({
-    cloud_name: env.cloudinary.cloudName,
-    api_key: env.cloudinary.apiKey,
-    api_secret: env.cloudinary.apiSecret,
+    cloud_name: env.cloudinary.cloudName.trim(),
+    api_key: env.cloudinary.apiKey.trim(),
+    api_secret: env.cloudinary.apiSecret.trim(),
     secure: true
   });
 }
