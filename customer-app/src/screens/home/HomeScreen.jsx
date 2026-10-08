@@ -419,13 +419,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 10,
-    minHeight: 65,
+    minHeight: 64,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
     borderBottomColor: colors.line
   },
   brandRow: {
-    flex: 1,
+    flexGrow: 0,
+    flexShrink: 0,
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "center",
