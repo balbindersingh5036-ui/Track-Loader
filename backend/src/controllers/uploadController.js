@@ -41,7 +41,7 @@ export const uploadImage = async (req, res, next) => {
     if (error.http_code && error.http_code >= 400 && error.http_code < 500) {
       return res.status(400).json({
         success: false,
-        message: "Invalid image upload request to provider."
+        message: `Invalid image upload request to provider: ${error.message}`
       });
     }
 

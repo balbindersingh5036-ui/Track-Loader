@@ -26,11 +26,7 @@ export const userService = {
       });
     }
 
-    const { data } = await api.post("/uploads/image", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data"
-      }
-    });
+    const { data } = await api.post("/uploads/image", formData);
     return data.imageUrl;
   },
   async changePassword(passwords) {

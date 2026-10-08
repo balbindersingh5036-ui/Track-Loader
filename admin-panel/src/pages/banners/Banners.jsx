@@ -78,9 +78,7 @@ export default function Banners() {
       if (imageFile) {
         const formData = new FormData();
         formData.append('image', imageFile);
-        const uploadRes = await api.post('/uploads/image', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        const uploadRes = await api.post('/uploads/image', formData);
         imageUrl = uploadRes.data.url;
       }
 
