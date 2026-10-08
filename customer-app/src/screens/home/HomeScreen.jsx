@@ -430,6 +430,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "flex-start",
+    marginLeft: -40,
   },
   logoBadge: {
     width: 38,
