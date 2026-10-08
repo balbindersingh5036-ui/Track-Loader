@@ -1,7 +1,7 @@
 import React from "react";
 import { Image, View, StyleSheet } from "react-native";
 
-export default function LoadBalbinLogo({ style, width = 180, height = 50 }) {
+export default function LoadBalbinLogo({ style, width = 120, height = 40 }) {
   return (
     <View style={[styles.container, style]}>
       <Image 

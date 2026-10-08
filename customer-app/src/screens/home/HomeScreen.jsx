@@ -19,6 +19,7 @@ import { useAuth } from "../../store/AuthContext";
 import { subscribeToBookingEvents, subscribeToNotifications } from "../../services/socketService";
 import { getErrorMessage } from "../../utils/errorMessage";
 import { Card, Loading, Notice, Status } from "../../components/Phase12UI";
+import LoadBalbinLogo from "../../components/LoadBalbinLogo";
 import { colors, shadows } from "../../theme/theme";
 
 const vehicleTypes = ["mini-truck", "pickup", "small-truck", "medium-truck", "large-truck"];
@@ -125,11 +126,7 @@ export default function HomeScreen({ navigation }) {
       {/* HEADER BAR */}
       <View style={styles.header}>
         <View style={styles.brandRow}>
-          <Image 
-            source={require("../../../assets/logo.png")} 
-            style={{ width: 140, height: 40 }} 
-            resizeMode="contain" 
-          />
+          <LoadBalbinLogo width={120} height={40} />
         </View>
 
         <View style={styles.headerActions}>
@@ -544,7 +541,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.primary, // #08A9F5
+    backgroundColor: "#08A9F5",
     paddingVertical: 14,
     paddingHorizontal: 10,
     borderRadius: 10,
