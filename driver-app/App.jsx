@@ -11,7 +11,8 @@ import {
   ImageBackground,
   Dimensions,
   Platform,
-  Image
+  Image,
+  StyleSheet
 } from 'react-native';
 import api, { setAuthenticationExpiredHandler } from './src/services/api';
 import authService from './src/services/authService';
@@ -23,15 +24,16 @@ import { connectSocket, disconnectSocket, joinBookingRoom, subscribeToSocketEven
 import { getToken, removeToken, saveToken } from './src/utils/authStorage';
 import LoadBalbinLogo from './src/components/LoadBalbinLogo';
 import BannerCarousel from './src/components/BannerCarousel';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
 const tabs = [
-  { id: 'Home', icon: '🏠', label: 'Home' },
-  { id: 'Requests', icon: '📋', label: 'Requests' },
-  { id: 'Trips', icon: '🚚', label: 'Trips' },
-  { id: 'Earnings', icon: '💰', label: 'Earnings' },
-  { id: 'Profile', icon: '👤', label: 'Profile' }
+  { id: 'Home', icon: 'home-outline', activeIcon: 'home', label: 'Home' },
+  { id: 'Requests', icon: 'list-outline', activeIcon: 'list', label: 'Requests' },
+  { id: 'Trips', icon: 'car-outline', activeIcon: 'car', label: 'Trips' },
+  { id: 'Earnings', icon: 'wallet-outline', activeIcon: 'wallet', label: 'Earnings' },
+  { id: 'Profile', icon: 'person-outline', activeIcon: 'person', label: 'Profile' }
 ];
 
 const colors = { 
@@ -46,7 +48,9 @@ const colors = {
   accent: '#FF7A00',
   surface: '#0F1B29',
   card: '#142334',
-  card2: '#182A3D'
+  card2: '#182A3D',
+  orange: '#E96800',
+  warning: '#F59E0B'
 };
 
 const messageFor = (error) => {
@@ -68,13 +72,13 @@ function ActionButton({ label, onPress, secondary = false, disabled = false, dan
         borderWidth: 1,
         paddingVertical: 12,
         paddingHorizontal: 16,
-        borderRadius: 10,
+        borderRadius: 12,
         opacity: disabled ? 0.55 : 1,
         alignItems: 'center',
         justifyContent: 'center'
       }, style]}
     >
-      <Text style={{ color: secondary ? colors.muted : '#FFFFFF', fontWeight: '800', fontSize: 15 }}>{label}</Text>
+      <Text style={{ color: secondary ? colors.muted : '#FFFFFF', fontWeight: '800', fontSize: 14 }}>{label}</Text>
     </Pressable>
   );
 }
@@ -101,7 +105,7 @@ function Login({ onLogin, onRetry, initialError }) {
       <View style={{ backgroundColor: colors.surface, padding: 24, borderRadius: 16, gap: 16, borderColor: colors.border, borderWidth: 1 }}>
         <LoadBalbinLogo width={180} height={50} style={{ alignSelf: 'center', marginBottom: 16 }} />
         <Text style={{ fontSize: 24, fontWeight: '800', color: colors.ink }}>Driver sign in</Text>
-        <Text style={{ color: colors.muted }}>Use the phone number registered with your driver account.</Text>
+        <Text style={{ color: colors.muted, fontSize: 13 }}>Use the phone number registered with your driver account.</Text>
         <TextInput
           accessibilityLabel="Phone number"
           value={phone}
@@ -157,7 +161,6 @@ export default function App() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
-  const [lastEvent, setLastEvent] = useState('');
 
   const logout = useCallback(async () => {
     disconnectSocket();
@@ -270,7 +273,6 @@ export default function App() {
     }
     const socket = connectSocket(token);
     const unsubscribe = subscribeToSocketEvents((event, payload) => {
-      setLastEvent(event);
       if (event === 'socket:error') setError('Realtime connection is unavailable. Pull to refresh for updates.');
       if (payload?.bookingId || event === 'notification:new') setRefreshKey((key) => key + 1);
     });
@@ -314,16 +316,6 @@ export default function App() {
     }
   };
 
-  const markRead = async (id) => {
-    setError('');
-    try {
-      await notificationService.markAsRead(id);
-      setRefreshKey((key) => key + 1);
-    } catch (notificationError) {
-      setError(messageFor(notificationError));
-    }
-  };
-
   const refresh = () => {
     setRefreshing(true);
     setRefreshKey((key) => key + 1);
@@ -334,30 +326,32 @@ export default function App() {
   }
   if (!user) return <Login onLogin={signIn} onRetry={restoreSession} initialError={error} />;
 
+  const driverNameDisplay = driver?.fullName || user?.name || "DRIVER";
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
-      {/* HEADER */}
-      <View style={{ backgroundColor: colors.surface, padding: 16, borderBottomWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <LoadBalbinLogo width={130} height={35} />
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.card, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20 }}>
+      {/* COMPACT COMPLIANT HEADER */}
+      <View style={{ backgroundColor: colors.bg, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <LoadBalbinLogo width={120} height={32} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: colors.border }}>
             <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: driver?.isOnline ? colors.green : colors.muted }} />
-            <Text style={{ color: driver?.isOnline ? colors.green : colors.muted, fontWeight: 'bold', fontSize: 13 }}>{driver?.isOnline ? 'Online' : 'Offline'}</Text>
+            <Text style={{ color: driver?.isOnline ? colors.green : colors.muted, fontWeight: '700', fontSize: 12 }}>{driver?.isOnline ? 'ONLINE' : 'OFFLINE'}</Text>
           </View>
           <Pressable style={{ padding: 4 }}>
-             <Text style={{ fontSize: 20 }}>🔔</Text>
+            <Ionicons name="notifications-outline" size={22} color={colors.ink} />
           </Pressable>
         </View>
       </View>
 
       {/* CONTENT */}
       <ScrollView
-        contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: 100 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100, gap: 20 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />}
       >
         {error ? <Text accessibilityRole="alert" style={{ color: colors.danger, fontWeight: '600' }}>{error}</Text> : null}
         {notice ? <Text style={{ color: colors.teal, fontWeight: '600' }}>{notice}</Text> : null}
-        {loading && !refreshing ? <ActivityIndicator color={colors.primary} /> : null}
+        {loading && !refreshing ? <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} /> : null}
 
         {activeTab === 'Home' && (
           <>
@@ -366,26 +360,28 @@ export default function App() {
             {/* HERO */}
             <ImageBackground 
               source={{ uri: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=1000' }}
-              style={{ width: '100%', height: 160, borderRadius: 16, overflow: 'hidden', justifyContent: 'flex-end' }}
+              style={{ width: '100%', height: 180, borderRadius: 16, overflow: 'hidden', justifyContent: 'flex-end', marginTop: 4 }}
             >
-              <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,17,31,0.6)' }} />
-              <View style={{ padding: 16 }}>
-                <Text style={{ color: colors.ink, fontSize: 22, fontWeight: '800', marginBottom: 4 }}>Ready for your next trip?</Text>
-                <Text style={{ color: colors.secondary || '#B8C4D1', fontSize: 14 }}>Accept loads. Deliver safely. Earn more.</Text>
+              <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,17,31,0.65)' }} />
+              <View style={{ padding: 20 }}>
+                <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 8 }}>
+                  GOOD MORNING, {driverNameDisplay}
+                </Text>
+                <Text style={{ color: colors.ink, fontSize: 24, fontWeight: '800', marginBottom: 6 }}>Ready for your{"\n"}next trip?</Text>
+                <Text style={{ color: colors.secondary, fontSize: 13 }}>Accept loads. Deliver safely. Earn more.</Text>
               </View>
             </ImageBackground>
 
-            <Text style={sectionTitle}>Stats Overview</Text>
             <View style={{ flexDirection: 'row', gap: 12 }}>
-              <View style={[cardStyle, { flex: 1, alignItems: 'center' }]}>
-                <Text style={mutedText}>Today's Earnings</Text>
-                <Text style={{ color: colors.teal, fontSize: 24, fontWeight: '800', marginTop: 8 }}>
+              <View style={[cardStyle, { flex: 1 }]}>
+                <Text style={labelStyle}>Today's earnings</Text>
+                <Text style={{ color: colors.ink, fontSize: 28, fontWeight: '800', marginTop: 4 }}>
                   ₹{earningsSummary?.currentPeriodEarnings || 0}
                 </Text>
               </View>
-              <View style={[cardStyle, { flex: 1, alignItems: 'center' }]}>
-                <Text style={mutedText}>Completed Trips</Text>
-                <Text style={{ color: colors.primary, fontSize: 24, fontWeight: '800', marginTop: 8 }}>
+              <View style={[cardStyle, { flex: 1 }]}>
+                <Text style={labelStyle}>Completed trips</Text>
+                <Text style={{ color: colors.ink, fontSize: 28, fontWeight: '800', marginTop: 4 }}>
                   {earningsSummary?.completedTrips || 0}
                 </Text>
               </View>
@@ -405,7 +401,7 @@ export default function App() {
 
             {requests.length > 0 && (
               <>
-                <Text style={[sectionTitle, { marginTop: 8 }]}>New Requests</Text>
+                <Text style={[sectionTitle, { marginTop: 4 }]}>NEW REQUESTS{"\n"}<Text style={{ fontSize: 13, color: colors.muted, fontWeight: '400', textTransform: 'none' }}>Loads near you</Text></Text>
                 {requests.slice(0, 3).map((booking) => (
                   <BookingCard key={booking._id} booking={booking} onAction={runAction} actions={['accept', 'reject']} />
                 ))}
@@ -416,7 +412,7 @@ export default function App() {
 
         {activeTab === 'Requests' && (
           <>
-            <Text style={sectionTitle}>Available Requests</Text>
+            <Text style={sectionTitle}>AVAILABLE REQUESTS</Text>
             {!loading && requests.length === 0 ? <View style={[cardStyle, { alignItems: 'center', padding: 32 }]}><Text style={mutedText}>No available requests.</Text></View> : null}
             {requests.map((booking) => (
               <BookingCard key={booking._id} booking={booking} onAction={runAction} actions={['accept', 'reject']} />
@@ -426,7 +422,7 @@ export default function App() {
 
         {activeTab === 'Trips' && (
           <>
-            <Text style={sectionTitle}>Active Trip & History</Text>
+            <Text style={sectionTitle}>ACTIVE TRIP & HISTORY</Text>
             {!loading && trips.length === 0 ? <View style={[cardStyle, { alignItems: 'center', padding: 32 }]}><Text style={mutedText}>No active trips.</Text></View> : null}
             {trips.map((booking) => (
               <BookingCard
@@ -441,24 +437,24 @@ export default function App() {
 
         {activeTab === 'Earnings' && (
           <>
-            <Text style={sectionTitle}>Earnings Summary</Text>
+            <Text style={sectionTitle}>EARNINGS SUMMARY</Text>
             {earningsSummary ? (
               <View style={cardStyle}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 12, marginBottom: 12 }}>
-                   <Text style={mutedText}>Completed trips:</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 16, marginBottom: 16 }}>
+                   <Text style={labelStyle}>Completed trips</Text>
                    <Text style={bodyText}>{earningsSummary.completedTrips ?? 0}</Text>
                 </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 12, marginBottom: 12 }}>
-                   <Text style={mutedText}>Total earnings:</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 16, marginBottom: 16 }}>
+                   <Text style={labelStyle}>Total earnings</Text>
                    <Text style={bodyText}>₹{earningsSummary.totalEarnings ?? 0}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                   <Text style={mutedText}>This period:</Text>
+                   <Text style={labelStyle}>This period</Text>
                    <Text style={[bodyText, { color: colors.teal }]}>₹{earningsSummary.currentPeriodEarnings ?? 0}</Text>
                 </View>
               </View>
             ) : !loading ? <Text style={mutedText}>No earnings data available.</Text> : null}
-            <Text style={[sectionTitle, { marginTop: 12 }]}>Completed Trips</Text>
+            <Text style={[sectionTitle, { marginTop: 12 }]}>COMPLETED TRIPS</Text>
             {earnings.length === 0 && !loading && <Text style={mutedText}>No history.</Text>}
             {earnings.map((item) => (
               <View key={item._id || item.bookingId} style={[cardStyle, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
@@ -474,25 +470,25 @@ export default function App() {
 
         {activeTab === 'Profile' && (
           <>
-            <Text style={sectionTitle}>Profile & Support</Text>
+            <Text style={sectionTitle}>PROFILE & SUPPORT</Text>
             {profile ? (
               <View style={cardStyle}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 16, marginBottom: 16 }}>
-                  <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: colors.card2, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ fontSize: 24 }}>👤</Text>
+                  <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border }}>
+                    <Ionicons name="person" size={24} color={colors.muted} />
                   </View>
                   <View>
-                    <Text style={[bodyText, { fontSize: 18 }]}>{profile.fullName || profile.user?.name || user.name || 'Driver'}</Text>
+                    <Text style={[bodyText, { fontSize: 18 }]}>{driverNameDisplay}</Text>
                     <Text style={mutedText}>{profile.phone || profile.user?.phone || user.phone}</Text>
                   </View>
                 </View>
-                <Text style={mutedText}>Email: <Text style={bodyText}>{profile.email || profile.user?.email || user.email || '—'}</Text></Text>
-                <Text style={mutedText}>Status: <Text style={[bodyText, { color: colors.teal, textTransform: 'capitalize' }]}>{profile.approvalStatus}</Text></Text>
+                <Text style={labelStyle}>Email: <Text style={bodyText}>{profile.email || profile.user?.email || user.email || '—'}</Text></Text>
+                <Text style={[labelStyle, { marginTop: 8 }]}>Status: <Text style={[bodyText, { color: colors.teal, textTransform: 'capitalize' }]}>{profile.approvalStatus}</Text></Text>
                 
-                <Text style={[sectionTitle, { marginTop: 24, fontSize: 16 }]}>Vehicle & KYC</Text>
+                <Text style={[sectionTitle, { marginTop: 24, fontSize: 14 }]}>VEHICLE & KYC</Text>
                 {(!profile.vehicles || profile.vehicles.length === 0) && <Text style={mutedText}>No vehicles registered.</Text>}
                 {(profile.vehicles || []).map((item) => (
-                  <View key={item._id} style={{ marginTop: 8, padding: 12, backgroundColor: colors.card2, borderRadius: 10 }}>
+                  <View key={item._id} style={{ marginTop: 12, padding: 14, backgroundColor: colors.card2, borderRadius: 12 }}>
                     <Text style={[bodyText, { fontSize: 16 }]}>{item.vehicleNumber}</Text>
                     <Text style={mutedText}>{item.vehicleModel} · {item.vehicleType}</Text>
                   </View>
@@ -507,10 +503,9 @@ export default function App() {
             <ActionButton label="Sign out" secondary onPress={logout} />
           </>
         )}
-        {lastEvent ? <Text style={[mutedText, { fontSize: 11, textAlign: 'center' }]}>Latest update: {lastEvent}</Text> : null}
       </ScrollView>
 
-      {/* BOTTOM NAVIGATION */}
+      {/* BOTTOM NAVIGATION FIXED TO BOTTOM */}
       <View style={{ 
         position: 'absolute', 
         bottom: 0, 
@@ -520,7 +515,8 @@ export default function App() {
         borderTopWidth: 1, 
         borderColor: colors.border, 
         flexDirection: 'row', 
-        paddingBottom: Platform.OS === 'ios' ? 20 : 0 
+        paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+        paddingTop: 12
       }}>
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -528,12 +524,15 @@ export default function App() {
             <Pressable 
               key={tab.id} 
               onPress={() => { setActiveTab(tab.id); setError(''); }} 
-              style={{ flex: 1, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' }}
+              style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
             >
-              <Text style={{ fontSize: 22, color: isActive ? colors.primary : colors.muted, marginBottom: 4 }}>
-                {tab.icon}
-              </Text>
-              <Text style={{ color: isActive ? colors.primary : colors.muted, fontWeight: '700', fontSize: 11 }}>{tab.label}</Text>
+              <Ionicons 
+                name={isActive ? tab.activeIcon : tab.icon} 
+                size={24} 
+                color={isActive ? colors.primary : colors.muted} 
+                style={{ marginBottom: 4 }} 
+              />
+              <Text style={{ color: isActive ? colors.primary : colors.muted, fontWeight: '700', fontSize: 10 }}>{tab.label}</Text>
             </Pressable>
           );
         })}
@@ -548,36 +547,38 @@ function BookingCard({ booking, actions, onAction }) {
     <View style={cardStyle}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <Text style={[bodyText, { fontSize: 16 }]}>{booking.bookingId || 'Booking request'}</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.card2, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
-          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: booking.bookingStatus === 'pending' ? colors.accent : colors.teal }} />
-          <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 12, textTransform: 'capitalize' }}>{booking.bookingStatus}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: colors.border }}>
+          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: booking.bookingStatus === 'pending' ? colors.warning : colors.teal }} />
+          <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 11, textTransform: 'uppercase' }}>{booking.bookingStatus}</Text>
         </View>
       </View>
       
-      <View style={{ backgroundColor: colors.card2, padding: 12, borderRadius: 10, gap: 10, marginTop: 4 }}>
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Text style={{ fontSize: 16 }}>🟢</Text>
+      <View style={{ backgroundColor: colors.card2, padding: 14, borderRadius: 12, gap: 12, marginTop: 4 }}>
+        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+          <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.teal, marginTop: 2 }} />
           <View style={{ flex: 1 }}>
-            <Text style={mutedText} numberOfLines={2}><Text style={bodyText}>{booking.pickup?.address || '—'}</Text></Text>
+            <Text style={labelStyle}>PICKUP</Text>
+            <Text style={bodyText} numberOfLines={2}>{booking.pickup?.address || '—'}</Text>
           </View>
         </View>
-        <View style={{ width: 2, height: 16, backgroundColor: colors.border, marginLeft: 9, marginTop: -8, marginBottom: -8 }} />
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <Text style={{ fontSize: 16 }}>🔴</Text>
+        <View style={{ width: 2, height: 20, backgroundColor: colors.border, marginLeft: 5, marginTop: -12, marginBottom: -12 }} />
+        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+          <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.orange, marginTop: 2 }} />
           <View style={{ flex: 1 }}>
-            <Text style={mutedText} numberOfLines={2}><Text style={bodyText}>{booking.drop?.address || '—'}</Text></Text>
+            <Text style={labelStyle}>DROP</Text>
+            <Text style={bodyText} numberOfLines={2}>{booking.drop?.address || '—'}</Text>
           </View>
         </View>
       </View>
       
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
         <View>
-          <Text style={mutedText}>Goods / Load</Text>
+          <Text style={labelStyle}>Goods / Load</Text>
           <Text style={bodyText}>{booking.goods} · {booking.weight?.value} {booking.weight?.unit}</Text>
         </View>
         <View style={{ alignItems: 'flex-end' }}>
-          <Text style={mutedText}>Est. Fare</Text>
-          <Text style={{ color: colors.primary, fontSize: 18, fontWeight: '800' }}>₹{booking.estimatedFare ?? 0}</Text>
+          <Text style={labelStyle}>Est. Fare</Text>
+          <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>₹{booking.estimatedFare ?? 0}</Text>
         </View>
       </View>
       
@@ -593,7 +594,7 @@ function BookingCard({ booking, actions, onAction }) {
                 <ActionButton
                   label={label}
                   secondary={isReject}
-                  style={!isReject ? { backgroundColor: colors.accent, borderColor: colors.accent } : {}}
+                  style={!isReject ? { backgroundColor: colors.orange, borderColor: colors.orange } : {}}
                   onPress={() => onAction(action, booking)}
                 />
               </View>
@@ -606,6 +607,7 @@ function BookingCard({ booking, actions, onAction }) {
 }
 
 const cardStyle = { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 16, gap: 12 };
-const sectionTitle = { color: colors.ink, fontSize: 18, fontWeight: '800' };
-const bodyText = { color: colors.ink, fontWeight: '700' };
-const mutedText = { color: colors.muted };
+const sectionTitle = { color: colors.ink, fontSize: 13, fontWeight: '800', letterSpacing: 0.5 };
+const bodyText = { color: colors.ink, fontWeight: '600', fontSize: 14 };
+const labelStyle = { color: colors.muted, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 };
+const mutedText = { color: colors.muted, fontSize: 13 };
