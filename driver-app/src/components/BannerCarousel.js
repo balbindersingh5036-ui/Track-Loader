@@ -7,16 +7,15 @@ import {
   Dimensions,
   ImageBackground,
   FlatList,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
 import api from "../services/api";
 import colors from "../constants/colors";
 
 const { width } = Dimensions.get("window");
 
 export default function BannerCarousel({ audience = "driver" }) {
-  const navigation = useNavigation();
   const [banners, setBanners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -37,7 +36,7 @@ export default function BannerCarousel({ audience = "driver" }) {
         setBanners(res.data.data);
       }
     } catch (err) {
-      console.warn("Failed to fetch banners", err);
+      console.warn('Failed to fetch banners', err);
     } finally {
       setLoading(false);
     }
@@ -46,9 +45,10 @@ export default function BannerCarousel({ audience = "driver" }) {
   const handlePress = (action) => {
     if (!action) return;
     try {
-      navigation.navigate(action);
+      console.log("Banner action pressed:", action);
+      // navigation.navigate(action); // Disabled for driver app since it does not use react-navigation
     } catch (err) {
-      console.warn("Navigation failed for action:", action);
+      console.warn("Action failed:", action);
     }
   };
 
@@ -59,7 +59,6 @@ export default function BannerCarousel({ audience = "driver" }) {
       const idx = viewableItems[0].index || 0;
       setCurrentIndex(idx);
       currentIndexRef.current = idx;
-      
       // Reset timer on manual swipe
       startAutoSlide();
     }
@@ -70,7 +69,9 @@ export default function BannerCarousel({ audience = "driver" }) {
       clearInterval(timerRef.current);
     }
     
-    if (banners.length <= 1) return;
+    if (banners.length <= 1) {
+      return;
+    }
 
     timerRef.current = setInterval(() => {
       let nextIndex = currentIndexRef.current + 1;
@@ -78,15 +79,25 @@ export default function BannerCarousel({ audience = "driver" }) {
         nextIndex = 0;
       }
       
+      const offset = nextIndex * width;
+      
       if (flatListRef.current) {
-        flatListRef.current.scrollToOffset({
-          offset: nextIndex * width,
-          animated: true,
-        });
+        if (Platform.OS === 'web') {
+          // Access the underlying DOM node on web for reliable scrolling
+          const scrollNode = flatListRef.current.getScrollableNode();
+          if (scrollNode && typeof scrollNode.scrollTo === 'function') {
+            scrollNode.scrollTo({ left: offset, behavior: 'smooth' });
+          } else {
+            flatListRef.current.scrollToOffset({ offset, animated: true });
+          }
+        } else {
+          flatListRef.current.scrollToOffset({ offset, animated: true });
+        }
+        
         currentIndexRef.current = nextIndex;
         setCurrentIndex(nextIndex);
       }
-    }, 3000); // 3 seconds as requested
+    }, 3000); // 3 seconds
   };
 
   useEffect(() => {
@@ -202,7 +213,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(8, 17, 31, 0.4)",
+    backgroundColor: "rgba(8, 17, 31, 0.4)", // Dark logistics overlay
     padding: 16,
     justifyContent: "center",
   },

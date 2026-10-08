@@ -18,18 +18,22 @@ import notificationService from './src/services/notificationService';
 import { connectSocket, disconnectSocket, joinBookingRoom, subscribeToSocketEvents } from './src/services/socketService';
 import { getToken, removeToken, saveToken } from './src/utils/authStorage';
 import LoadBalbinLogo from './src/components/LoadBalbinLogo';
+import BannerCarousel from './src/components/BannerCarousel';
 
-const tabs = ['Requests', 'Trips', 'Earnings', 'Alerts', 'Profile'];
+const tabs = ['Home', 'Requests', 'Trips', 'Earnings', 'Profile'];
 const colors = { 
   ink: '#FFFFFF', 
-  muted: '#9CA3AF', 
-  teal: '#14B8A6', 
-  border: '#2A3746', 
-  bg: '#0B1118', 
+  muted: '#8A98A8', 
+  teal: '#14B8A6',
+  green: '#22C55E', 
+  border: '#25364A', 
+  bg: '#08111F', 
   danger: '#EF4444',
   primary: '#08A9F5',
   accent: '#FF7A00',
-  surface: '#101820'
+  surface: '#0F1B29',
+  card: '#142334',
+  card2: '#182A3D'
 };
 
 const messageFor = (error) => {
@@ -120,7 +124,7 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [ready, setReady] = useState(false);
-  const [activeTab, setActiveTab] = useState('Requests');
+  const [activeTab, setActiveTab] = useState('Home');
   const [driver, setDriver] = useState(null);
   const [profile, setProfile] = useState(null);
   const [requests, setRequests] = useState([]);
@@ -195,7 +199,10 @@ export default function App() {
     setLoading(true);
     setError('');
     try {
-      if (activeTab === 'Requests') {
+      if (activeTab === 'Home') {
+        const response = await earningsService.getSummary().catch(() => ({ data: { data: null } }));
+        setEarningsSummary(response.data?.data || null);
+      } else if (activeTab === 'Requests') {
         const response = await bookingService.getRequests({ page: 1, limit: 30 });
         setRequests(response.data?.data?.bookings || []);
       } else if (activeTab === 'Trips') {
@@ -313,13 +320,19 @@ export default function App() {
       <View style={{ backgroundColor: colors.surface, padding: 16, borderBottomWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <View>
           <LoadBalbinLogo width={130} height={35} style={{ alignSelf: 'flex-start' }} />
-          <Text style={{ color: colors.muted, marginTop: 6 }}>{user.name || user.phone}</Text>
+          <Text style={{ color: colors.muted, marginTop: 6, fontSize: 13 }}>{user.name || user.phone}</Text>
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: driver?.isOnline ? colors.green : colors.muted }} />
+            <Text style={{ color: driver?.isOnline ? colors.green : colors.muted, fontWeight: 'bold' }}>{driver?.isOnline ? 'Online' : 'Offline'}</Text>
+          </View>
         </View>
       </View>
-      <View style={{ flexDirection: 'row', backgroundColor: colors.surface, paddingHorizontal: 8, borderBottomWidth: 1, borderColor: colors.border }}>
+      <View style={{ flexDirection: 'row', backgroundColor: colors.surface, borderBottomWidth: 1, borderColor: colors.border }}>
         {tabs.map((tab) => (
-          <Pressable key={tab} onPress={() => { setActiveTab(tab); setError(''); }} style={{ padding: 11, borderBottomWidth: activeTab === tab ? 2 : 0, borderColor: colors.primary }}>
-            <Text style={{ color: activeTab === tab ? colors.primary : colors.muted, fontWeight: '700' }}>{tab}{tab === 'Alerts' && unreadCount ? ` (${unreadCount})` : ''}</Text>
+          <Pressable key={tab} onPress={() => { setActiveTab(tab); setError(''); }} style={{ flex: 1, paddingVertical: 14, alignItems: 'center', borderBottomWidth: activeTab === tab ? 2 : 0, borderColor: colors.primary }}>
+            <Text style={{ color: activeTab === tab ? colors.primary : colors.muted, fontWeight: '700', fontSize: 13 }}>{tab}</Text>
           </Pressable>
         ))}
       </View>
@@ -330,6 +343,27 @@ export default function App() {
         {error ? <Text accessibilityRole="alert" style={{ color: colors.danger }}>{error}</Text> : null}
         {notice ? <Text style={{ color: colors.teal }}>{notice}</Text> : null}
         {loading && !refreshing ? <ActivityIndicator color={colors.teal} /> : null}
+        {activeTab === 'Home' && (
+          <>
+            <BannerCarousel audience="driver" />
+            <Text style={sectionTitle}>Dashboard</Text>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={[cardStyle, { flex: 1, alignItems: 'center' }]}>
+                <Text style={mutedText}>Today's Earnings</Text>
+                <Text style={{ color: colors.teal, fontSize: 24, fontWeight: 'bold', marginTop: 8 }}>
+                  ₹{earningsSummary?.currentPeriodEarnings || 0}
+                </Text>
+              </View>
+              <View style={[cardStyle, { flex: 1, alignItems: 'center' }]}>
+                <Text style={mutedText}>Completed Trips</Text>
+                <Text style={{ color: colors.primary, fontSize: 24, fontWeight: 'bold', marginTop: 8 }}>
+                  {earningsSummary?.completedTrips || 0}
+                </Text>
+              </View>
+            </View>
+            <ActionButton label={driver?.isOnline ? 'Go Offline' : 'Go Online'} onPress={toggleOnline} />
+          </>
+        )}
         {activeTab === 'Requests' && (
           <>
             <Text style={sectionTitle}>Available booking requests</Text>
@@ -341,8 +375,8 @@ export default function App() {
         )}
         {activeTab === 'Trips' && (
           <>
-            <Text style={sectionTitle}>Your bookings</Text>
-            {!loading && trips.length === 0 ? <Text style={mutedText}>No bookings yet.</Text> : null}
+            <Text style={sectionTitle}>Active Trip</Text>
+            {!loading && trips.length === 0 ? <Text style={mutedText}>No active trips.</Text> : null}
             {trips.map((booking) => (
               <BookingCard
                 key={booking._id}
@@ -373,19 +407,6 @@ export default function App() {
             ))}
           </>
         )}
-        {activeTab === 'Alerts' && (
-          <>
-            <Text style={sectionTitle}>Notifications ({unreadCount} unread)</Text>
-            {!loading && notifications.length === 0 ? <Text style={mutedText}>No notifications.</Text> : null}
-            {notifications.map((item) => (
-              <View key={item._id} style={cardStyle}>
-                <Text style={bodyText}>{item.title}</Text>
-                <Text style={mutedText}>{item.message}</Text>
-                {!item.isRead ? <ActionButton label="Mark read" secondary onPress={() => markRead(item._id)} /> : <Text style={mutedText}>Read</Text>}
-              </View>
-            ))}
-          </>
-        )}
         {activeTab === 'Profile' && (
           <>
             <Text style={sectionTitle}>Driver profile</Text>
@@ -394,15 +415,23 @@ export default function App() {
                 <Text style={bodyText}>{profile.fullName || profile.user?.name || user.name}</Text>
                 <Text style={mutedText}>{profile.phone || profile.user?.phone || user.phone}</Text>
                 <Text style={mutedText}>{profile.email || profile.user?.email || user.email}</Text>
-                <Text style={bodyText}>Approval: {profile.approvalStatus}</Text>
-                <Text style={bodyText}>Online: {driver?.isOnline ? 'Yes' : 'No'}</Text>
-                <ActionButton label={driver?.isOnline ? 'Go offline' : 'Go online'} onPress={toggleOnline} />
-                <Text style={sectionTitle}>Vehicles</Text>
+                <Text style={[bodyText, { color: colors.teal }]}>Approval: {profile.approvalStatus}</Text>
+                
+                <Text style={[sectionTitle, { marginTop: 12 }]}>Vehicle & KYC</Text>
                 {(profile.vehicles || []).map((item) => (
-                  <Text key={item._id} style={mutedText}>{item.vehicleNumber} · {item.vehicleModel} · {item.vehicleType}</Text>
+                  <View key={item._id} style={{ marginTop: 8, padding: 10, backgroundColor: colors.card2, borderRadius: 8 }}>
+                    <Text style={bodyText}>{item.vehicleNumber}</Text>
+                    <Text style={mutedText}>{item.vehicleModel} · {item.vehicleType}</Text>
+                  </View>
                 ))}
               </View>
             ) : !loading ? <Text style={mutedText}>Driver profile unavailable.</Text> : null}
+            
+            <Text style={[sectionTitle, { marginTop: 12 }]}>Support</Text>
+            <View style={cardStyle}>
+              <Text style={bodyText}>Customer Support</Text>
+              <Text style={mutedText}>help@loadbalbin.com</Text>
+            </View>
             <ActionButton label="Sign out" secondary onPress={logout} />
           </>
         )}
@@ -417,19 +446,23 @@ function BookingCard({ booking, actions, onAction }) {
   return (
     <View style={cardStyle}>
       <Text style={bodyText}>{booking.bookingId || 'Booking request'}</Text>
-      <Text style={mutedText}>Status: {booking.bookingStatus}</Text>
-      <Text style={mutedText}>Customer: {customer?.name || customer?.phone || 'Customer'}</Text>
-      {customer?.phone ? <Text style={mutedText}>Contact: {customer.phone}</Text> : null}
-      <Text style={mutedText}>Pickup: {booking.pickup?.address || '—'}</Text>
-      <Text style={mutedText}>Drop: {booking.drop?.address || '—'}</Text>
-      <Text style={mutedText}>Goods: {booking.goods} · {booking.weight?.value} {booking.weight?.unit}</Text>
-      <Text style={bodyText}>Estimated fare: ₹{booking.estimatedFare ?? 0}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: booking.bookingStatus === 'pending' ? colors.accent : colors.teal }} />
+        <Text style={{ color: colors.muted, fontWeight: 'bold', textTransform: 'capitalize' }}>{booking.bookingStatus}</Text>
+      </View>
+      <View style={{ backgroundColor: colors.card2, padding: 12, borderRadius: 8, gap: 8 }}>
+        <Text style={mutedText}>Pickup: <Text style={bodyText}>{booking.pickup?.address || '—'}</Text></Text>
+        <Text style={mutedText}>Drop: <Text style={bodyText}>{booking.drop?.address || '—'}</Text></Text>
+      </View>
+      <Text style={mutedText}>Goods: <Text style={bodyText}>{booking.goods}</Text> · {booking.weight?.value} {booking.weight?.unit}</Text>
+      <Text style={{ color: colors.primary, fontSize: 18, fontWeight: '800' }}>₹{booking.estimatedFare ?? 0}</Text>
+      {customer?.phone ? <Text style={mutedText}>Customer: {customer.phone}</Text> : null}
       {actions.length > 0 && (
-        <View style={{ flexDirection: 'row', gap: 8 }}>
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
           {actions.map((action) => (
             <View key={action} style={{ flex: 1 }}>
               <ActionButton
-                label={action[0].toUpperCase() + action.slice(1)}
+                label={action === 'accept' ? 'Accept Load' : action === 'start' ? 'Start Trip' : action === 'complete' ? 'Complete Trip' : 'Reject'}
                 secondary={action === 'reject'}
                 onPress={() => onAction(action, booking)}
               />
@@ -441,7 +474,7 @@ function BookingCard({ booking, actions, onAction }) {
   );
 }
 
-const cardStyle = { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 12, padding: 14, gap: 8 };
+const cardStyle = { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 16, gap: 10 };
 const sectionTitle = { color: colors.ink, fontSize: 17, fontWeight: '800' };
 const bodyText = { color: colors.ink, fontWeight: '700' };
 const mutedText = { color: colors.muted };
