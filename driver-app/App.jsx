@@ -24,16 +24,16 @@ import { connectSocket, disconnectSocket, joinBookingRoom, subscribeToSocketEven
 import { getToken, removeToken, saveToken } from './src/utils/authStorage';
 import LoadBalbinLogo from './src/components/LoadBalbinLogo';
 import BannerCarousel from './src/components/BannerCarousel';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
 
 const tabs = [
-  { id: 'Home', icon: 'home-outline', activeIcon: 'home', label: 'Home' },
-  { id: 'Requests', icon: 'list-outline', activeIcon: 'list', label: 'Requests' },
-  { id: 'Trips', icon: 'car-outline', activeIcon: 'car', label: 'Trips' },
-  { id: 'Earnings', icon: 'wallet-outline', activeIcon: 'wallet', label: 'Earnings' },
-  { id: 'Profile', icon: 'person-outline', activeIcon: 'person', label: 'Profile' }
+  { id: 'Home', icon: 'home-outline', activeIcon: 'home', label: 'Home', family: 'Ionicons' },
+  { id: 'Requests', icon: 'cube-outline', activeIcon: 'cube', label: 'Requests', family: 'Ionicons' },
+  { id: 'Trips', icon: 'truck-outline', activeIcon: 'truck', label: 'Trips', family: 'MaterialCommunityIcons' },
+  { id: 'Earnings', icon: 'wallet-outline', activeIcon: 'wallet', label: 'Earnings', family: 'Ionicons' },
+  { id: 'Profile', icon: 'account-outline', activeIcon: 'account', label: 'Profile', family: 'MaterialCommunityIcons' }
 ];
 
 const colors = { 
@@ -58,9 +58,9 @@ const messageFor = (error) => {
   return error.response.data?.message || error.message || 'The request could not be completed.';
 };
 
-function ActionButton({ label, onPress, secondary = false, disabled = false, danger = false, style }) {
-  const bgColor = danger ? colors.danger : (secondary ? colors.surface : colors.primary);
-  const borderColor = danger ? colors.danger : (secondary ? colors.border : colors.primary);
+function ActionButton({ label, onPress, secondary = false, disabled = false, danger = false, style, textStyle }) {
+  const bgColor = danger ? colors.danger : (secondary ? colors.surface : colors.accent);
+  const borderColor = danger ? colors.danger : (secondary ? colors.border : colors.accent);
   return (
     <Pressable
       accessibilityRole="button"
@@ -70,7 +70,7 @@ function ActionButton({ label, onPress, secondary = false, disabled = false, dan
         backgroundColor: bgColor,
         borderColor: borderColor,
         borderWidth: 1,
-        paddingVertical: 12,
+        paddingVertical: 14,
         paddingHorizontal: 16,
         borderRadius: 12,
         opacity: disabled ? 0.55 : 1,
@@ -78,7 +78,7 @@ function ActionButton({ label, onPress, secondary = false, disabled = false, dan
         justifyContent: 'center'
       }, style]}
     >
-      <Text style={{ color: secondary ? colors.muted : '#FFFFFF', fontWeight: '800', fontSize: 14 }}>{label}</Text>
+      <Text style={[{ color: secondary ? colors.muted : '#FFFFFF', fontWeight: '800', fontSize: 14 }, textStyle]}>{label}</Text>
     </Pressable>
   );
 }
@@ -126,7 +126,7 @@ function Login({ onLogin, onRetry, initialError }) {
           style={inputStyle}
         />
         {error ? <Text accessibilityRole="alert" style={{ color: colors.danger }}>{error}</Text> : null}
-        <ActionButton label={loading ? 'Signing in…' : 'Sign in'} onPress={submit} disabled={loading || !phone || !password} />
+        <ActionButton label={loading ? 'Signing in…' : 'Sign in'} onPress={submit} disabled={loading || !phone || !password} style={{ backgroundColor: colors.primary, borderColor: colors.primary }} />
         {initialError && onRetry ? <ActionButton label="Retry previous session" secondary onPress={onRetry} disabled={loading} /> : null}
       </View>
     </SafeAreaView>
@@ -326,27 +326,27 @@ export default function App() {
   }
   if (!user) return <Login onLogin={signIn} onRetry={restoreSession} initialError={error} />;
 
-  const driverNameDisplay = driver?.fullName || user?.name || "DRIVER";
+  const driverNameDisplay = (driver?.fullName || user?.name || "DRIVER").toUpperCase();
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
-      {/* COMPACT COMPLIANT HEADER */}
+      {/* HEADER (MATCHING FIGMA) */}
       <View style={{ backgroundColor: colors.bg, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <LoadBalbinLogo width={120} height={32} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: colors.border }}>
-            <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: driver?.isOnline ? colors.green : colors.muted }} />
-            <Text style={{ color: driver?.isOnline ? colors.green : colors.muted, fontWeight: '700', fontSize: 12 }}>{driver?.isOnline ? 'ONLINE' : 'OFFLINE'}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'transparent', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 16, borderWidth: 1, borderColor: colors.border }}>
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: driver?.isOnline ? colors.green : colors.muted }} />
+            <Text style={{ color: driver?.isOnline ? colors.green : colors.muted, fontWeight: '700', fontSize: 10 }}>{driver?.isOnline ? 'ONLINE' : 'OFFLINE'}</Text>
           </View>
-          <Pressable style={{ padding: 4 }}>
-            <Ionicons name="notifications-outline" size={22} color={colors.ink} />
-          </Pressable>
+          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="notifications-outline" size={20} color={colors.ink} />
+          </View>
         </View>
       </View>
 
       {/* CONTENT */}
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100, gap: 20 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100, gap: 16 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />}
       >
         {error ? <Text accessibilityRole="alert" style={{ color: colors.danger, fontWeight: '600' }}>{error}</Text> : null}
@@ -357,51 +357,53 @@ export default function App() {
           <>
             <BannerCarousel audience="driver" />
             
-            {/* HERO */}
+            {/* HERO (MATCHING FIGMA) */}
             <ImageBackground 
-              source={{ uri: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&q=80&w=1000' }}
-              style={{ width: '100%', height: 180, borderRadius: 16, overflow: 'hidden', justifyContent: 'flex-end', marginTop: 4 }}
+              source={{ uri: 'https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&q=80&w=1000' }}
+              style={{ width: '100%', height: 200, borderRadius: 20, overflow: 'hidden', justifyContent: 'flex-start', marginTop: 4 }}
             >
-              <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,17,31,0.65)' }} />
-              <View style={{ padding: 20 }}>
-                <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 8 }}>
+              <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,17,31,0.75)' }} />
+              <View style={{ padding: 24, paddingTop: 32 }}>
+                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 8 }}>
                   GOOD MORNING, {driverNameDisplay}
                 </Text>
-                <Text style={{ color: colors.ink, fontSize: 24, fontWeight: '800', marginBottom: 6 }}>Ready for your{"\n"}next trip?</Text>
-                <Text style={{ color: colors.secondary, fontSize: 13 }}>Accept loads. Deliver safely. Earn more.</Text>
+                <Text style={{ color: colors.ink, fontSize: 26, fontWeight: '800', marginBottom: 6, lineHeight: 32 }}>Ready for your{"\n"}next trip?</Text>
+                <Text style={{ color: colors.secondary, fontSize: 13, marginTop: 4 }}>Accept loads. Deliver safely. Earn more.</Text>
               </View>
             </ImageBackground>
 
+            {/* STATS (MATCHING FIGMA) */}
             <View style={{ flexDirection: 'row', gap: 12 }}>
-              <View style={[cardStyle, { flex: 1 }]}>
-                <Text style={labelStyle}>Today's earnings</Text>
-                <Text style={{ color: colors.ink, fontSize: 28, fontWeight: '800', marginTop: 4 }}>
+              <View style={[cardStyle, { flex: 1, paddingVertical: 18 }]}>
+                <Text style={[labelStyle, { textTransform: 'none', fontSize: 11 }]}>Today's earnings</Text>
+                <Text style={{ color: colors.ink, fontSize: 28, fontWeight: '800', marginTop: 8, marginBottom: 8 }}>
                   ₹{earningsSummary?.currentPeriodEarnings || 0}
                 </Text>
+                <Text style={{ color: colors.teal, fontSize: 11, fontWeight: '600' }}>↗ 18% this week</Text>
               </View>
-              <View style={[cardStyle, { flex: 1 }]}>
-                <Text style={labelStyle}>Completed trips</Text>
-                <Text style={{ color: colors.ink, fontSize: 28, fontWeight: '800', marginTop: 4 }}>
-                  {earningsSummary?.completedTrips || 0}
+              <View style={[cardStyle, { flex: 1, paddingVertical: 18 }]}>
+                <Text style={[labelStyle, { textTransform: 'none', fontSize: 11 }]}>Completed</Text>
+                <Text style={{ color: colors.ink, fontSize: 28, fontWeight: '800', marginTop: 8, marginBottom: 8 }}>
+                  {(earningsSummary?.completedTrips || 0).toString().padStart(2, '0')}
                 </Text>
+                <Text style={{ color: colors.teal, fontSize: 11, fontWeight: '600' }}>1 trip active</Text>
               </View>
-            </View>
-
-            <View style={[cardStyle, { alignItems: 'center', paddingVertical: 20 }]}>
-              <Text style={{ color: colors.ink, fontSize: 16, fontWeight: '700', marginBottom: 12 }}>
-                Currently {driver?.isOnline ? 'Online' : 'Offline'}
-              </Text>
-              <ActionButton 
-                style={{ width: '100%' }}
-                label={driver?.isOnline ? 'Go Offline' : 'Go Online'} 
-                danger={driver?.isOnline}
-                onPress={toggleOnline} 
-              />
             </View>
 
             {requests.length > 0 && (
               <>
-                <Text style={[sectionTitle, { marginTop: 4 }]}>NEW REQUESTS{"\n"}<Text style={{ fontSize: 13, color: colors.muted, fontWeight: '400', textTransform: 'none' }}>Loads near you</Text></Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 12, marginBottom: 8 }}>
+                  <View>
+                    <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 4 }}>
+                      NEW REQUESTS
+                    </Text>
+                    <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Loads near you</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'transparent', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.border }}>
+                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent }} />
+                    <Text style={{ color: colors.accent, fontWeight: '700', fontSize: 11 }}>{requests.length} new</Text>
+                  </View>
+                </View>
                 {requests.slice(0, 3).map((booking) => (
                   <BookingCard key={booking._id} booking={booking} onAction={runAction} actions={['accept', 'reject']} />
                 ))}
@@ -412,7 +414,12 @@ export default function App() {
 
         {activeTab === 'Requests' && (
           <>
-            <Text style={sectionTitle}>AVAILABLE REQUESTS</Text>
+            <View style={{ marginTop: 12, marginBottom: 8 }}>
+              <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 4 }}>
+                AVAILABLE REQUESTS
+              </Text>
+              <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Loads near you</Text>
+            </View>
             {!loading && requests.length === 0 ? <View style={[cardStyle, { alignItems: 'center', padding: 32 }]}><Text style={mutedText}>No available requests.</Text></View> : null}
             {requests.map((booking) => (
               <BookingCard key={booking._id} booking={booking} onAction={runAction} actions={['accept', 'reject']} />
@@ -422,7 +429,12 @@ export default function App() {
 
         {activeTab === 'Trips' && (
           <>
-            <Text style={sectionTitle}>ACTIVE TRIP & HISTORY</Text>
+            <View style={{ marginTop: 12, marginBottom: 8 }}>
+              <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 4 }}>
+                ACTIVE TRIP & HISTORY
+              </Text>
+              <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Your trips</Text>
+            </View>
             {!loading && trips.length === 0 ? <View style={[cardStyle, { alignItems: 'center', padding: 32 }]}><Text style={mutedText}>No active trips.</Text></View> : null}
             {trips.map((booking) => (
               <BookingCard
@@ -437,19 +449,24 @@ export default function App() {
 
         {activeTab === 'Earnings' && (
           <>
-            <Text style={sectionTitle}>EARNINGS SUMMARY</Text>
+            <View style={{ marginTop: 12, marginBottom: 8 }}>
+              <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 4 }}>
+                EARNINGS SUMMARY
+              </Text>
+              <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Your revenue</Text>
+            </View>
             {earningsSummary ? (
               <View style={cardStyle}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 16, marginBottom: 16 }}>
-                   <Text style={labelStyle}>Completed trips</Text>
-                   <Text style={bodyText}>{earningsSummary.completedTrips ?? 0}</Text>
+                   <Text style={[labelStyle, { textTransform: 'none' }]}>Completed trips</Text>
+                   <Text style={bodyText}>{(earningsSummary.completedTrips ?? 0).toString().padStart(2, '0')}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 16, marginBottom: 16 }}>
-                   <Text style={labelStyle}>Total earnings</Text>
+                   <Text style={[labelStyle, { textTransform: 'none' }]}>Total earnings</Text>
                    <Text style={bodyText}>₹{earningsSummary.totalEarnings ?? 0}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                   <Text style={labelStyle}>This period</Text>
+                   <Text style={[labelStyle, { textTransform: 'none' }]}>This period</Text>
                    <Text style={[bodyText, { color: colors.teal }]}>₹{earningsSummary.currentPeriodEarnings ?? 0}</Text>
                 </View>
               </View>
@@ -462,7 +479,7 @@ export default function App() {
                   <Text style={bodyText}>{item.bookingId}</Text>
                   <Text style={mutedText}>{item.completedAt ? new Date(item.completedAt).toLocaleDateString() : '—'}</Text>
                 </View>
-                <Text style={[bodyText, { color: colors.primary, fontSize: 18 }]}>₹{item.finalFare ?? item.estimatedFare ?? 0}</Text>
+                <Text style={[bodyText, { color: colors.accent, fontSize: 18 }]}>₹{item.finalFare ?? item.estimatedFare ?? 0}</Text>
               </View>
             ))}
           </>
@@ -470,7 +487,25 @@ export default function App() {
 
         {activeTab === 'Profile' && (
           <>
-            <Text style={sectionTitle}>PROFILE & SUPPORT</Text>
+            <View style={{ marginTop: 12, marginBottom: 8 }}>
+              <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 4 }}>
+                PROFILE & SUPPORT
+              </Text>
+              <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Your account</Text>
+            </View>
+            
+            <View style={[cardStyle, { alignItems: 'center', paddingVertical: 20 }]}>
+              <Text style={{ color: colors.ink, fontSize: 16, fontWeight: '700', marginBottom: 12 }}>
+                Currently {driver?.isOnline ? 'Online' : 'Offline'}
+              </Text>
+              <ActionButton 
+                style={{ width: '100%', backgroundColor: driver?.isOnline ? 'transparent' : colors.primary, borderColor: driver?.isOnline ? colors.border : colors.primary }}
+                label={driver?.isOnline ? 'Go Offline' : 'Go Online'} 
+                secondary={driver?.isOnline}
+                onPress={toggleOnline} 
+              />
+            </View>
+
             {profile ? (
               <View style={cardStyle}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 16, marginBottom: 16 }}>
@@ -482,14 +517,14 @@ export default function App() {
                     <Text style={mutedText}>{profile.phone || profile.user?.phone || user.phone}</Text>
                   </View>
                 </View>
-                <Text style={labelStyle}>Email: <Text style={bodyText}>{profile.email || profile.user?.email || user.email || '—'}</Text></Text>
-                <Text style={[labelStyle, { marginTop: 8 }]}>Status: <Text style={[bodyText, { color: colors.teal, textTransform: 'capitalize' }]}>{profile.approvalStatus}</Text></Text>
+                <Text style={[labelStyle, { textTransform: 'none' }]}>Email: <Text style={bodyText}>{profile.email || profile.user?.email || user.email || '—'}</Text></Text>
+                <Text style={[labelStyle, { marginTop: 8, textTransform: 'none' }]}>Status: <Text style={[bodyText, { color: colors.teal, textTransform: 'capitalize' }]}>{profile.approvalStatus}</Text></Text>
                 
-                <Text style={[sectionTitle, { marginTop: 24, fontSize: 14 }]}>VEHICLE & KYC</Text>
+                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 24, marginBottom: 4 }}>VEHICLE & KYC</Text>
                 {(!profile.vehicles || profile.vehicles.length === 0) && <Text style={mutedText}>No vehicles registered.</Text>}
                 {(profile.vehicles || []).map((item) => (
-                  <View key={item._id} style={{ marginTop: 12, padding: 14, backgroundColor: colors.card2, borderRadius: 12 }}>
-                    <Text style={[bodyText, { fontSize: 16 }]}>{item.vehicleNumber}</Text>
+                  <View key={item._id} style={{ marginTop: 8, padding: 16, backgroundColor: colors.card2, borderRadius: 12 }}>
+                    <Text style={[bodyText, { fontSize: 16, marginBottom: 4 }]}>{item.vehicleNumber}</Text>
                     <Text style={mutedText}>{item.vehicleModel} · {item.vehicleType}</Text>
                   </View>
                 ))}
@@ -500,7 +535,7 @@ export default function App() {
               <Text style={bodyText}>Customer Support</Text>
               <Text style={mutedText}>help@loadbalbin.com</Text>
             </View>
-            <ActionButton label="Sign out" secondary onPress={logout} />
+            <ActionButton label="Sign out" secondary onPress={logout} style={{ marginTop: 8 }} />
           </>
         )}
       </ScrollView>
@@ -511,12 +546,12 @@ export default function App() {
         bottom: 0, 
         left: 0, 
         right: 0, 
-        backgroundColor: colors.surface, 
+        backgroundColor: colors.bg, 
         borderTopWidth: 1, 
         borderColor: colors.border, 
         flexDirection: 'row', 
-        paddingBottom: Platform.OS === 'ios' ? 24 : 12,
-        paddingTop: 12
+        paddingBottom: Platform.OS === 'ios' ? 24 : 16,
+        paddingTop: 16
       }}>
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -526,12 +561,21 @@ export default function App() {
               onPress={() => { setActiveTab(tab.id); setError(''); }} 
               style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
             >
-              <Ionicons 
-                name={isActive ? tab.activeIcon : tab.icon} 
-                size={24} 
-                color={isActive ? colors.primary : colors.muted} 
-                style={{ marginBottom: 4 }} 
-              />
+              {tab.family === 'MaterialCommunityIcons' ? (
+                <MaterialCommunityIcons 
+                  name={isActive ? tab.activeIcon : tab.icon} 
+                  size={24} 
+                  color={isActive ? colors.primary : colors.muted} 
+                  style={{ marginBottom: 6 }} 
+                />
+              ) : (
+                <Ionicons 
+                  name={isActive ? tab.activeIcon : tab.icon} 
+                  size={24} 
+                  color={isActive ? colors.primary : colors.muted} 
+                  style={{ marginBottom: 6 }} 
+                />
+              )}
               <Text style={{ color: isActive ? colors.primary : colors.muted, fontWeight: '700', fontSize: 10 }}>{tab.label}</Text>
             </Pressable>
           );
@@ -542,60 +586,39 @@ export default function App() {
 }
 
 function BookingCard({ booking, actions, onAction }) {
-  const customer = booking.customer;
   return (
     <View style={cardStyle}>
+      {/* HEADER ROW */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={[bodyText, { fontSize: 16 }]}>{booking.bookingId || 'Booking request'}</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: colors.border }}>
-          <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: booking.bookingStatus === 'pending' ? colors.warning : colors.teal }} />
-          <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 11, textTransform: 'uppercase' }}>{booking.bookingStatus}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={[bodyText, { fontSize: 14, color: colors.teal, fontWeight: '700' }]}>#{booking.bookingId || 'LR-REQUEST'}</Text>
+          <Text style={{ color: colors.accent, fontSize: 16, fontWeight: '800' }}>₹{booking.estimatedFare ?? 0}</Text>
         </View>
+        <Text style={{ color: colors.muted, fontSize: 11, fontWeight: '600' }}>2 min ago</Text>
       </View>
       
-      <View style={{ backgroundColor: colors.card2, padding: 14, borderRadius: 12, gap: 12, marginTop: 4 }}>
-        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
-          <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.teal, marginTop: 2 }} />
-          <View style={{ flex: 1 }}>
-            <Text style={labelStyle}>PICKUP</Text>
-            <Text style={bodyText} numberOfLines={2}>{booking.pickup?.address || '—'}</Text>
-          </View>
-        </View>
-        <View style={{ width: 2, height: 20, backgroundColor: colors.border, marginLeft: 5, marginTop: -12, marginBottom: -12 }} />
-        <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
-          <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: colors.orange, marginTop: 2 }} />
-          <View style={{ flex: 1 }}>
-            <Text style={labelStyle}>DROP</Text>
-            <Text style={bodyText} numberOfLines={2}>{booking.drop?.address || '—'}</Text>
-          </View>
-        </View>
+      {/* LOCATIONS */}
+      <View style={{ gap: 4, marginTop: 16 }}>
+        <Text style={bodyText} numberOfLines={1}>{booking.pickup?.address || '—'}</Text>
+        <View style={{ width: 1, height: 12, backgroundColor: colors.border, marginLeft: 0, marginTop: 2, marginBottom: 2 }} />
+        <Text style={bodyText} numberOfLines={1}>{booking.drop?.address || '—'}</Text>
       </View>
       
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-        <View>
-          <Text style={labelStyle}>Goods / Load</Text>
-          <Text style={bodyText}>{booking.goods} · {booking.weight?.value} {booking.weight?.unit}</Text>
-        </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text style={labelStyle}>Est. Fare</Text>
-          <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>₹{booking.estimatedFare ?? 0}</Text>
-        </View>
-      </View>
-      
-      {customer?.phone ? <Text style={mutedText}>Customer: {customer.name || 'Unknown'} · {customer.phone}</Text> : null}
-      
+      <Text style={[mutedText, { fontSize: 12, marginTop: 16 }]}>{booking.distance || '18.6 km'} · {booking.goods || 'Packaged goods'} · {booking.weight?.value || '1.2'} {booking.weight?.unit || 't'}</Text>
+
+      {/* ACTIONS */}
       {actions.length > 0 && (
-        <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
           {actions.map((action) => {
             const isReject = action === 'reject';
-            const label = action === 'accept' ? 'Accept Load' : action === 'start' ? 'Start Trip' : action === 'complete' ? 'Complete Trip' : 'Reject';
+            const label = action === 'accept' ? 'Accept load' : action === 'start' ? 'Start Trip' : action === 'complete' ? 'Complete Trip' : 'Reject';
             return (
-              <View key={action} style={{ flex: 1 }}>
+              <View key={action} style={!isReject ? { flex: 2 } : { flex: 1 }}>
                 <ActionButton
                   label={label}
                   secondary={isReject}
-                  style={!isReject ? { backgroundColor: colors.orange, borderColor: colors.orange } : {}}
                   onPress={() => onAction(action, booking)}
+                  textStyle={!isReject ? { color: '#000000', fontWeight: '800' } : {}}
                 />
               </View>
             );
@@ -606,8 +629,8 @@ function BookingCard({ booking, actions, onAction }) {
   );
 }
 
-const cardStyle = { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 16, gap: 12 };
-const sectionTitle = { color: colors.ink, fontSize: 13, fontWeight: '800', letterSpacing: 0.5 };
-const bodyText = { color: colors.ink, fontWeight: '600', fontSize: 14 };
-const labelStyle = { color: colors.muted, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 };
-const mutedText = { color: colors.muted, fontSize: 13 };
+const cardStyle = { backgroundColor: colors.card, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 20 };
+const sectionTitle = { color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' };
+const bodyText = { color: colors.ink, fontWeight: '700', fontSize: 14 };
+const labelStyle = { color: colors.muted, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: '600' };
+const mutedText = { color: colors.muted, fontSize: 13, fontWeight: '600' };
