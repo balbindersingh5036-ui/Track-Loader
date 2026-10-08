@@ -5,7 +5,7 @@ export default function LoadBalbinLogo({ style, width = 140, height = 45 }) {
   return (
     <View style={[styles.container, style]}>
       <Image 
-        source={require("../../assets/loadbalbin-logo-header.png")} 
+        source={require("../../assets/loadbalbin-logo-cropped.png")} 
         style={{ width, height, resizeMode: "contain" }} 
       />
     </View>
