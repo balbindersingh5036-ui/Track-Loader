@@ -6,6 +6,10 @@ if (
   env.cloudinary.apiKey &&
   env.cloudinary.apiSecret
 ) {
+  if (process.env.CLOUDINARY_URL) {
+    delete process.env.CLOUDINARY_URL;
+  }
+
   cloudinary.config({
     cloud_name: env.cloudinary.cloudName.trim(),
     api_key: env.cloudinary.apiKey.trim(),

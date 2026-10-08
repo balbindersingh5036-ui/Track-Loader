@@ -31,17 +31,18 @@ export const uploadImage = async (req, res, next) => {
       imageUrl: result.secure_url
     });
   } catch (error) {
-    console.error("Cloudinary Upload Error Raw:", error);
-    console.error("Cloudinary Upload Error:", {
-      message: error.message || "Unknown error",
-      http_code: error.http_code || null,
-      name: error.name || null
-    });
+    console.error("Cloudinary Detailed Error Dump:", JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
     
     if (error.http_code && error.http_code >= 400 && error.http_code < 500) {
       return res.status(400).json({
         success: false,
-        message: `Invalid image upload request to provider: ${error.message}`
+        message: `Invalid image upload request to provider: ${error.message}`,
+        details: {
+          code: error.http_code,
+          name: error.name,
+          headers: error.headers,
+          requestOptions: error.request_options
+        }
       });
     }
 
