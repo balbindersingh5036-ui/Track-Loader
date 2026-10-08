@@ -20,7 +20,10 @@ export default function BannerCarousel({ audience = "driver" }) {
   const [banners, setBanners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
+  
   const flatListRef = useRef(null);
+  const currentIndexRef = useRef(0);
+  const timerRef = useRef(null);
 
   useEffect(() => {
     fetchBanners();
@@ -49,30 +52,49 @@ export default function BannerCarousel({ audience = "driver" }) {
     }
   };
 
+  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
+  
   const onViewableItemsChanged = useRef(({ viewableItems }) => {
     if (viewableItems.length > 0) {
-      setCurrentIndex(viewableItems[0].index || 0);
+      const idx = viewableItems[0].index || 0;
+      setCurrentIndex(idx);
+      currentIndexRef.current = idx;
+      
+      // Reset timer on manual swipe
+      startAutoSlide();
     }
   }).current;
 
-  useEffect(() => {
+  const startAutoSlide = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+    
     if (banners.length <= 1) return;
 
-    const timer = setInterval(() => {
-      let nextIndex = currentIndex + 1;
+    timerRef.current = setInterval(() => {
+      let nextIndex = currentIndexRef.current + 1;
       if (nextIndex >= banners.length) {
         nextIndex = 0;
       }
+      
       if (flatListRef.current) {
-        flatListRef.current.scrollToIndex({
-          index: nextIndex,
+        flatListRef.current.scrollToOffset({
+          offset: nextIndex * width,
           animated: true,
         });
+        currentIndexRef.current = nextIndex;
+        setCurrentIndex(nextIndex);
       }
-    }, 3500);
+    }, 3000); // 3 seconds as requested
+  };
 
-    return () => clearInterval(timer);
-  }, [banners.length, currentIndex]);
+  useEffect(() => {
+    startAutoSlide();
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [banners]);
 
   const getItemLayout = (_, index) => ({
     length: width,
@@ -102,7 +124,7 @@ export default function BannerCarousel({ audience = "driver" }) {
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
+        viewabilityConfig={viewabilityConfig}
         getItemLayout={getItemLayout}
         renderItem={({ item }) => (
           <Pressable 
