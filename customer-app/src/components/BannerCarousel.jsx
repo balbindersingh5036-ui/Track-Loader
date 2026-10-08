@@ -7,7 +7,8 @@ import {
   Dimensions,
   ImageBackground,
   FlatList,
-  ActivityIndicator
+  ActivityIndicator,
+  Platform
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import api from "../services/api";
@@ -37,7 +38,7 @@ export default function BannerCarousel({ audience = "customer" }) {
         setBanners(res.data.data);
       }
     } catch (err) {
-      console.warn("Failed to fetch banners", err);
+      console.warn('Failed to fetch banners', err);
     } finally {
       setLoading(false);
     }
@@ -59,7 +60,6 @@ export default function BannerCarousel({ audience = "customer" }) {
       const idx = viewableItems[0].index || 0;
       setCurrentIndex(idx);
       currentIndexRef.current = idx;
-      
       // Reset timer on manual swipe
       startAutoSlide();
     }
@@ -70,7 +70,9 @@ export default function BannerCarousel({ audience = "customer" }) {
       clearInterval(timerRef.current);
     }
     
-    if (banners.length <= 1) return;
+    if (banners.length <= 1) {
+      return;
+    }
 
     timerRef.current = setInterval(() => {
       let nextIndex = currentIndexRef.current + 1;
@@ -78,15 +80,25 @@ export default function BannerCarousel({ audience = "customer" }) {
         nextIndex = 0;
       }
       
+      const offset = nextIndex * width;
+      
       if (flatListRef.current) {
-        flatListRef.current.scrollToOffset({
-          offset: nextIndex * width,
-          animated: true,
-        });
+        if (Platform.OS === 'web') {
+          // Access the underlying DOM node on web for reliable scrolling
+          const scrollNode = flatListRef.current.getScrollableNode();
+          if (scrollNode && typeof scrollNode.scrollTo === 'function') {
+            scrollNode.scrollTo({ left: offset, behavior: 'smooth' });
+          } else {
+            flatListRef.current.scrollToOffset({ offset, animated: true });
+          }
+        } else {
+          flatListRef.current.scrollToOffset({ offset, animated: true });
+        }
+        
         currentIndexRef.current = nextIndex;
         setCurrentIndex(nextIndex);
       }
-    }, 3000); // 3 seconds as requested
+    }, 3000); // 3 seconds
   };
 
   useEffect(() => {
