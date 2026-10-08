@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { 
   LayoutDashboard, Users, Car, Map, CreditCard, 
-  Settings, Bell, AlertTriangle, FileText, TrendingUp, Star
+  Settings, Bell, AlertTriangle, FileText, TrendingUp, Star, Image
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -18,6 +18,7 @@ export default function Sidebar() {
     { path: '/notifications', name: 'Notifications', icon: <Bell /> },
     { path: '/complaints', name: 'Complaints', icon: <AlertTriangle /> },
     { path: '/reports', name: 'Reports', icon: <FileText /> },
+    { path: '/banners', name: 'Banners', icon: <Image /> },
     { path: '/settings', name: 'System Settings', icon: <Settings /> },
   ];
 

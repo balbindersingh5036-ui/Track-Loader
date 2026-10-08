@@ -11,6 +11,7 @@ import Vehicles from '../pages/vehicles/Vehicles';
 import Payments from '../pages/payments/Payments';
 import Reports from '../pages/reports/Reports';
 import Settings from '../pages/Settings';
+import Banners from '../pages/banners/Banners';
 import Notifications from '../pages/notifications/Notifications';
 import Complaints from '../pages/complaints/Complaints';
 import Ratings from '../pages/ratings/Ratings';
@@ -60,6 +61,7 @@ export default function AppRoutes() {
         <Route path="ratings/:id" element={<RatingDetails />} />
         <Route path="earnings" element={<Earnings />} />
         <Route path="reports" element={<Reports />} />
+        <Route path="banners" element={<Banners />} />
         <Route path="settings" element={<Settings />} />
         <Route path="notifications" element={<Notifications />} />
         <Route path="complaints" element={<Complaints />} />

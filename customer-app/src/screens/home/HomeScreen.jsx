@@ -20,6 +20,7 @@ import { subscribeToBookingEvents, subscribeToNotifications } from "../../servic
 import { getErrorMessage } from "../../utils/errorMessage";
 import { Card, Loading, Notice, Status } from "../../components/Phase12UI";
 import LoadBalbinLogo from "../../components/LoadBalbinLogo";
+import BannerCarousel from "../../components/BannerCarousel";
 import { colors, shadows } from "../../theme/theme";
 
 const vehicleTypes = ["mini-truck", "pickup", "small-truck", "medium-truck", "large-truck"];
@@ -162,13 +163,8 @@ export default function HomeScreen({ navigation }) {
           />
         }
       >
-        {/* GREETING SECTION */}
-        <View style={styles.greetingSection}>
-          <Text style={styles.greetingTitle}>
-            Hello, {user?.name || "Customer"} 👋
-          </Text>
-          <Text style={styles.greetingSubtitle}>Move goods with confidence.</Text>
-        </View>
+
+        <BannerCarousel audience="customer" />
 
         {/* SYSTEM STATUS ALERTS */}
         {isMaintenance ? (
@@ -359,7 +355,7 @@ export default function HomeScreen({ navigation }) {
                 <View style={{ padding: 16, gap: 8 }}>
                   <Text style={{ color: colors.text, fontSize: 18, fontWeight: "700" }} numberOfLines={1}>{vehicle.vehicleModel}</Text>
                   <Text style={{ color: colors.textMuted, fontSize: 13, textTransform: "capitalize" }}>{vehicle.vehicleType?.replace(/-/g, " ")}</Text>
-                  
+
                   <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
                       <Ionicons name="speedometer-outline" size={14} color={colors.textMuted} />
@@ -367,7 +363,7 @@ export default function HomeScreen({ navigation }) {
                     </View>
                     <Text style={{ color: colors.textHighlight, fontSize: 14, fontWeight: "700" }}>₹{vehicle.baseFare || "Est."}</Text>
                   </View>
-                  
+
                   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
                     <View style={{ backgroundColor: vehicle.isAvailable ? colors.secondary : colors.surfaceAlt, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
                       <Text style={{ color: vehicle.isAvailable ? colors.background : colors.textMuted, fontSize: 11, fontWeight: "800", textTransform: "uppercase" }}>
@@ -430,7 +426,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "flex-start",
-    marginLeft: -40,
+    marginLeft: -30,
   },
   logoBadge: {
     width: 38,
@@ -487,20 +483,7 @@ const styles = StyleSheet.create({
     paddingBottom: 140, // Increased to clear bottom navigation completely
     gap: 18
   },
-  greetingSection: {
-    gap: 2
-  },
-  greetingTitle: {
-    color: colors.text,
-    fontSize: 22,
-    fontWeight: "800",
-    letterSpacing: -0.4
-  },
-  greetingSubtitle: {
-    color: colors.textMuted,
-    fontSize: 14,
-    fontWeight: "500"
-  },
+
   heroCard: {
     backgroundColor: colors.surface,
     borderRadius: 16,
