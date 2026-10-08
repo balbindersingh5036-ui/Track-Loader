@@ -55,6 +55,31 @@ export default function BannerCarousel({ audience = "driver" }) {
     }
   }).current;
 
+  useEffect(() => {
+    if (banners.length <= 1) return;
+
+    const timer = setInterval(() => {
+      let nextIndex = currentIndex + 1;
+      if (nextIndex >= banners.length) {
+        nextIndex = 0;
+      }
+      if (flatListRef.current) {
+        flatListRef.current.scrollToIndex({
+          index: nextIndex,
+          animated: true,
+        });
+      }
+    }, 3500);
+
+    return () => clearInterval(timer);
+  }, [banners.length, currentIndex]);
+
+  const getItemLayout = (_, index) => ({
+    length: width,
+    offset: width * index,
+    index,
+  });
+
   if (loading) {
     return (
       <View style={styles.skeletonContainer}>
@@ -78,6 +103,7 @@ export default function BannerCarousel({ audience = "driver" }) {
         showsHorizontalScrollIndicator={false}
         onViewableItemsChanged={onViewableItemsChanged}
         viewabilityConfig={{ viewAreaCoveragePercentThreshold: 50 }}
+        getItemLayout={getItemLayout}
         renderItem={({ item }) => (
           <Pressable 
             style={styles.bannerWrapper} 
