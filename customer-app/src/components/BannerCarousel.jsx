@@ -1,26 +1,24 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import {
   View,
-  Text,
   StyleSheet,
   Pressable,
-  Dimensions,
-  ImageBackground,
+  Image,
   FlatList,
   ActivityIndicator,
-  Platform
+  Platform,
+  Dimensions
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import api from "../services/api";
 import colors from "../constants/colors";
 
-const { width } = Dimensions.get("window");
-
 export default function BannerCarousel({ audience = "customer" }) {
   const navigation = useNavigation();
   const [banners, setBanners] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [realIndex, setRealIndex] = useState(0);
+  const [layoutWidth, setLayoutWidth] = useState(Dimensions.get("window").width);
   
   const flatListRef = useRef(null);
   const currentIndexRef = useRef(0);
@@ -28,19 +26,150 @@ export default function BannerCarousel({ audience = "customer" }) {
 
   useEffect(() => {
     fetchBanners();
-  }, []);
+    return () => clearTimer();
+  }, [audience]);
 
   const fetchBanners = async () => {
     try {
       setLoading(true);
       const res = await api.get(`/banners?audience=${audience}`);
       if (res.data?.success) {
-        setBanners(res.data.data);
+        setBanners(res.data.data || []);
       }
     } catch (err) {
       console.warn('Failed to fetch banners', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const clearTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  // Create clones for infinite loop
+  const extendedBanners = useMemo(() => {
+    if (banners.length <= 1) return banners.map((b, i) => ({ ...b, uniqueKey: b._id || i.toString() }));
+    return [
+      { ...banners[banners.length - 1], uniqueKey: 'clone-last-' + banners[banners.length - 1]._id },
+      ...banners.map(b => ({ ...b, uniqueKey: b._id })),
+      { ...banners[0], uniqueKey: 'clone-first-' + banners[0]._id }
+    ];
+  }, [banners]);
+
+  const scrollToIndex = useCallback((index, animated) => {
+    if (!flatListRef.current) return;
+    const offset = index * layoutWidth;
+    
+    if (Platform.OS === 'web') {
+      try {
+        const scrollNode = flatListRef.current.getScrollableNode();
+        if (scrollNode && typeof scrollNode.scrollTo === 'function') {
+          scrollNode.scrollTo({ left: offset, behavior: animated ? 'smooth' : 'auto' });
+        } else {
+          flatListRef.current.scrollToOffset({ offset, animated });
+        }
+      } catch (e) {
+        flatListRef.current.scrollToOffset({ offset, animated });
+      }
+    } else {
+      flatListRef.current.scrollToOffset({ offset, animated });
+    }
+  }, [layoutWidth]);
+
+  // Initial position jump when data loads
+  useEffect(() => {
+    if (extendedBanners.length > 1 && layoutWidth > 0) {
+      currentIndexRef.current = 1;
+      setRealIndex(0);
+      setTimeout(() => {
+        scrollToIndex(1, false);
+      }, 100);
+    } else if (extendedBanners.length === 1) {
+      currentIndexRef.current = 0;
+      setRealIndex(0);
+    }
+  }, [extendedBanners, layoutWidth, scrollToIndex]);
+
+  const startAutoSlide = useCallback(() => {
+    clearTimer();
+    if (banners.length <= 1 || layoutWidth <= 0) return;
+
+    timerRef.current = setInterval(() => {
+      const N = banners.length;
+      let nextIndex = currentIndexRef.current + 1;
+      
+      scrollToIndex(nextIndex, true);
+      
+      if (nextIndex === N + 1) {
+        setTimeout(() => {
+          if (flatListRef.current) {
+            scrollToIndex(1, false);
+            currentIndexRef.current = 1;
+            setRealIndex(0);
+          }
+        }, 500); // Wait for transition
+      } else {
+        currentIndexRef.current = nextIndex;
+        setRealIndex(nextIndex - 1);
+      }
+    }, 3000);
+  }, [banners.length, layoutWidth, scrollToIndex]);
+
+  useEffect(() => {
+    startAutoSlide();
+    return () => clearTimer();
+  }, [startAutoSlide]);
+
+  const handleScrollBeginDrag = () => {
+    clearTimer();
+  };
+
+  const handleMomentumScrollEnd = (event) => {
+    if (layoutWidth <= 0) return;
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const index = Math.round(offsetX / layoutWidth);
+    const N = banners.length;
+    
+    if (N > 1) {
+      if (index === 0) {
+        scrollToIndex(N, false);
+        currentIndexRef.current = N;
+        setRealIndex(N - 1);
+      } else if (index === N + 1) {
+        scrollToIndex(1, false);
+        currentIndexRef.current = 1;
+        setRealIndex(0);
+      } else {
+        currentIndexRef.current = index;
+        setRealIndex(index - 1);
+      }
+    }
+    startAutoSlide();
+  };
+
+  // For Web, sometimes onMomentumScrollEnd doesn't fire. Fallback using onScroll.
+  const handleScroll = (event) => {
+    if (Platform.OS !== 'web' || layoutWidth <= 0 || banners.length <= 1) return;
+    const offsetX = event.nativeEvent.contentOffset.x;
+    const index = Math.round(offsetX / layoutWidth);
+    const floatIndex = offsetX / layoutWidth;
+    
+    // Check if we've settled on a clone boundary via manual scroll
+    if (Math.abs(floatIndex - index) < 0.05) {
+       const N = banners.length;
+       if (index === 0) {
+          scrollToIndex(N, false);
+          currentIndexRef.current = N;
+          setRealIndex(N - 1);
+       } else if (index === N + 1) {
+          scrollToIndex(1, false);
+          currentIndexRef.current = 1;
+          setRealIndex(0);
+       }
     }
   };
 
@@ -52,67 +181,6 @@ export default function BannerCarousel({ audience = "customer" }) {
       console.warn("Navigation failed for action:", action);
     }
   };
-
-  const viewabilityConfig = useRef({ viewAreaCoveragePercentThreshold: 50 }).current;
-  
-  const onViewableItemsChanged = useRef(({ viewableItems }) => {
-    if (viewableItems.length > 0) {
-      const idx = viewableItems[0].index || 0;
-      setCurrentIndex(idx);
-      currentIndexRef.current = idx;
-      // Reset timer on manual swipe
-      startAutoSlide();
-    }
-  }).current;
-
-  const startAutoSlide = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    
-    if (banners.length <= 1) {
-      return;
-    }
-
-    timerRef.current = setInterval(() => {
-      let nextIndex = currentIndexRef.current + 1;
-      if (nextIndex >= banners.length) {
-        nextIndex = 0;
-      }
-      
-      const offset = nextIndex * width;
-      
-      if (flatListRef.current) {
-        if (Platform.OS === 'web') {
-          // Access the underlying DOM node on web for reliable scrolling
-          const scrollNode = flatListRef.current.getScrollableNode();
-          if (scrollNode && typeof scrollNode.scrollTo === 'function') {
-            scrollNode.scrollTo({ left: offset, behavior: 'smooth' });
-          } else {
-            flatListRef.current.scrollToOffset({ offset, animated: true });
-          }
-        } else {
-          flatListRef.current.scrollToOffset({ offset, animated: true });
-        }
-        
-        currentIndexRef.current = nextIndex;
-        setCurrentIndex(nextIndex);
-      }
-    }, 3000); // 3 seconds
-  };
-
-  useEffect(() => {
-    startAutoSlide();
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [banners]);
-
-  const getItemLayout = (_, index) => ({
-    length: width,
-    offset: width * index,
-    index,
-  });
 
   if (loading) {
     return (
@@ -127,45 +195,42 @@ export default function BannerCarousel({ audience = "customer" }) {
   }
 
   return (
-    <View style={styles.container}>
+    <View 
+      style={styles.container} 
+      onLayout={(e) => {
+        const newWidth = e.nativeEvent.layout.width;
+        if (newWidth > 0 && newWidth !== layoutWidth) {
+           setLayoutWidth(newWidth);
+        }
+      }}
+    >
       <FlatList
         ref={flatListRef}
-        data={banners}
-        keyExtractor={(item) => item._id}
+        data={extendedBanners}
+        keyExtractor={(item) => item.uniqueKey}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        getItemLayout={getItemLayout}
+        bounces={false}
+        onScrollBeginDrag={handleScrollBeginDrag}
+        onMomentumScrollEnd={handleMomentumScrollEnd}
+        onScroll={Platform.OS === 'web' ? handleScroll : undefined}
+        scrollEventThrottle={16}
+        getItemLayout={(_, index) => ({
+          length: layoutWidth,
+          offset: layoutWidth * index,
+          index,
+        })}
         renderItem={({ item }) => (
           <Pressable 
-            style={styles.bannerWrapper} 
+            style={[styles.bannerWrapper, { width: layoutWidth }]} 
             onPress={() => handlePress(item.ctaAction)}
           >
-            <ImageBackground
+            <Image
               source={{ uri: item.imageUrl }}
               style={styles.bannerImage}
-              imageStyle={{ borderRadius: 16 }}
-            >
-              <View style={styles.overlay}>
-                <View style={styles.content}>
-                  <Text style={styles.title} numberOfLines={2}>
-                    {item.title}
-                  </Text>
-                  {item.subtitle ? (
-                    <Text style={styles.subtitle} numberOfLines={2}>
-                      {item.subtitle}
-                    </Text>
-                  ) : null}
-                  {item.ctaText ? (
-                    <View style={styles.ctaButton}>
-                      <Text style={styles.ctaText}>{item.ctaText}</Text>
-                    </View>
-                  ) : null}
-                </View>
-              </View>
-            </ImageBackground>
+              resizeMode="cover"
+            />
           </Pressable>
         )}
       />
@@ -177,7 +242,7 @@ export default function BannerCarousel({ audience = "customer" }) {
               key={index}
               style={[
                 styles.dot,
-                currentIndex === index && styles.activeDot
+                realIndex === index && styles.activeDot
               ]}
             />
           ))}
@@ -190,6 +255,7 @@ export default function BannerCarousel({ audience = "customer" }) {
 const styles = StyleSheet.create({
   container: {
     marginVertical: 10,
+    width: '100%',
   },
   skeletonContainer: {
     height: 160,
@@ -203,7 +269,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   bannerWrapper: {
-    width: width,
     paddingHorizontal: 16,
   },
   bannerImage: {
@@ -211,39 +276,6 @@ const styles = StyleSheet.create({
     height: 160,
     borderRadius: 16,
     overflow: "hidden",
-  },
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(8, 17, 31, 0.4)", // Dark logistics overlay
-    padding: 16,
-    justifyContent: "center",
-  },
-  content: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  title: {
-    color: colors.white,
-    fontSize: 20,
-    fontWeight: "800",
-    marginBottom: 4,
-  },
-  subtitle: {
-    color: colors.secondary || "#B8C4D1",
-    fontSize: 13,
-    marginBottom: 12,
-  },
-  ctaButton: {
-    backgroundColor: colors.accent || "#FF7A00",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 6,
-    alignSelf: "flex-start",
-  },
-  ctaText: {
-    color: colors.white,
-    fontSize: 13,
-    fontWeight: "bold",
   },
   pagination: {
     flexDirection: "row",
@@ -255,7 +287,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.textMuted,
+    backgroundColor: colors.textMuted || '#8A98A8',
     marginHorizontal: 4,
     opacity: 0.5,
   },
@@ -263,7 +295,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primary || '#08A9F5',
     opacity: 1,
   },
 });
