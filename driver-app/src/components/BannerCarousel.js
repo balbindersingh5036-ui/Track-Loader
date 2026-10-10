@@ -208,7 +208,7 @@ export default function BannerCarousel({ audience = "driver", fallback = null })
       }}
     >
       {Platform.OS === 'web' ? (
-        <View style={{ width: layoutWidth, overflow: 'hidden' }}>
+        <View style={{ width: layoutWidth, overflow: 'hidden', alignSelf: 'center' }}>
           <View 
             style={{ 
               flexDirection: 'row', 
@@ -226,7 +226,7 @@ export default function BannerCarousel({ audience = "driver", fallback = null })
                 <Image
                   source={{ uri: item.imageUrl }}
                   style={styles.bannerImage}
-                  resizeMode="cover"
+                  resizeMode="contain"
                 />
               </Pressable>
             ))}
@@ -257,7 +257,7 @@ export default function BannerCarousel({ audience = "driver", fallback = null })
               <Image
                 source={{ uri: item.imageUrl }}
                 style={styles.bannerImage}
-                resizeMode="cover"
+                resizeMode="contain"
               />
             </Pressable>
           )}
@@ -287,7 +287,7 @@ export default function BannerCarousel({ audience = "driver", fallback = null })
 }
 
 const styles = StyleSheet.create({
-  container: { marginVertical: 10, width: '100%' },
+  container: { marginVertical: 10, width: '100%', alignSelf: 'center' },
   skeletonContainer: {
     height: 160, backgroundColor: colors.surface, borderRadius: 16,
     marginHorizontal: 16, marginVertical: 10, alignItems: "center",

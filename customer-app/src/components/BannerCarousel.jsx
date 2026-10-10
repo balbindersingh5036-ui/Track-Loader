@@ -206,7 +206,7 @@ export default function BannerCarousel({ audience = "customer" }) {
       }}
     >
       {Platform.OS === 'web' ? (
-        <View style={{ width: layoutWidth, overflow: 'hidden' }}>
+        <View style={{ width: layoutWidth, overflow: 'hidden', alignSelf: 'center' }}>
           <View 
             style={{ 
               flexDirection: 'row', 
@@ -224,7 +224,7 @@ export default function BannerCarousel({ audience = "customer" }) {
                 <Image
                   source={{ uri: item.imageUrl }}
                   style={styles.bannerImage}
-                  resizeMode="cover"
+                  resizeMode="contain"
                 />
               </Pressable>
             ))}
@@ -255,7 +255,7 @@ export default function BannerCarousel({ audience = "customer" }) {
               <Image
                 source={{ uri: item.imageUrl }}
                 style={styles.bannerImage}
-                resizeMode="cover"
+                resizeMode="contain"
               />
             </Pressable>
           )}
@@ -285,14 +285,14 @@ export default function BannerCarousel({ audience = "customer" }) {
 }
 
 const styles = StyleSheet.create({
-  container: { marginVertical: 10, width: '100%' },
+  container: { marginVertical: 10, width: '100%', alignSelf: 'center' },
   skeletonContainer: {
     height: 160, backgroundColor: colors.surface, borderRadius: 16,
     marginHorizontal: 16, marginVertical: 10, alignItems: "center",
     justifyContent: "center", borderColor: colors.line, borderWidth: 1,
   },
   bannerWrapper: { paddingHorizontal: 16 },
-  bannerImage: { width: "100%", height: 160, borderRadius: 16, overflow: "hidden" },
+  bannerImage: { width: "100%", height: 160, borderRadius: 16, overflow: "hidden", backgroundColor: colors.navy },
   pagination: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: 10 },
   dotContainer: { padding: 4 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.textMuted || '#8A98A8', marginHorizontal: 2, opacity: 0.5 },
