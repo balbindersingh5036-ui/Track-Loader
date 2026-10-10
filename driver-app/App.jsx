@@ -332,7 +332,7 @@ export default function App() {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
       {/* HEADER (MATCHING FIGMA) */}
       <View style={{ backgroundColor: colors.bg, paddingLeft: 0, paddingRight: 16, paddingTop: 16, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-        <LoadBalbinLogo width={240} height={64} style={{ transform: [{ translateX: -12 }] }} />
+        <LoadBalbinLogo width={320} height={86} style={{ marginLeft: -20 }} />
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'transparent', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 16, borderWidth: 1, borderColor: colors.border }}>
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: driver?.isOnline ? colors.green : colors.muted }} />

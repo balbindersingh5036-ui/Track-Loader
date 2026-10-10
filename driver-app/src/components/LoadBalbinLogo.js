@@ -1,12 +1,16 @@
 import React from "react";
-import { Image, View, StyleSheet } from "react-native";
+import { Image, View, StyleSheet, Platform } from "react-native";
 
-export default function LoadBalbinLogo({ style, width = 140, height = 90 }) {
+export default function LoadBalbinLogo({ style, width = 320, height = 86 }) {
   return (
-    <View style={[{ width, height, maxWidth: 240, maxHeight: 64, justifyContent: 'center', alignItems: 'flex-start' }, style]}>
+    <View style={[{ width, height, justifyContent: 'center', alignItems: 'flex-start', overflow: 'visible' }, style]}>
       <Image
         source={require("../../assets/loadbalbin-logo-cropped.png")}
-        style={[styles.logo, { width: '100%', height: '100%' }]}
+        style={[
+          styles.logo, 
+          { width: '100%', height: '100%', transform: [{ translateX: -5 }] },
+          Platform.OS === 'web' ? { objectPosition: 'left center' } : {}
+        ]}
         resizeMode="contain"
         accessibilityLabel="Load Balbin - For Driver & Transporter"
       />
