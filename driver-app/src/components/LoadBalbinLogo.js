@@ -5,7 +5,7 @@ export default function LoadBalbinLogo({ style, width = 140, height = 90 }) {
   return (
     <Image
       source={require("../../assets/loadbalbin-logo-cropped.png")}
-      style={[styles.logo, { width, height }, style]}
+      style={[styles.logo, { width, height, transform: [{ translateX: -25 }] }, style]}
       resizeMode="contain"
       accessibilityLabel="Load Balbin - For Driver & Transporter"
     />

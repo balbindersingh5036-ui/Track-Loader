@@ -33,6 +33,7 @@ export const getActiveBanners = async (req, res) => {
 
     const banners = await Banner.find(query).sort({ sortOrder: 1 });
 
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.json({
       success: true,
       data: banners

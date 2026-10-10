@@ -1123,3 +1123,770 @@
 {"_e":"metro:client_log","_t":1791629321356,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
 {"_e":"metro:bundling:started","_t":1791632075227,"id":"7","platform":"web","environment":null,"entry":"App.jsx"}
 {"_e":"metro:bundling:started","_t":1791632077151,"id":"9","platform":"web","environment":null,"entry":"src\\components\\LoadBalbinLogo.js"}
+{"_e":"metro:bundling:started","_t":1791632484910,"id":"a","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791632484910,"id":"a","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791632484927,"id":"a","total":1,"ms":17.6981}
+{"_e":"metro:client_log","_t":1791632485115,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791632485116,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:bundling:started","_t":1791632490560,"id":"h","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791632490560,"id":"h","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791632490576,"id":"h","total":1,"ms":16.3876}
+{"_e":"metro:client_log","_t":1791632490787,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791632490788,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791632491480,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791632491991,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791632492041,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791632492043,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791632492173,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791632493186,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:bundling:started","_t":1791633027435,"id":"m","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791633027436,"id":"m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791633027452,"id":"m","total":1,"ms":16.6974}
+{"_e":"metro:client_log","_t":1791633027634,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791633027635,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:bundling:started","_t":1791633263998,"id":"s","platform":"web","environment":null,"entry":"src\\components\\BannerCarousel.js"}
+{"_e":"metro:client_log","_t":1791633265575,"level":"log","data":["[BannerCarousel] Loaded 0 banners."]}
+{"_e":"metro:bundling:started","_t":1791633440802,"id":"t","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791633440802,"id":"t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791633440821,"id":"t","total":1,"ms":18.5272}
+{"_e":"metro:client_log","_t":1791633441016,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791633441017,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791633442217,"level":"log","data":["[BannerCarousel] Loaded 0 banners."]}
+{"_e":"metro:bundling:started","_t":1791636628492,"id":"z","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791636628492,"id":"z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791636628509,"id":"z","total":1,"ms":17.0059}
+{"_e":"metro:client_log","_t":1791636628717,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791636628717,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791636629983,"level":"log","data":["[BannerCarousel] Loaded 0 banners."]}
+{"_e":"metro:bundling:started","_t":1791636653117,"id":"15","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791636653117,"id":"15","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791636653132,"id":"15","total":1,"ms":15.535}
+{"_e":"metro:client_log","_t":1791636653320,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791636653320,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:bundling:started","_t":1791636654122,"id":"1b","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791636654122,"id":"1b","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791636654143,"id":"1b","total":1,"ms":20.9349}
+{"_e":"metro:client_log","_t":1791636654374,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791636654374,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791636655951,"level":"log","data":["[BannerCarousel] Loaded 0 banners."]}
+{"_e":"metro:bundling:started","_t":1791636658153,"id":"1h","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791636658153,"id":"1h","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791636658170,"id":"1h","total":1,"ms":16.6384}
+{"_e":"metro:client_log","_t":1791636658352,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791636658352,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791636658941,"level":"log","data":["[BannerCarousel] Loaded 0 banners."]}
+{"_e":"metro:bundling:started","_t":1791637069074,"id":"1n","platform":"web","environment":null,"entry":"src\\components\\BannerCarousel.js"}
+{"_e":"metro:client_log","_t":1791637069664,"level":"log","data":["[BannerCarousel] Loaded 0 banners."]}
+{"_e":"metro:bundling:started","_t":1791637071176,"id":"1o","platform":"web","environment":null,"entry":"App.jsx"}
+{"_e":"metro:client_log","_t":1791637071971,"level":"log","data":["[BannerCarousel] Loaded 0 banners."]}
+{"_e":"metro:bundling:started","_t":1791637275916,"id":"1q","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791637275916,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791637275938,"id":"1q","total":1,"ms":21.358}
+{"_e":"metro:client_log","_t":1791637276177,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791637276178,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791637277250,"level":"log","data":["[BannerCarousel] Loaded 0 banners."]}
+{"_e":"metro:bundling:started","_t":1791637733636,"id":"1w","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791637733636,"id":"1w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791637733651,"id":"1w","total":1,"ms":14.7659}
+{"_e":"metro:client_log","_t":1791637733844,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791637733844,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791637735082,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791637735083,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791637776322,"id":"22","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791637776322,"id":"22","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791637776338,"id":"22","total":1,"ms":15.6772}
+{"_e":"metro:client_log","_t":1791637776552,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791637776552,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791637777774,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791637777775,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791637791922,"id":"28","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791637791923,"id":"28","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791637791940,"id":"28","total":1,"ms":17.3675}
+{"_e":"metro:client_log","_t":1791637792123,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791637792123,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791637793218,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791637793219,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791639403756,"id":"2e","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791639403756,"id":"2e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791639403772,"id":"2e","total":1,"ms":16.7154}
+{"_e":"metro:client_log","_t":1791639403960,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791639403960,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791639405102,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791639405102,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791651527305,"id":"2k","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791651527306,"id":"2k","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791651527325,"id":"2k","total":1,"ms":19.2179}
+{"_e":"metro:client_log","_t":1791651527545,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791651527546,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791651528810,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791651528810,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791651680409,"id":"2q","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791651680409,"id":"2q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791651680436,"id":"2q","total":1,"ms":27.1714}
+{"_e":"metro:client_log","_t":1791651680648,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791651680648,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791651681759,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791651681760,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791651730164,"id":"2w","platform":"web","environment":null,"entry":"App.jsx"}
+{"_e":"metro:client_log","_t":1791651730921,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791651730922,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791651732088,"id":"2x","platform":"web","environment":null,"entry":"src\\components\\LoadBalbinLogo.js"}
+{"_e":"metro:bundling:started","_t":1791651749611,"id":"2y","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791651749611,"id":"2y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791651749629,"id":"2y","total":1,"ms":17.9118}
+{"_e":"metro:client_log","_t":1791651749829,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791651749829,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791651750754,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791651750754,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791651788325,"id":"34","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791651788325,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791651788340,"id":"34","total":1,"ms":14.9061}
+{"_e":"metro:client_log","_t":1791651788518,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791651788518,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791651789601,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791651789602,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791651971376,"id":"3a","platform":"web","environment":null,"entry":"App.jsx"}
+{"_e":"metro:client_log","_t":1791651972386,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791651972386,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791651973311,"id":"3c","platform":"web","environment":null,"entry":"src\\components\\LoadBalbinLogo.js"}
+{"_e":"metro:bundling:started","_t":1791652061679,"id":"3d","platform":"web","environment":null,"entry":"src\\components\\LoadBalbinLogo.js"}
+{"_e":"metro:bundling:started","_t":1791652105497,"id":"3e","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652105498,"id":"3e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652105515,"id":"3e","total":1,"ms":17.2209}
+{"_e":"metro:client_log","_t":1791652105736,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652105736,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652107018,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652107018,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652109807,"id":"3k","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652109807,"id":"3k","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652109822,"id":"3k","total":1,"ms":15.6162}
+{"_e":"metro:client_log","_t":1791652109992,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652109992,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652110632,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652110632,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652112455,"id":"3q","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652112456,"id":"3q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652112472,"id":"3q","total":1,"ms":16.8388}
+{"_e":"metro:client_log","_t":1791652112666,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652112666,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652113752,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652113752,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652115054,"id":"3w","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652115054,"id":"3w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652115073,"id":"3w","total":1,"ms":18.2068}
+{"_e":"metro:client_log","_t":1791652115315,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652115315,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652115951,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652115951,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652122720,"id":"43","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652122720,"id":"43","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652122736,"id":"43","total":1,"ms":15.7783}
+{"_e":"metro:client_log","_t":1791652122953,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652122953,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652124034,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652124034,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652180435,"id":"48","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652180435,"id":"48","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652180455,"id":"48","total":1,"ms":20.1832}
+{"_e":"metro:client_log","_t":1791652180643,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652180643,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652181779,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652181779,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652183957,"id":"4e","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652183957,"id":"4e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652183974,"id":"4e","total":1,"ms":17.2147}
+{"_e":"metro:client_log","_t":1791652184166,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652184167,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652184830,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652184831,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652186556,"id":"4l","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652186556,"id":"4l","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652186574,"id":"4l","total":1,"ms":17.9566}
+{"_e":"metro:client_log","_t":1791652186791,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652186791,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:bundling:started","_t":1791652187575,"id":"4r","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652187575,"id":"4r","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652187590,"id":"4r","total":1,"ms":14.7675}
+{"_e":"metro:client_log","_t":1791652187804,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652187804,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652189369,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652189369,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652190053,"id":"4x","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652190053,"id":"4x","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652190071,"id":"4x","total":1,"ms":17.9266}
+{"_e":"metro:client_log","_t":1791652190338,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652190338,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:bundling:started","_t":1791652190607,"id":"50","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652190607,"id":"50","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652190626,"id":"50","total":1,"ms":18.5492}
+{"_e":"metro:bundling:started","_t":1791652191450,"id":"52","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652191450,"id":"52","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652191465,"id":"52","total":1,"ms":15.1334}
+{"_e":"metro:client_log","_t":1791652191687,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652191687,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:bundling:started","_t":1791652191932,"id":"55","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652191933,"id":"55","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652191949,"id":"55","total":1,"ms":16.912}
+{"_e":"metro:client_log","_t":1791652192155,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652192156,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652193213,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652193213,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652297163,"id":"5a","platform":"web","environment":null,"entry":"App.jsx"}
+{"_e":"metro:client_log","_t":1791652298978,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652298979,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652299106,"id":"5c","platform":"web","environment":null,"entry":"src\\components\\LoadBalbinLogo.js"}
+{"_e":"metro:bundling:started","_t":1791652344237,"id":"5d","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652344237,"id":"5d","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652344255,"id":"5d","total":1,"ms":17.6189}
+{"_e":"metro:client_log","_t":1791652344447,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652344447,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652345766,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652345766,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652364995,"id":"5j","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652364995,"id":"5j","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652365011,"id":"5j","total":1,"ms":16.153}
+{"_e":"metro:client_log","_t":1791652365202,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652365203,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652366300,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652366301,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652367534,"id":"5p","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652367534,"id":"5p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652367553,"id":"5p","total":1,"ms":18.8451}
+{"_e":"metro:client_log","_t":1791652367791,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652367791,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:bundling:started","_t":1791652368026,"id":"5t","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652368026,"id":"5t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652368082,"id":"5t","total":1,"ms":55.5717}
+{"_e":"metro:client_log","_t":1791652368290,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652368290,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:bundling:started","_t":1791652368595,"id":"5w","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652368595,"id":"5w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652368611,"id":"5w","total":1,"ms":15.8356}
+{"_e":"metro:client_log","_t":1791652368778,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652368778,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:bundling:started","_t":1791652369006,"id":"5z","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652369006,"id":"5z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652369023,"id":"5z","total":1,"ms":17.0813}
+{"_e":"metro:client_log","_t":1791652369239,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652369239,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652369476,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791652369869,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652369870,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791652369870,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791652369965,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791652369975,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791652369999,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791652370537,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791652372340,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:bundling:started","_t":1791652377199,"id":"64","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652377200,"id":"64","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652377214,"id":"64","total":1,"ms":14.3683}
+{"_e":"metro:client_log","_t":1791652377384,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652377385,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652378488,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652378489,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652438548,"id":"6a","platform":"web","environment":null,"entry":"App.jsx"}
+{"_e":"metro:client_log","_t":1791652439748,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652439748,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652440542,"id":"6c","platform":"web","environment":null,"entry":"src\\components\\LoadBalbinLogo.js"}
+{"_e":"metro:bundling:started","_t":1791652494660,"id":"6e","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652494660,"id":"6e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652494678,"id":"6e","total":1,"ms":17.3206}
+{"_e":"metro:client_log","_t":1791652494853,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652494853,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652495965,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652495965,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652586494,"id":"6j","platform":"web","environment":null,"entry":"App.jsx"}
+{"_e":"metro:client_log","_t":1791652587969,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652587969,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652588419,"id":"6k","platform":"web","environment":null,"entry":"src\\components\\LoadBalbinLogo.js"}
+{"_e":"metro:bundling:started","_t":1791652600650,"id":"6l","platform":"web","environment":null,"entry":"src\\components\\BannerCarousel.js"}
+{"_e":"metro:client_log","_t":1791652601356,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652601357,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652604892,"id":"6m","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652604893,"id":"6m","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652604910,"id":"6m","total":1,"ms":17.7196}
+{"_e":"metro:client_log","_t":1791652605096,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652605096,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652605968,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652605968,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652629688,"id":"6s","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652629688,"id":"6s","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652629704,"id":"6s","total":1,"ms":16.4309}
+{"_e":"metro:client_log","_t":1791652629905,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652629906,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652630981,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652630981,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652881295,"id":"6y","platform":"web","environment":null,"entry":"App.jsx"}
+{"_e":"metro:client_log","_t":1791652882980,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652882981,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652883177,"id":"70","platform":"web","environment":null,"entry":"src\\components\\BannerCarousel.js"}
+{"_e":"metro:client_log","_t":1791652884213,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652884214,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652897189,"id":"71","platform":"web","environment":null,"entry":"src\\components\\LoadBalbinLogo.js"}
+{"_e":"metro:bundling:started","_t":1791652903583,"id":"72","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652903583,"id":"72","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652903599,"id":"72","total":1,"ms":15.6386}
+{"_e":"metro:client_log","_t":1791652903806,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652903806,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652904914,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652904915,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652917178,"id":"78","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652917178,"id":"78","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652917194,"id":"78","total":1,"ms":15.7189}
+{"_e":"metro:client_log","_t":1791652917399,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652917399,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652918506,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652918506,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652920367,"id":"7e","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652920367,"id":"7e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652920385,"id":"7e","total":1,"ms":18.1001}
+{"_e":"metro:client_log","_t":1791652920613,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652920614,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652921228,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652921228,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791652959673,"id":"7k","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791652959673,"id":"7k","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791652959688,"id":"7k","total":1,"ms":15.508}
+{"_e":"metro:client_log","_t":1791652959875,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791652959876,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791652961135,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791652961135,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791653126320,"id":"7q","platform":"web","environment":null,"entry":"src\\components\\BannerCarousel.js"}
+{"_e":"metro:client_log","_t":1791653127447,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791653127447,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791653140285,"id":"7r","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791653140285,"id":"7r","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791653140300,"id":"7r","total":1,"ms":15.0699}
+{"_e":"metro:client_log","_t":1791653140491,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791653140491,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791653141722,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791653141722,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791653299508,"id":"7x","platform":"web","environment":null,"entry":"src\\components\\BannerCarousel.js"}
+{"_e":"metro:client_log","_t":1791653300558,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791653300558,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791653343806,"id":"7y","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791653343806,"id":"7y","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791653343820,"id":"7y","total":1,"ms":14.2017}
+{"_e":"metro:client_log","_t":1791653344006,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791653344006,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791653345096,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791653345096,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791653557491,"id":"84","platform":"web","environment":null,"entry":"src\\components\\BannerCarousel.js"}
+{"_e":"metro:client_log","_t":1791653558624,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791653558624,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791653671023,"id":"85","platform":"web","environment":null,"entry":"src\\components\\LoadBalbinLogo.js"}
+{"_e":"metro:bundling:started","_t":1791653682726,"id":"86","platform":"web","environment":null,"entry":"src\\components\\BannerCarousel.js"}
+{"_e":"metro:client_log","_t":1791653683618,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791653683618,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791653776065,"id":"87","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791653776065,"id":"87","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791653776081,"id":"87","total":1,"ms":15.8969}
+{"_e":"metro:client_log","_t":1791653776307,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791653776307,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791653777432,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791653777432,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791653781550,"level":"log","data":["Banner action pressed:","dfgd"]}
+{"_e":"metro:client_log","_t":1791653782070,"level":"log","data":["Banner action pressed:","dfgd"]}
+{"_e":"metro:bundling:started","_t":1791653832751,"id":"8d","platform":"web","environment":null,"entry":"src\\components\\LoadBalbinLogo.js"}
+{"_e":"metro:bundling:started","_t":1791653840162,"id":"8e","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791653840162,"id":"8e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791653840177,"id":"8e","total":1,"ms":15.0988}
+{"_e":"metro:client_log","_t":1791653840373,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791653840373,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791653841463,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791653841463,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791653859255,"id":"8k","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791653859255,"id":"8k","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791653859271,"id":"8k","total":1,"ms":16.6896}
+{"_e":"metro:client_log","_t":1791653859450,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791653859450,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:bundling:started","_t":1791653860680,"id":"8q","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791653860681,"id":"8q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791653860696,"id":"8q","total":1,"ms":16.012}
+{"_e":"metro:client_log","_t":1791653860871,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791653860871,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791653862540,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791653862540,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791653862696,"id":"8w","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791653862697,"id":"8w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791653862713,"id":"8w","total":1,"ms":16.8294}
+{"_e":"metro:client_log","_t":1791653862980,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791653862980,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791653864163,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791653864485,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791653864486,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791653864487,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791653864706,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791653864706,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791653864748,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791653866094,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:bundling:started","_t":1791653915269,"id":"92","platform":"web","environment":null,"entry":"src\\components\\LoadBalbinLogo.js"}
+{"_e":"metro:bundling:started","_t":1791653921727,"id":"93","platform":"web","environment":null,"entry":"src\\components\\LoadBalbinLogo.js"}
+{"_e":"metro:bundling:started","_t":1791653970252,"id":"94","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791653970252,"id":"94","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791653970267,"id":"94","total":1,"ms":15.4149}
+{"_e":"metro:client_log","_t":1791653970493,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791653970493,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791653971578,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791653971578,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791654272960,"id":"9a","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654272960,"id":"9a","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654272976,"id":"9a","total":1,"ms":16.0579}
+{"_e":"metro:client_log","_t":1791654273158,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791654273158,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791654274267,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791654274268,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791654376584,"id":"9g","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654376584,"id":"9g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654376601,"id":"9g","total":1,"ms":17.2568}
+{"_e":"metro:client_log","_t":1791654376821,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791654376821,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791654377891,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791654377892,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791654396347,"id":"9m","platform":"web","environment":null,"entry":"src\\components\\BannerCarousel.js"}
+{"_e":"metro:client_log","_t":1791654397340,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791654397341,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791654445179,"id":"9n","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654445179,"id":"9n","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654445194,"id":"9n","total":1,"ms":14.3832}
+{"_e":"metro:client_log","_t":1791654445428,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791654445428,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791654446489,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791654446489,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791654476534,"id":"9t","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654476534,"id":"9t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654476550,"id":"9t","total":1,"ms":15.9795}
+{"_e":"metro:client_log","_t":1791654476745,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791654476745,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791654477849,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791654477850,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791654493139,"id":"9z","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654493139,"id":"9z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654493157,"id":"9z","total":1,"ms":17.8151}
+{"_e":"metro:client_log","_t":1791654493367,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791654493367,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:bundling:started","_t":1791654493565,"id":"a3","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654493565,"id":"a3","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654493584,"id":"a3","total":1,"ms":19.0462}
+{"_e":"metro:bundling:started","_t":1791654493894,"id":"a5","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654493894,"id":"a5","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654493908,"id":"a5","total":1,"ms":14.0494}
+{"_e":"metro:bundling:started","_t":1791654494016,"id":"a7","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654494016,"id":"a7","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654494029,"id":"a7","total":1,"ms":13.2158}
+{"_e":"metro:bundling:started","_t":1791654494248,"id":"a9","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654494248,"id":"a9","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654494262,"id":"a9","total":1,"ms":14.5609}
+{"_e":"metro:bundling:started","_t":1791654494449,"id":"ab","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654494449,"id":"ab","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654494463,"id":"ab","total":1,"ms":14.2872}
+{"_e":"metro:bundling:started","_t":1791654494659,"id":"ac","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654494660,"id":"ac","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654494674,"id":"ac","total":1,"ms":14.3921}
+{"_e":"metro:bundling:started","_t":1791654494880,"id":"ae","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654494881,"id":"ae","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654494897,"id":"ae","total":1,"ms":16.5731}
+{"_e":"metro:client_log","_t":1791654495134,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791654495135,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:bundling:started","_t":1791654495424,"id":"ag","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654495424,"id":"ag","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654495441,"id":"ag","total":1,"ms":16.8731}
+{"_e":"metro:client_log","_t":1791654495649,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791654495650,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791654496720,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791654496721,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791654503203,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791654503204,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"root:init","_t":1791654568142,"format":"v0-jsonl","version":"57.0.27"}
+{"_e":"env:mode","_t":1791654568158,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1791654568174,"mode":"development","files":["../..\\..\\.env.development","../..\\..\\.env"],"env":{"EXPO_PUBLIC_API_URL":"https://track-loader.onrender.com/api"}}
+{"_e":"devserver:start","_t":1791654576106,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1791654582692,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1791654585904,"plugins":[]}
+{"_e":"metro:instantiate","_t":1791654597961,"atlas":false,"workers":8,"host":"::","port":8085}
+{"_e":"metro:bundling:started","_t":1791654598708,"id":"1","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654598709,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791654598713,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791654601429,"id":"1","progress":0.010000000000000002,"total":1,"current":1}
+{"_e":"metro:bundling:progress","_t":1791654601529,"id":"1","progress":0.010000000000000002,"total":3,"current":1}
+{"_e":"metro:bundling:progress","_t":1791654601724,"id":"1","progress":0.04000000000000001,"total":3,"current":2}
+{"_e":"metro:bundling:progress","_t":1791654601826,"id":"1","progress":0.04000000000000001,"total":29,"current":2}
+{"_e":"metro:bundling:progress","_t":1791654601843,"id":"1","progress":0.04000000000000001,"total":29,"current":3}
+{"_e":"metro:bundling:progress","_t":1791654601948,"id":"1","progress":0.04000000000000001,"total":42,"current":5}
+{"_e":"metro:bundling:progress","_t":1791654602056,"id":"1","progress":0.04000000000000001,"total":44,"current":7}
+{"_e":"metro:bundling:progress","_t":1791654602156,"id":"1","progress":0.04474852071005917,"total":52,"current":11}
+{"_e":"metro:bundling:progress","_t":1791654602259,"id":"1","progress":0.08163265306122448,"total":63,"current":18}
+{"_e":"metro:bundling:progress","_t":1791654602370,"id":"1","progress":0.08257365570088518,"total":87,"current":25}
+{"_e":"metro:bundling:progress","_t":1791654602473,"id":"1","progress":0.11353969754253308,"total":92,"current":31}
+{"_e":"metro:bundling:progress","_t":1791654602575,"id":"1","progress":0.19545706371191135,"total":95,"current":42}
+{"_e":"metro:bundling:progress","_t":1791654602680,"id":"1","progress":0.2595229619081524,"total":106,"current":54}
+{"_e":"metro:bundling:progress","_t":1791654602782,"id":"1","progress":0.279762311317533,"total":121,"current":64}
+{"_e":"metro:bundling:progress","_t":1791654602882,"id":"1","progress":0.279762311317533,"total":158,"current":82}
+{"_e":"metro:bundling:progress","_t":1791654602983,"id":"1","progress":0.279762311317533,"total":206,"current":106}
+{"_e":"metro:bundling:progress","_t":1791654603089,"id":"1","progress":0.30200470741011287,"total":222,"current":122}
+{"_e":"metro:bundling:progress","_t":1791654603199,"id":"1","progress":0.3130082089697064,"total":227,"current":127}
+{"_e":"metro:bundling:progress","_t":1791654603320,"id":"1","progress":0.31795687865085687,"total":227,"current":128}
+{"_e":"metro:bundling:progress","_t":1791654603420,"id":"1","progress":0.5102040816326531,"total":245,"current":175}
+{"_e":"metro:bundling:progress","_t":1791654603523,"id":"1","progress":0.5844277813389783,"total":259,"current":198}
+{"_e":"metro:bundling:progress","_t":1791654603622,"id":"1","progress":0.6250700517405414,"total":277,"current":219}
+{"_e":"metro:bundling:progress","_t":1791654603723,"id":"1","progress":0.6795904471936384,"total":279,"current":230}
+{"_e":"metro:bundling:progress","_t":1791654603823,"id":"1","progress":0.6795904471936384,"total":298,"current":235}
+{"_e":"metro:bundling:progress","_t":1791654603926,"id":"1","progress":0.7248703620278157,"total":323,"current":275}
+{"_e":"metro:bundling:progress","_t":1791654604025,"id":"1","progress":0.7324419436185029,"total":326,"current":279}
+{"_e":"metro:bundling:progress","_t":1791654604125,"id":"1","progress":0.7324419436185029,"total":359,"current":295}
+{"_e":"metro:bundling:progress","_t":1791654604226,"id":"1","progress":0.7324419436185029,"total":392,"current":330}
+{"_e":"metro:bundling:progress","_t":1791654604334,"id":"1","progress":0.7780366920416061,"total":407,"current":359}
+{"_e":"metro:bundling:progress","_t":1791654604435,"id":"1","progress":0.78819750148721,"total":410,"current":364}
+{"_e":"metro:bundling:progress","_t":1791654604535,"id":"1","progress":0.9036179930795847,"total":425,"current":404}
+{"_e":"metro:bundling:progress","_t":1791654604635,"id":"1","progress":0.9185872237837954,"total":433,"current":415}
+{"_e":"metro:bundling:progress","_t":1791654604737,"id":"1","progress":0.9864408348373362,"total":441,"current":438}
+{"_e":"metro:bundling:progress","_t":1791654604837,"id":"1","progress":0.9954802317724862,"total":442,"current":441}
+{"_e":"metro:bundling:progress","_t":1791654605717,"id":"1","progress":0.999,"total":442,"current":442}
+{"_e":"metro:bundling:progress","_t":1791654605826,"id":"1","progress":0.999,"total":446,"current":446}
+{"_e":"metro:bundling:done","_t":1791654606281,"id":"1","total":446,"ms":7573.2086}
+{"_e":"metro:client_log","_t":1791654606423,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791654606423,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791654607600,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791654607601,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791654610668,"id":"6","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654610668,"id":"6","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654610684,"id":"6","total":1,"ms":16.1105}
+{"_e":"metro:client_log","_t":1791654610775,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791654610775,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791654611680,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791654611680,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791654739851,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791654739851,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791654773838,"id":"b","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654773838,"id":"b","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654773856,"id":"b","total":1,"ms":18.042}
+{"_e":"metro:client_log","_t":1791654773996,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791654773996,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791654774999,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791654775000,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791654776164,"id":"g","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654776165,"id":"g","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654776183,"id":"g","total":1,"ms":18.6034}
+{"_e":"metro:client_log","_t":1791654776288,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791654776289,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791654777247,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791654777247,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791654778403,"id":"l","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654778403,"id":"l","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654778421,"id":"l","total":1,"ms":17.8894}
+{"_e":"metro:client_log","_t":1791654778532,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791654778532,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791654779355,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791654779355,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791654780829,"id":"q","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654780829,"id":"q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654780850,"id":"q","total":1,"ms":21.2331}
+{"_e":"metro:client_log","_t":1791654780939,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791654780939,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791654781889,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791654781890,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791654792820,"id":"v","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654792820,"id":"v","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654792841,"id":"v","total":1,"ms":21.3132}
+{"_e":"metro:client_log","_t":1791654792977,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791654792977,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:bundling:started","_t":1791654871106,"id":"z","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654871107,"id":"z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654871126,"id":"z","total":1,"ms":19.5334}
+{"_e":"metro:client_log","_t":1791654871339,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791654871339,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791654872201,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791654872201,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791654945178,"id":"16","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791654945179,"id":"16","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791654945221,"id":"16","total":1,"ms":42.0746}
+{"_e":"metro:client_log","_t":1791654945434,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791654945435,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791654946805,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791654946806,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791655052298,"id":"1b","platform":"web","environment":null,"entry":"src\\components\\BannerCarousel.js"}
+{"_e":"metro:client_log","_t":1791655053344,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791655053344,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791655060822,"id":"1c","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655060822,"id":"1c","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655060839,"id":"1c","total":1,"ms":16.8942}
+{"_e":"metro:client_log","_t":1791655061036,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791655061036,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791655062246,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791655062247,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791655088630,"id":"1i","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655088630,"id":"1i","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655088648,"id":"1i","total":1,"ms":17.6324}
+{"_e":"metro:client_log","_t":1791655088827,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791655088827,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791655090031,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791655090031,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791655091205,"level":"log","data":["Banner action pressed:","dfgd"]}
+{"_e":"metro:client_log","_t":1791655091207,"level":"log","data":["Banner action pressed:","dfgd"]}
+{"_e":"metro:client_log","_t":1791655091208,"level":"log","data":["Banner action pressed:","dfgd"]}
+{"_e":"metro:client_log","_t":1791655091420,"level":"log","data":["Banner action pressed:","dfgd"]}
+{"_e":"metro:client_log","_t":1791655091653,"level":"log","data":["Banner action pressed:","dfgd"]}
+{"_e":"metro:client_log","_t":1791655091868,"level":"log","data":["Banner action pressed:","dfgd"]}
+{"_e":"metro:bundling:started","_t":1791655168594,"id":"1o","platform":"web","environment":null,"entry":"src\\components\\BannerCarousel.js"}
+{"_e":"metro:client_log","_t":1791655169343,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791655169343,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791655185613,"id":"1p","platform":"web","environment":null,"entry":"src\\components\\BannerCarousel.js"}
+{"_e":"metro:client_log","_t":1791655186351,"level":"log","data":["[BannerCarousel] Loaded 1 banners."]}
+{"_e":"metro:client_log","_t":1791655186351,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:bundling:started","_t":1791655261121,"id":"1q","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655261121,"id":"1q","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655261136,"id":"1q","total":1,"ms":15.4308}
+{"_e":"metro:client_log","_t":1791655261324,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791655261324,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791655262478,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791655262479,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791655262479,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791655235/loadbalbin_profiles/zu73peylqhifsmw3wcoi.png"]}
+{"_e":"metro:bundling:started","_t":1791655266948,"id":"1w","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655266948,"id":"1w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655266962,"id":"1w","total":1,"ms":13.7797}
+{"_e":"metro:client_log","_t":1791655267143,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791655267143,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791655268200,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791655268201,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791655268201,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791655235/loadbalbin_profiles/zu73peylqhifsmw3wcoi.png"]}
+{"_e":"metro:bundling:started","_t":1791655369926,"id":"23","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655369926,"id":"23","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655369942,"id":"23","total":1,"ms":15.7953}
+{"_e":"metro:client_log","_t":1791655370128,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791655370128,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791655371342,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791655371342,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791655371342,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791655235/loadbalbin_profiles/zu73peylqhifsmw3wcoi.png"]}
+{"_e":"metro:bundling:started","_t":1791655372551,"id":"28","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655372552,"id":"28","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655372567,"id":"28","total":1,"ms":15.3793}
+{"_e":"metro:client_log","_t":1791655372759,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791655372759,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:bundling:started","_t":1791655372865,"id":"2b","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655372865,"id":"2b","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655372881,"id":"2b","total":1,"ms":15.3253}
+{"_e":"metro:client_log","_t":1791655373094,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791655373094,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791655374178,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791655374179,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791655374179,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791655235/loadbalbin_profiles/zu73peylqhifsmw3wcoi.png"]}
+{"_e":"metro:bundling:started","_t":1791655446929,"id":"2h","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655446929,"id":"2h","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655446947,"id":"2h","total":1,"ms":17.6914}
+{"_e":"metro:client_log","_t":1791655447138,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791655447139,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791655448458,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791655448459,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791655448459,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791655235/loadbalbin_profiles/zu73peylqhifsmw3wcoi.png"]}
+{"_e":"metro:bundling:started","_t":1791655501203,"id":"2n","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655501203,"id":"2n","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655501224,"id":"2n","total":1,"ms":21.3432}
+{"_e":"metro:client_log","_t":1791655501404,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791655501404,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791655502543,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791655502543,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791655502543,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791655235/loadbalbin_profiles/zu73peylqhifsmw3wcoi.png"]}
+{"_e":"metro:bundling:started","_t":1791655600902,"id":"2t","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655600902,"id":"2t","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655600918,"id":"2t","total":1,"ms":16.6356}
+{"_e":"metro:bundling:started","_t":1791655601129,"id":"2w","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655601129,"id":"2w","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655601148,"id":"2w","total":1,"ms":18.4242}
+{"_e":"metro:bundling:started","_t":1791655601379,"id":"2x","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655601379,"id":"2x","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655601393,"id":"2x","total":1,"ms":14.4727}
+{"_e":"metro:bundling:started","_t":1791655601614,"id":"2z","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655601615,"id":"2z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655601636,"id":"2z","total":1,"ms":21.4709}
+{"_e":"metro:bundling:started","_t":1791655601834,"id":"32","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655601834,"id":"32","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655601848,"id":"32","total":1,"ms":13.5329}
+{"_e":"metro:bundling:started","_t":1791655602057,"id":"34","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655602058,"id":"34","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655602073,"id":"34","total":1,"ms":15.2225}
+{"_e":"metro:bundling:started","_t":1791655602264,"id":"36","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655602264,"id":"36","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655602278,"id":"36","total":1,"ms":14.3442}
+{"_e":"metro:bundling:started","_t":1791655602469,"id":"38","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655602469,"id":"38","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655602482,"id":"38","total":1,"ms":13.1913}
+{"_e":"metro:bundling:started","_t":1791655602713,"id":"3a","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655602713,"id":"3a","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655602727,"id":"3a","total":1,"ms":13.6397}
+{"_e":"metro:bundling:started","_t":1791655602942,"id":"3b","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655602942,"id":"3b","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655602956,"id":"3b","total":1,"ms":14.4592}
+{"_e":"metro:client_log","_t":1791655603152,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791655603152,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791655604351,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791655604351,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791655604351,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791655235/loadbalbin_profiles/zu73peylqhifsmw3wcoi.png"]}
+{"_e":"metro:bundling:started","_t":1791655653318,"id":"3h","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655653318,"id":"3h","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655653334,"id":"3h","total":1,"ms":15.4854}
+{"_e":"metro:client_log","_t":1791655653524,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791655653524,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791655654628,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791655654628,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791655654628,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791655235/loadbalbin_profiles/zu73peylqhifsmw3wcoi.png"]}
+{"_e":"metro:bundling:started","_t":1791655747136,"id":"3o","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655747136,"id":"3o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655747153,"id":"3o","total":1,"ms":17.4629}
+{"_e":"metro:client_log","_t":1791655747339,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791655747339,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791655748280,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791655748280,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791655748280,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791655235/loadbalbin_profiles/zu73peylqhifsmw3wcoi.png"]}
+{"_e":"metro:bundling:started","_t":1791655799581,"id":"3u","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655799581,"id":"3u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655799599,"id":"3u","total":1,"ms":18.4415}
+{"_e":"metro:client_log","_t":1791655799769,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791655799769,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791655800929,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791655800930,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791655800930,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791655235/loadbalbin_profiles/zu73peylqhifsmw3wcoi.png"]}
+{"_e":"metro:bundling:started","_t":1791655822170,"id":"3z","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655822170,"id":"3z","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655822185,"id":"3z","total":1,"ms":15.3921}
+{"_e":"metro:client_log","_t":1791655822375,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791655822375,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791655823477,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791655823477,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791655823477,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791655235/loadbalbin_profiles/zu73peylqhifsmw3wcoi.png"]}
+{"_e":"metro:client_log","_t":1791655823483,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791655823531,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791655823531,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791655823641,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791655825083,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791655946254,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791655946279,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791655959676,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791655960009,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791655960494,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791655960495,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791655961119,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791655962882,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791655962883,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791655962883,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791655235/loadbalbin_profiles/zu73peylqhifsmw3wcoi.png"]}
+{"_e":"metro:client_log","_t":1791655962883,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791655963012,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791655963147,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1791655963199,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.<anonymous> (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:bundling:started","_t":1791655989688,"id":"45","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791655989688,"id":"45","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791655989706,"id":"45","total":1,"ms":17.7436}
+{"_e":"metro:client_log","_t":1791655989889,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791655989889,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791655990745,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791655990745,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791655990745,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791655235/loadbalbin_profiles/zu73peylqhifsmw3wcoi.png"]}
+{"_e":"metro:bundling:started","_t":1791656048804,"id":"4b","platform":"web","environment":null,"entry":"src\\components\\LoadBalbinLogo.js"}
+{"_e":"metro:bundling:started","_t":1791656073676,"id":"4c","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791656073676,"id":"4c","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791656073691,"id":"4c","total":1,"ms":15.6389}
+{"_e":"metro:client_log","_t":1791656073892,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791656073892,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791656074985,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791656074985,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791656074985,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791655235/loadbalbin_profiles/zu73peylqhifsmw3wcoi.png"]}

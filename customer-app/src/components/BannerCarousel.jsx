@@ -40,7 +40,11 @@ export default function BannerCarousel({ audience = "customer" }) {
   const fetchBanners = async () => {
     try {
       setLoading(true);
-      const res = await api.get(`/banners?audience=${audience}`);
+      const res = await api.get(`/banners?audience=${audience}`, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate'
+        }
+      });
       if (res.data?.success) {
         const fetchedBanners = res.data.data || [];
         console.log(`[BannerCarousel] Loaded ${fetchedBanners.length} banners.`);
@@ -109,6 +113,7 @@ export default function BannerCarousel({ audience = "customer" }) {
         currentIndexRef.current = nextIndex;
         
         if (nextIndex === N + 1) {
+          setRealIndex(0);
           if (webTimeoutRef.current) clearTimeout(webTimeoutRef.current);
           webTimeoutRef.current = setTimeout(() => {
             setIsWebAnimating(false);
@@ -122,6 +127,7 @@ export default function BannerCarousel({ audience = "customer" }) {
       } else {
         scrollToIndexNative(nextIndex, true);
         if (nextIndex === N + 1) {
+          setRealIndex(0);
           setTimeout(() => {
             if (flatListRef.current) {
               scrollToIndexNative(1, false);
@@ -212,7 +218,9 @@ export default function BannerCarousel({ audience = "customer" }) {
               flexDirection: 'row', 
               width: layoutWidth * extendedBanners.length,
               transform: [{ translateX: -webActiveIndex * layoutWidth }],
-              transition: isWebAnimating ? 'transform 0.5s ease-in-out' : 'none'
+              transitionProperty: 'transform',
+              transitionDuration: isWebAnimating ? '500ms' : '0ms',
+              transitionTimingFunction: 'ease-in-out'
             }}
           >
             {extendedBanners.map((item, index) => (

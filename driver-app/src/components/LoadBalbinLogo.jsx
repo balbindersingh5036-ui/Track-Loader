@@ -6,7 +6,7 @@ export default function LoadBalbinLogo({ style, width = 140, height = 45 }) {
     <View style={[styles.container, style]}>
       <Image
         source={require("../../assets/loadbalbin-logo-header.png")}
-        style={{ width, height, resizeMode: "contain", transform: [{ translateX: -15 }] }}
+        style={{ width, height, resizeMode: "contain", transform: [{ translateX: -70 }] }}
       />
     </View>
   );
@@ -14,7 +14,7 @@ export default function LoadBalbinLogo({ style, width = 140, height = 45 }) {
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "center",
   },
 });

@@ -38,7 +38,11 @@ export default function BannerCarousel({ audience = "driver", fallback = null })
   const fetchBanners = async () => {
     try {
       setLoading(true);
-      const res = await api.get(`/banners?audience=${audience}`);
+      const res = await api.get(`/banners?audience=${audience}`, {
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate'
+        }
+      });
       if (res.data?.success) {
         const fetchedBanners = res.data.data || [];
         console.log(`[BannerCarousel] Loaded ${fetchedBanners.length} banners.`);
@@ -107,6 +111,7 @@ export default function BannerCarousel({ audience = "driver", fallback = null })
         currentIndexRef.current = nextIndex;
         
         if (nextIndex === N + 1) {
+          setRealIndex(0);
           if (webTimeoutRef.current) clearTimeout(webTimeoutRef.current);
           webTimeoutRef.current = setTimeout(() => {
             setIsWebAnimating(false);
@@ -120,6 +125,7 @@ export default function BannerCarousel({ audience = "driver", fallback = null })
       } else {
         scrollToIndexNative(nextIndex, true);
         if (nextIndex === N + 1) {
+          setRealIndex(0);
           setTimeout(() => {
             if (flatListRef.current) {
               scrollToIndexNative(1, false);
@@ -214,7 +220,9 @@ export default function BannerCarousel({ audience = "driver", fallback = null })
               flexDirection: 'row', 
               width: layoutWidth * extendedBanners.length,
               transform: [{ translateX: -webActiveIndex * layoutWidth }],
-              transition: isWebAnimating ? 'transform 0.5s ease-in-out' : 'none'
+              transitionProperty: 'transform',
+              transitionDuration: isWebAnimating ? '500ms' : '0ms',
+              transitionTimingFunction: 'ease-in-out'
             }}
           >
             {extendedBanners.map((item, index) => (
@@ -264,7 +272,7 @@ export default function BannerCarousel({ audience = "driver", fallback = null })
         />
       )}
 
-      {banners.length > 1 && (
+      {banners.length > 0 && (
         <View style={styles.pagination}>
           {banners.map((_, index) => (
             <Pressable

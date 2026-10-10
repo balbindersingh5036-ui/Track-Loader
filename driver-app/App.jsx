@@ -355,25 +355,7 @@ export default function App() {
 
         {activeTab === 'Home' && (
           <>
-            <BannerCarousel 
-              audience="driver" 
-              fallback={
-                /* HERO (MATCHING FIGMA) */
-                <ImageBackground 
-                  source={{ uri: 'https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&q=80&w=1000' }}
-                  style={{ width: '100%', height: 200, borderRadius: 20, overflow: 'hidden', justifyContent: 'flex-start', marginTop: 4 }}
-                >
-                  <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(8,17,31,0.75)' }} />
-                  <View style={{ padding: 24, paddingTop: 32 }}>
-                    <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 8 }}>
-                      GOOD MORNING, {driverNameDisplay}
-                    </Text>
-                    <Text style={{ color: colors.ink, fontSize: 26, fontWeight: '800', marginBottom: 6, lineHeight: 32 }}>Ready for your{"\n"}next trip?</Text>
-                    <Text style={{ color: colors.secondary, fontSize: 13, marginTop: 4 }}>Accept loads. Deliver safely. Earn more.</Text>
-                  </View>
-                </ImageBackground>
-              }
-            />
+            <BannerCarousel audience="driver" />
 
             {/* STATS (MATCHING FIGMA) */}
             <View style={{ flexDirection: 'row', gap: 12 }}>
