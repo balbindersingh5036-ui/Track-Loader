@@ -8,7 +8,7 @@ export default function LoadBalbinLogo({ style, width = 320, height = 86 }) {
         source={require("../../assets/loadbalbin-logo-cropped.png")}
         style={[
           styles.logo, 
-          { width: '100%', height: '100%', transform: [{ translateX: -5 }] },
+          { width: '100%', height: '100%', position: 'absolute', left: -40, transform: [{ translateX: -20 }] },
           Platform.OS === 'web' ? { objectPosition: 'left center' } : {}
         ]}
         resizeMode="contain"
