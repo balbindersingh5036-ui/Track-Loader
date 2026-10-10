@@ -12,7 +12,7 @@ import {
 import api from "../services/api";
 import colors from "../constants/colors";
 
-export default function BannerCarousel({ audience = "driver" }) {
+export default function BannerCarousel({ audience = "driver", fallback = null }) {
   const [banners, setBanners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [realIndex, setRealIndex] = useState(0);
@@ -195,7 +195,7 @@ export default function BannerCarousel({ audience = "driver" }) {
     );
   }
 
-  if (banners.length === 0) return null;
+  if (banners.length === 0) return fallback;
 
   return (
     <View 
