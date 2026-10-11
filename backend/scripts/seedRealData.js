@@ -23,10 +23,14 @@ const DRIVERS = [
     address: "Civil Lines, Prayagraj, UP - 211001",
     vehicle: {
       vehicleNumber: "UP70BT4521",
-      vehicleModel: "Tata Ace",
+      vehicleModel: "Tata Ace Gold",
       vehicleType: "mini-truck",
       loadCapacity: { value: 750, unit: "kg" },
-      bodyType: "open"
+      bodyType: "open",
+      vehicleImage: "https://res.cloudinary.com/kj4rhwyt/image/upload/v1791705459/loadbalbin_vehicles/tata_ace_mini_truck.jpg",
+      vehicleImages: [
+        "https://res.cloudinary.com/kj4rhwyt/image/upload/v1791705460/loadbalbin_vehicles/tata_ace_gallery_1.jpg"
+      ]
     }
   },
   {
@@ -36,10 +40,14 @@ const DRIVERS = [
     address: "Hazratganj, Lucknow, UP - 226001",
     vehicle: {
       vehicleNumber: "UP70CT6812",
-      vehicleModel: "Mahindra Bolero Pickup",
+      vehicleModel: "Mahindra Bolero Maxi Truck",
       vehicleType: "pickup",
       loadCapacity: { value: 1250, unit: "kg" },
-      bodyType: "open"
+      bodyType: "open",
+      vehicleImage: "https://res.cloudinary.com/kj4rhwyt/image/upload/v1791705464/loadbalbin_vehicles/mahindra_bolero_pickup.jpg",
+      vehicleImages: [
+        "https://res.cloudinary.com/kj4rhwyt/image/upload/v1791705464/loadbalbin_vehicles/mahindra_bolero_pickup.jpg"
+      ]
     }
   },
   {
@@ -49,10 +57,14 @@ const DRIVERS = [
     address: "Govind Nagar, Kanpur, UP - 208006",
     vehicle: {
       vehicleNumber: "UP70DT9245",
-      vehicleModel: "Ashok Leyland Dost",
+      vehicleModel: "Ashok Leyland Dost+",
       vehicleType: "small-truck",
       loadCapacity: { value: 1500, unit: "kg" },
-      bodyType: "open"
+      bodyType: "open",
+      vehicleImage: "https://res.cloudinary.com/kj4rhwyt/image/upload/v1791705465/loadbalbin_vehicles/ashok_leyland_dost.jpg",
+      vehicleImages: [
+        "https://res.cloudinary.com/kj4rhwyt/image/upload/v1791705469/loadbalbin_vehicles/ashok_leyland_gallery_1.jpg"
+      ]
     }
   },
   {
@@ -62,10 +74,14 @@ const DRIVERS = [
     address: "Sigra, Varanasi, UP - 221002",
     vehicle: {
       vehicleNumber: "UP70ET3178",
-      vehicleModel: "Tata 407",
+      vehicleModel: "Tata 407 Gold SFC",
       vehicleType: "medium-truck",
       loadCapacity: { value: 2500, unit: "kg" },
-      bodyType: "open"
+      bodyType: "open",
+      vehicleImage: "https://res.cloudinary.com/kj4rhwyt/image/upload/v1791705471/loadbalbin_vehicles/tata_407_medium_truck.jpg",
+      vehicleImages: [
+        "https://res.cloudinary.com/kj4rhwyt/image/upload/v1791705473/loadbalbin_vehicles/tata_407_gallery_1.jpg"
+      ]
     }
   },
   {
@@ -75,10 +91,31 @@ const DRIVERS = [
     address: "Golghar, Gorakhpur, UP - 273001",
     vehicle: {
       vehicleNumber: "UP70FT5836",
-      vehicleModel: "Eicher Pro",
+      vehicleModel: "Eicher Pro 3015 Heavy Truck",
       vehicleType: "large-truck",
       loadCapacity: { value: 5000, unit: "kg" },
-      bodyType: "closed"
+      bodyType: "closed",
+      vehicleImage: "https://res.cloudinary.com/kj4rhwyt/image/upload/v1791705475/loadbalbin_vehicles/eicher_pro_heavy_truck.jpg",
+      vehicleImages: [
+        "https://res.cloudinary.com/kj4rhwyt/image/upload/v1791705477/loadbalbin_vehicles/eicher_heavy_gallery_1.jpg"
+      ]
+    }
+  },
+  {
+    name: "Vikram Sharma",
+    email: "vikram.sharma@loadbalbin.com",
+    phone: "9101000006",
+    address: "Transport Nagar, Kanpur, UP - 208023",
+    vehicle: {
+      vehicleNumber: "UP70GT7249",
+      vehicleModel: "BharatBenz 1617R Container Truck",
+      vehicleType: "large-truck",
+      loadCapacity: { value: 10000, unit: "kg" },
+      bodyType: "container",
+      vehicleImage: "https://res.cloudinary.com/kj4rhwyt/image/upload/v1791705479/loadbalbin_vehicles/container_truck_large.jpg",
+      vehicleImages: [
+        "https://res.cloudinary.com/kj4rhwyt/image/upload/v1791705480/loadbalbin_vehicles/container_truck_gallery_1.jpg"
+      ]
     }
   }
 ];
@@ -271,6 +308,8 @@ export const seedRealData = async () => {
         vehicleType: vData.vehicleType,
         loadCapacity: vData.loadCapacity,
         bodyType: vData.bodyType || "open",
+        vehicleImage: vData.vehicleImage || "",
+        vehicleImages: vData.vehicleImages || [],
         isAvailable: true,
         isActive: true
       };

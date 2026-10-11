@@ -111,8 +111,10 @@ const seedDriver = async () => {
 
         bodyType: "open",
 
-        vehicleImage: "",
-        vehicleImages: [],
+        vehicleImage: "https://res.cloudinary.com/kj4rhwyt/image/upload/v1791705459/loadbalbin_vehicles/tata_ace_mini_truck.jpg",
+        vehicleImages: [
+          "https://res.cloudinary.com/kj4rhwyt/image/upload/v1791705460/loadbalbin_vehicles/tata_ace_gallery_1.jpg"
+        ],
 
         registrationDocument: "",
         insuranceDocument: "",
