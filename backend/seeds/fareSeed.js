@@ -1,12 +1,13 @@
-import mongoose from 'mongoose';
-import dotenv from 'dotenv';
-import Fare from '../src/models/Fare.js';
+import mongoose from "mongoose";
+import dotenv from "dotenv";
+import "../src/ipv4.js";
+import Fare from "../src/models/Fare.js";
 
 dotenv.config();
 
-const defaultFares = [
+export const defaultFares = [
   {
-    vehicleType: 'mini-truck',
+    vehicleType: "mini-truck",
     baseFare: 150,
     perKmRate: 15,
     perTonRate: 50,
@@ -16,7 +17,7 @@ const defaultFares = [
     isActive: true
   },
   {
-    vehicleType: 'pickup',
+    vehicleType: "pickup",
     baseFare: 200,
     perKmRate: 18,
     perTonRate: 60,
@@ -26,7 +27,7 @@ const defaultFares = [
     isActive: true
   },
   {
-    vehicleType: 'small-truck',
+    vehicleType: "small-truck",
     baseFare: 300,
     perKmRate: 22,
     perTonRate: 80,
@@ -36,7 +37,7 @@ const defaultFares = [
     isActive: true
   },
   {
-    vehicleType: 'medium-truck',
+    vehicleType: "medium-truck",
     baseFare: 500,
     perKmRate: 28,
     perTonRate: 100,
@@ -46,7 +47,7 @@ const defaultFares = [
     isActive: true
   },
   {
-    vehicleType: 'large-truck',
+    vehicleType: "large-truck",
     baseFare: 800,
     perKmRate: 35,
     perTonRate: 120,
@@ -57,10 +58,14 @@ const defaultFares = [
   }
 ];
 
-async function seedFares() {
+export async function seedFares() {
+  let isConnected = false;
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log('Connected to MongoDB');
+    if (mongoose.connection.readyState !== 1) {
+      await mongoose.connect(process.env.MONGODB_URI);
+      isConnected = true;
+      console.log("Connected to MongoDB for fare seeding");
+    }
 
     for (const fare of defaultFares) {
       await Fare.findOneAndUpdate(
@@ -71,12 +76,20 @@ async function seedFares() {
       console.log(`Seeded fare for ${fare.vehicleType}`);
     }
 
-    console.log('All fares seeded successfully');
-    process.exit(0);
+    console.log("All fares seeded successfully");
+    return defaultFares;
   } catch (err) {
-    console.error('Failed to seed fares:', err);
-    process.exit(1);
+    console.error("Failed to seed fares:", err);
+    throw err;
+  } finally {
+    if (isConnected) {
+      await mongoose.disconnect();
+    }
   }
 }
 
-seedFares();
+if (process.argv[1] && process.argv[1].includes("fareSeed.js")) {
+  seedFares()
+    .then(() => process.exit(0))
+    .catch(() => process.exit(1));
+}

@@ -4,6 +4,7 @@ import User from "../src/models/User.js";
 import Driver from "../src/models/Driver.js";
 import Vehicle from "../src/models/Vehicle.js";
 import { hashPassword } from "../src/utils/password.js";
+import { seedFares } from "../seeds/fareSeed.js";
 
 dotenv.config();
 
@@ -323,6 +324,7 @@ export const seedRealData = async () => {
         vehiclesCreated++;
       }
     }
+    await seedFares();
 
     console.log("-----------------------------------------");
     console.log("Real Data Seeding Summary:");

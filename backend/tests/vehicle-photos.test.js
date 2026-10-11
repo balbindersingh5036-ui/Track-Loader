@@ -71,5 +71,36 @@ test("vehicle photos and API verification", async (t) => {
     }
   });
 
+  await t.test("fare retrieval for truck types including BharatBenz and Eicher", async () => {
+    // 1. By vehicleType
+    const fareRes = await request.get("/api/fares/large-truck");
+    assert.equal(fareRes.status, 200);
+    assert.equal(fareRes.body.success, true);
+    assert.equal(fareRes.body.data.fare.vehicleType, "large-truck");
+    assert.equal(fareRes.body.data.fare.baseFare, 800);
+    assert.equal(fareRes.body.data.fare.perKmRate, 35);
+    assert.equal(fareRes.body.data.fare.perTonRate, 120);
+
+    // 2. By vehicle ID (Eicher Pro)
+    const eicher = await Vehicle.findOne({ vehicleModel: /Eicher/i }).lean();
+    assert.ok(eicher);
+    const eicherFareRes = await request.get(`/api/fares/${eicher._id}`);
+    assert.equal(eicherFareRes.status, 200);
+    assert.equal(eicherFareRes.body.data.fare.vehicleType, "large-truck");
+
+    // 3. By vehicle ID (BharatBenz Container)
+    const bharatBenz = await Vehicle.findOne({ vehicleModel: /BharatBenz/i }).lean();
+    assert.ok(bharatBenz);
+    const bharatBenzFareRes = await request.get(`/api/fares/${bharatBenz._id}`);
+    assert.equal(bharatBenzFareRes.status, 200);
+    assert.equal(bharatBenzFareRes.body.data.fare.vehicleType, "large-truck");
+
+    // 4. Missing/unknown vehicle type returns clear error
+    const unknownRes = await request.get("/api/fares/unknown-vehicle-type");
+    assert.equal(unknownRes.status, 404);
+    assert.equal(unknownRes.body.success, false);
+    assert.equal(unknownRes.body.message, "Active fare not found for this vehicle");
+  });
+
   await mongoose.disconnect();
 });

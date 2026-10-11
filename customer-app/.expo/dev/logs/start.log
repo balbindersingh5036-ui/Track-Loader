@@ -2893,3 +2893,38 @@
 {"_e":"metro:bundling:progress","_t":1791716535727,"id":"8","progress":0,"total":1,"current":0}
 {"_e":"metro:bundling:progress","_t":1791716537403,"id":"8","progress":0,"total":1,"current":0}
 {"_e":"metro:bundling:done","_t":1791716537433,"id":"8","total":1,"ms":5873.3367}
+{"_e":"metro:client_log","_t":1791716566951,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791716566951,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1791716566951,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791716566951,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1791716570374,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791716570374,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478628/loadbalbin_profiles/w3kdjgfqxfvtm3pbmnhm.png"]}
+{"_e":"metro:client_log","_t":1791716570375,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478218/loadbalbin_profiles/pgmea8yxwaevwoh5uxgr.jpg"]}
+{"_e":"metro:bundling:started","_t":1791716655936,"id":"f","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791716655936,"id":"f","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791716655937,"id":"f","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791716656375,"id":"f","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791716657560,"id":"f","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791716658101,"id":"f","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791716658107,"id":"f","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791716658206,"id":"f","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791716658793,"id":"f","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791716659873,"id":"f","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791716660416,"id":"f","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791716660941,"id":"f","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791716660966,"id":"f","total":1,"ms":5030.492}
+{"_e":"metro:client_log","_t":1791716690821,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791716690821,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1791716690821,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791716690822,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1791716692186,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791716692186,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478628/loadbalbin_profiles/w3kdjgfqxfvtm3pbmnhm.png"]}
+{"_e":"metro:client_log","_t":1791716692186,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478218/loadbalbin_profiles/pgmea8yxwaevwoh5uxgr.jpg"]}
+{"_e":"metro:bundling:started","_t":1791718294587,"id":"n","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791718294587,"id":"n","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791718294588,"id":"n","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791718295021,"id":"n","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791718298308,"id":"n","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791718298846,"id":"n","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791718298853,"id":"n","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791718298890,"id":"n","total":1,"ms":4302.8587}

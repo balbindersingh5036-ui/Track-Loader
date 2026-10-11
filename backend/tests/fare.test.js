@@ -53,7 +53,10 @@ describe("Fare API", () => {
 
   after(async () => {
     await User.deleteMany({ phone: { $in: ["+911234567891", "+911234567892", "+911234567893"] } });
-    await Fare.deleteMany({ vehicleType: { $in: ["pickup", "small-truck"] } });
+    const { defaultFares } = await import("../seeds/fareSeed.js");
+    for (const f of defaultFares) {
+      await Fare.findOneAndUpdate({ vehicleType: f.vehicleType }, { $set: f }, { upsert: true });
+    }
     await mongoose.connection.close();
   });
 

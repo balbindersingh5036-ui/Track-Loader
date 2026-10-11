@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import Fare from "../models/Fare.js";
+import Vehicle from "../models/Vehicle.js";
 import Booking from "../models/Booking.js";
 import { isSettingEnabled } from "./systemSettingService.js";
 
@@ -17,11 +18,21 @@ export const getAllFares = async (filter = {}) => {
   return Fare.find(filter).lean();
 };
 
-export const getFareByVehicleType = async (vehicleType) => {
-  const cacheKey = `fare_${vehicleType}`;
+export const getFareByVehicleType = async (vehicleTypeOrId) => {
+  if (!vehicleTypeOrId) return null;
+
+  let targetType = vehicleTypeOrId;
+  if (mongoose.Types.ObjectId.isValid(vehicleTypeOrId)) {
+    const vehicle = await Vehicle.findById(vehicleTypeOrId).lean();
+    if (vehicle) {
+      targetType = vehicle.vehicleType;
+    }
+  }
+
+  const cacheKey = `fare_${targetType}`;
   if (fareCache.has(cacheKey)) return fareCache.get(cacheKey);
 
-  const fare = await Fare.findOne({ vehicleType, isActive: true }).lean();
+  const fare = await Fare.findOne({ vehicleType: targetType, isActive: true }).lean();
   if (fare) {
     fareCache.set(cacheKey, fare);
   }
@@ -106,7 +117,7 @@ export const calculateEstimatedFare = async ({ vehicleType, distanceKm, weightVa
 
   const fareConfig = await getFareByVehicleType(vehicleType);
   if (!fareConfig) {
-    const error = new Error("Fare configuration not found for this vehicle type");
+    const error = new Error("Active fare not found for this vehicle");
     error.status = 404;
     throw error;
   }

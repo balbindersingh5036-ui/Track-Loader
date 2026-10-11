@@ -17,10 +17,16 @@ export const getFares = async (req, res) => {
       return errorResponse(res, "Fare system is currently disabled", 403);
     }
 
-    const { vehicleType } = req.query;
+    const { vehicleType, vehicleId, vehicle } = req.query;
     const filter = { isActive: true };
-    if (vehicleType) {
-      filter.vehicleType = vehicleType;
+    const typeOrId = vehicleType || vehicleId || vehicle;
+    if (typeOrId) {
+      const fare = await fareService.getFareByVehicleType(typeOrId);
+      if (fare) {
+        filter.vehicleType = fare.vehicleType;
+      } else {
+        filter.vehicleType = typeOrId;
+      }
     }
 
     const fares = await fareService.getAllFares(filter);
@@ -54,7 +60,7 @@ export const getFareByVehicleType = async (req, res) => {
     const fare = await fareService.getFareByVehicleType(vehicleType);
     
     if (!fare) {
-      return errorResponse(res, "Active fare not found for this vehicle type", 404);
+      return errorResponse(res, "Active fare not found for this vehicle", 404);
     }
 
     const publicFare = {
