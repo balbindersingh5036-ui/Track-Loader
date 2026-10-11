@@ -1,6 +1,7 @@
 import cloudinary from "../config/cloudinary.js";
-import { Readable } from "stream";
 import { env } from "../config/env.js";
+import User from "../models/User.js";
+import Driver from "../models/Driver.js";
 
 export const uploadImage = async (req, res, next) => {
   try {
@@ -11,7 +12,7 @@ export const uploadImage = async (req, res, next) => {
       });
     }
 
-    if (!env.cloudinary.apiKey) {
+    if (!env.cloudinary.apiKey || !env.cloudinary.apiSecret || !env.cloudinary.cloudName) {
       return res.status(503).json({
         success: false,
         message: "Image upload service is not configured"
@@ -26,9 +27,22 @@ export const uploadImage = async (req, res, next) => {
       resource_type: "auto"
     });
 
-    res.json({
+    const secureUrl = result.secure_url;
+
+    // Save image to authenticated user profile
+    if (req.user?._id && req.body?.purpose !== "banner") {
+      await User.findByIdAndUpdate(req.user._id, { profileImage: secureUrl });
+      if (req.user.role === "driver") {
+        await Driver.findOneAndUpdate({ user: req.user._id }, { profileImage: secureUrl });
+      }
+    }
+
+    return res.json({
       success: true,
-      imageUrl: result.secure_url
+      imageUrl: secureUrl,
+      url: secureUrl,
+      profileImage: secureUrl,
+      message: "Image uploaded successfully"
     });
   } catch (error) {
     let detailedDetails = {
@@ -37,7 +51,7 @@ export const uploadImage = async (req, res, next) => {
     };
     let detailedMessage = error.message;
 
-    // If Cloudinary SDK swallows the 403 body, let's fetch manually to see the exact error.
+    // If Cloudinary SDK swallows the 403 body, fetch manually to see the exact error.
     if (error.http_code === 403) {
       try {
         const timestamp = Math.round(new Date().getTime() / 1000);
@@ -66,7 +80,7 @@ export const uploadImage = async (req, res, next) => {
         
         detailedMessage = parsedBody?.error?.message || detailedMessage;
         detailedDetails.providerMessage = detailedMessage;
-        detailedDetails.providerHeader = response.headers.get('x-cld-error') || null;
+        detailedDetails.providerHeader = response.headers.get("x-cld-error") || null;
       } catch (fallbackError) {
         console.error("Fallback fetch failed", fallbackError);
       }

@@ -2928,3 +2928,30 @@
 {"_e":"metro:bundling:progress","_t":1791718298846,"id":"n","progress":0,"total":1,"current":0}
 {"_e":"metro:bundling:progress","_t":1791718298853,"id":"n","progress":0,"total":1,"current":0}
 {"_e":"metro:bundling:done","_t":1791718298890,"id":"n","total":1,"ms":4302.8587}
+{"_e":"metro:client_log","_t":1791718329051,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791718329051,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1791718329051,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791718329051,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1791718330386,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791718330386,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478628/loadbalbin_profiles/w3kdjgfqxfvtm3pbmnhm.png"]}
+{"_e":"metro:client_log","_t":1791718330386,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478218/loadbalbin_profiles/pgmea8yxwaevwoh5uxgr.jpg"]}
+{"_e":"metro:bundling:started","_t":1791722881359,"id":"u","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1791722881359,"id":"u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791722881360,"id":"u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791722881808,"id":"u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791722883011,"id":"u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791722883569,"id":"u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791722883578,"id":"u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791722883678,"id":"u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791722884280,"id":"u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791722884782,"id":"u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791722885318,"id":"u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1791722885324,"id":"u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1791722885373,"id":"u","total":1,"ms":4013.917}
+{"_e":"metro:client_log","_t":1791722914161,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1791722914161,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1791722914161,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1791722914161,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1791722916478,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791722916478,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478628/loadbalbin_profiles/w3kdjgfqxfvtm3pbmnhm.png"]}
+{"_e":"metro:client_log","_t":1791722916478,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478218/loadbalbin_profiles/pgmea8yxwaevwoh5uxgr.jpg"]}

@@ -1,5 +1,6 @@
 import axios from "axios";
 import { getToken, removeToken } from "../utils/authStorage";
+import { Platform } from "react-native";
 
 const baseURL = process.env.EXPO_PUBLIC_API_URL || "https://track-loader.onrender.com/api";
 
@@ -17,6 +18,19 @@ export const setAuthenticationExpiredHandler = (handler) => {
 api.interceptors.request.use(async (config) => {
   const token = await getToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
+
+  // If payload is FormData, do not force application/json
+  if (
+    config.data instanceof FormData ||
+    (config.data && typeof config.data.append === "function")
+  ) {
+    if (Platform.OS === "web") {
+      delete config.headers["Content-Type"];
+    } else {
+      config.headers["Content-Type"] = "multipart/form-data";
+    }
+  }
+
   return config;
 });
 

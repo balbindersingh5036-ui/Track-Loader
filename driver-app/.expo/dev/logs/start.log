@@ -1989,3 +1989,10 @@
 {"_e":"metro:client_log","_t":1791704821819,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
 {"_e":"metro:client_log","_t":1791704821819,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
 {"_e":"metro:client_log","_t":1791704821819,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791655235/loadbalbin_profiles/zu73peylqhifsmw3wcoi.png"]}
+{"_e":"metro:bundling:started","_t":1791718692811,"id":"7","platform":"web","environment":null,"entry":"src\\services\\api.js"}
+{"_e":"metro:client_log","_t":1791718694322,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791718694322,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791718694322,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791655235/loadbalbin_profiles/zu73peylqhifsmw3wcoi.png"]}
+{"_e":"metro:client_log","_t":1791718694322,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1791718694322,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791636615/loadbalbin_profiles/mzsfoggtmynqpygdyyuu.jpg"]}
+{"_e":"metro:client_log","_t":1791718694322,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791655235/loadbalbin_profiles/zu73peylqhifsmw3wcoi.png"]}

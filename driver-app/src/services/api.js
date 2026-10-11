@@ -21,6 +21,19 @@ api.interceptors.request.use(async (config) => {
   if (token) {
     config.headers.Authorization = "Bearer " + token;
   }
+
+  // If payload is FormData, do not force application/json
+  if (
+    config.data instanceof FormData ||
+    (config.data && typeof config.data.append === "function")
+  ) {
+    if (typeof window !== "undefined") {
+      delete config.headers["Content-Type"];
+    } else {
+      config.headers["Content-Type"] = "multipart/form-data";
+    }
+  }
+
   return config;
 });
 

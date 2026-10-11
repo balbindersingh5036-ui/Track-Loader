@@ -60,7 +60,7 @@ export default function EditProfileScreen({ route }) {
         setBusyProfile(true);
         setError("");
         try {
-          const imageUrl = await userService.uploadProfileImage(result.assets[0].uri);
+          const imageUrl = await userService.uploadProfileImage(result.assets[0]);
           setProfileImage(imageUrl);
           setSuccess("Profile photo uploaded successfully!");
         } catch (uploadError) {
