@@ -211,6 +211,33 @@ export const createAgencyDriver = async (req, res) => {
       role: "driver"
     });
 
+    const cleanDocs = {};
+    if (documents?.idProof?.url) {
+      const url = String(documents.idProof.url).trim();
+      if (url.startsWith("https://")) {
+        cleanDocs.idProof = {
+          url,
+          publicId: documents.idProof.publicId || "",
+          resourceType: documents.idProof.resourceType || "image",
+          format: documents.idProof.format || (url.endsWith(".pdf") ? "pdf" : "jpg"),
+          maskedNumber: documents.idProof.maskedNumber || "",
+          status: "pending"
+        };
+      }
+    }
+    if (documents?.drivingLicense?.url) {
+      const url = String(documents.drivingLicense.url).trim();
+      if (url.startsWith("https://")) {
+        cleanDocs.drivingLicense = {
+          url,
+          publicId: documents.drivingLicense.publicId || "",
+          resourceType: documents.drivingLicense.resourceType || "image",
+          format: documents.drivingLicense.format || (url.endsWith(".pdf") ? "pdf" : "jpg"),
+          status: "pending"
+        };
+      }
+    }
+
     const driver = await Driver.create({
       user: user._id,
       agency: agency._id,
@@ -219,7 +246,7 @@ export const createAgencyDriver = async (req, res) => {
       email: email ? email.trim().toLowerCase() : "",
       address: address ? address.trim() : "",
       emergencyContact: emergencyContact || { name: "", phone: "" },
-      documents: documents || {},
+      documents: cleanDocs,
       approvalStatus: "pending" // Preserving Super Admin approval authority
     });
 

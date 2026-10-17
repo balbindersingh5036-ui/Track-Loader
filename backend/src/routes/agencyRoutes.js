@@ -22,7 +22,9 @@ router.post("/register", protect, registerAgency);
 
 // Agency owner management routes
 router.get("/profile", protect, agencyOnly, getMyAgency);
+router.get("/me", protect, agencyOnly, getMyAgency);
 router.put("/profile", protect, agencyOnly, updateMyAgency);
+router.put("/me", protect, agencyOnly, updateMyAgency);
 router.get("/drivers", protect, agencyOnly, getAgencyDrivers);
 router.post("/drivers", protect, agencyOnly, createAgencyDriver);
 router.patch("/drivers/:id/documents", protect, agencyOnly, updateAgencyDriverDocuments);

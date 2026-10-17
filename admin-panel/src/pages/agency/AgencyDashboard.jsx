@@ -11,9 +11,18 @@ export default function AgencyDashboard() {
   const [activeTab, setActiveTab] = useState('overview'); // overview, drivers, vehicles, bookings, profile
 
   // Form states
-  const [newDriver, setNewDriver] = useState({ fullName: '', phone: '', email: '', password: '' });
+  const [newDriver, setNewDriver] = useState({
+    fullName: '',
+    phone: '',
+    email: '',
+    password: '',
+    address: '',
+    aadhaarUrl: '',
+    dlUrl: ''
+  });
   const [newDriverModal, setNewDriverModal] = useState(false);
-  const [docModal, setDocModal] = useState({ open: false, driverId: null, aadhaarUrl: '', dlUrl: '' });
+  const [creatingDriver, setCreatingDriver] = useState(false);
+  const [docModal, setDocModal] = useState({ open: false, driverId: null, aadhaarUrl: '', dlUrl: '', updating: false });
 
   const [newVehicle, setNewVehicle] = useState({
     driverId: '',
@@ -22,11 +31,24 @@ export default function AgencyDashboard() {
     vehicleType: 'mini-truck',
     loadCapacityValue: 1000,
     loadCapacityUnit: 'kg',
-    bodyType: 'closed',
+    bodyType: 'open',
     vehicleImage: ''
   });
   const [newVehicleModal, setNewVehicleModal] = useState(false);
-  const [assignModal, setAssignModal] = useState({ open: false, vehicleId: null, driverId: '' });
+  const [creatingVehicle, setCreatingVehicle] = useState(false);
+  const [editVehicleModal, setEditVehicleModal] = useState({
+    open: false,
+    vehicleId: null,
+    vehicleModel: '',
+    vehicleType: 'mini-truck',
+    loadCapacityValue: 1000,
+    loadCapacityUnit: 'kg',
+    bodyType: 'open',
+    vehicleImage: '',
+    isActive: true,
+    saving: false
+  });
+  const [assignModal, setAssignModal] = useState({ open: false, vehicleId: null, driverId: '', assigning: false });
   const [uploadingDoc, setUploadingDoc] = useState('');
 
   const handleFileUpload = async (e, targetField, setter, purpose = 'document') => {
@@ -141,18 +163,58 @@ export default function AgencyDashboard() {
   const handleCreateDriver = async (e) => {
     e.preventDefault();
     try {
-      await agencyService.createAgencyDriver(newDriver);
-      setNewDriver({ fullName: '', phone: '', email: '', password: '' });
+      setCreatingDriver(true);
+      const payload = {
+        fullName: newDriver.fullName,
+        phone: newDriver.phone,
+        email: newDriver.email,
+        password: newDriver.password,
+        address: newDriver.address || '',
+        documents: {}
+      };
+
+      if (newDriver.aadhaarUrl) {
+        payload.documents.idProof = {
+          url: newDriver.aadhaarUrl,
+          publicId: newDriver.aadhaarUrl_publicId || '',
+          resourceType: newDriver.aadhaarUrl_resourceType || 'image',
+          format: newDriver.aadhaarUrl_format || 'pdf',
+          status: 'pending'
+        };
+      }
+      if (newDriver.dlUrl) {
+        payload.documents.drivingLicense = {
+          url: newDriver.dlUrl,
+          publicId: newDriver.dlUrl_publicId || '',
+          resourceType: newDriver.dlUrl_resourceType || 'image',
+          format: newDriver.dlUrl_format || 'pdf',
+          status: 'pending'
+        };
+      }
+
+      await agencyService.createAgencyDriver(payload);
+      setNewDriver({
+        fullName: '',
+        phone: '',
+        email: '',
+        password: '',
+        address: '',
+        aadhaarUrl: '',
+        dlUrl: ''
+      });
       setNewDriverModal(false);
       await loadData();
     } catch (err) {
       alert(err.response?.data?.message || err.message || 'Failed to register driver');
+    } finally {
+      setCreatingDriver(false);
     }
   };
 
   const handleUpdateDriverDocs = async (e) => {
     e.preventDefault();
     try {
+      setDocModal(prev => ({ ...prev, updating: true }));
       await agencyService.updateDriverDocuments(docModal.driverId, {
         idProof: {
           url: docModal.aadhaarUrl,
@@ -169,23 +231,26 @@ export default function AgencyDashboard() {
           status: 'pending'
         }
       });
-      setDocModal({ open: false, driverId: null, aadhaarUrl: '', dlUrl: '' });
+      setDocModal({ open: false, driverId: null, aadhaarUrl: '', dlUrl: '', updating: false });
       await loadData();
     } catch (err) {
       alert(err.response?.data?.message || err.message || 'Failed to update documents');
+      setDocModal(prev => ({ ...prev, updating: false }));
     }
   };
 
   const handleCreateVehicle = async (e) => {
     e.preventDefault();
     try {
+      setCreatingVehicle(true);
       await agencyService.createAgencyVehicle({
         driverId: newVehicle.driverId,
         vehicleNumber: newVehicle.vehicleNumber,
         vehicleModel: newVehicle.vehicleModel,
         vehicleType: newVehicle.vehicleType,
         loadCapacity: { value: Number(newVehicle.loadCapacityValue), unit: newVehicle.loadCapacityUnit },
-        bodyType: newVehicle.bodyType
+        bodyType: newVehicle.bodyType,
+        vehicleImage: newVehicle.vehicleImage || ''
       });
       setNewVehicle({
         driverId: '',
@@ -194,23 +259,59 @@ export default function AgencyDashboard() {
         vehicleType: 'mini-truck',
         loadCapacityValue: 1000,
         loadCapacityUnit: 'kg',
-        bodyType: 'closed'
+        bodyType: 'open',
+        vehicleImage: ''
       });
       setNewVehicleModal(false);
       await loadData();
     } catch (err) {
       alert(err.response?.data?.message || err.message || 'Failed to add vehicle');
+    } finally {
+      setCreatingVehicle(false);
+    }
+  };
+
+  const handleUpdateVehicle = async (e) => {
+    e.preventDefault();
+    try {
+      setEditVehicleModal(prev => ({ ...prev, saving: true }));
+      await agencyService.updateAgencyVehicle(editVehicleModal.vehicleId, {
+        vehicleModel: editVehicleModal.vehicleModel,
+        vehicleType: editVehicleModal.vehicleType,
+        loadCapacity: { value: Number(editVehicleModal.loadCapacityValue), unit: editVehicleModal.loadCapacityUnit },
+        bodyType: editVehicleModal.bodyType,
+        vehicleImage: editVehicleModal.vehicleImage,
+        isActive: editVehicleModal.isActive
+      });
+      setEditVehicleModal({
+        open: false,
+        vehicleId: null,
+        vehicleModel: '',
+        vehicleType: 'mini-truck',
+        loadCapacityValue: 1000,
+        loadCapacityUnit: 'kg',
+        bodyType: 'open',
+        vehicleImage: '',
+        isActive: true,
+        saving: false
+      });
+      await loadData();
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Failed to update vehicle');
+      setEditVehicleModal(prev => ({ ...prev, saving: false }));
     }
   };
 
   const handleAssignVehicle = async (e) => {
     e.preventDefault();
     try {
+      setAssignModal(prev => ({ ...prev, assigning: true }));
       await agencyService.assignVehicleDriver(assignModal.vehicleId, assignModal.driverId);
-      setAssignModal({ open: false, vehicleId: null, driverId: '' });
+      setAssignModal({ open: false, vehicleId: null, driverId: '', assigning: false });
       await loadData();
     } catch (err) {
       alert(err.response?.data?.message || err.message || 'Failed to assign driver');
+      setAssignModal(prev => ({ ...prev, assigning: false }));
     }
   };
 
@@ -460,11 +561,44 @@ export default function AgencyDashboard() {
                         }}>
                           {d.approvalStatus}
                         </span>
+                        {d.approvalStatus === 'rejected' && d.rejectionReason && (
+                          <div style={{ fontSize: 11, color: '#991b1b', marginTop: 4 }}>
+                            <strong>Reason:</strong> {d.rejectionReason}
+                          </div>
+                        )}
                       </td>
                       <td>
                         <div style={{ fontSize: 12 }}>
-                          <div>Aadhaar: {d.documents?.idProof?.url ? <span style={{ color: '#166534' }}>Uploaded</span> : <span style={{ color: '#991b1b' }}>Missing</span>}</div>
-                          <div>Licence: {d.documents?.drivingLicense?.url ? <span style={{ color: '#166534' }}>Uploaded</span> : <span style={{ color: '#991b1b' }}>Missing</span>}</div>
+                          <div>
+                            Aadhaar:{' '}
+                            {d.documents?.idProof?.viewUrl || d.documents?.idProof?.url ? (
+                              <a
+                                href={d.documents.idProof.viewUrl || d.documents.idProof.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color: '#166534', fontWeight: 600 }}
+                              >
+                                View (Uploaded)
+                              </a>
+                            ) : (
+                              <span style={{ color: '#991b1b' }}>Missing</span>
+                            )}
+                          </div>
+                          <div>
+                            Licence:{' '}
+                            {d.documents?.drivingLicense?.viewUrl || d.documents?.drivingLicense?.url ? (
+                              <a
+                                href={d.documents.drivingLicense.viewUrl || d.documents.drivingLicense.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{ color: '#166534', fontWeight: 600 }}
+                              >
+                                View (Uploaded)
+                              </a>
+                            ) : (
+                              <span style={{ color: '#991b1b' }}>Missing</span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td>
@@ -475,10 +609,11 @@ export default function AgencyDashboard() {
                             open: true,
                             driverId: d._id,
                             aadhaarUrl: d.documents?.idProof?.url || '',
-                            dlUrl: d.documents?.drivingLicense?.url || ''
+                            dlUrl: d.documents?.drivingLicense?.url || '',
+                            updating: false
                           })}
                         >
-                          Upload KYC Docs
+                          Upload / Update Docs
                         </button>
                       </td>
                     </tr>
@@ -513,17 +648,18 @@ export default function AgencyDashboard() {
 
           {vehicles.length === 0 ? (
             <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px 0' }}>
-              No fleet vehicles added yet.
+              No fleet vehicles added yet. Click "+ Add Vehicle" to add your first vehicle.
             </p>
           ) : (
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
-                    <th>Vehicle Number</th>
+                    <th>Vehicle</th>
                     <th>Model</th>
                     <th>Type</th>
                     <th>Capacity</th>
+                    <th>Body</th>
                     <th>Assigned Driver</th>
                     <th>Status</th>
                     <th>Actions</th>
@@ -532,10 +668,22 @@ export default function AgencyDashboard() {
                 <tbody>
                   {vehicles.map((v) => (
                     <tr key={v._id}>
-                      <td style={{ fontWeight: 600 }}>{v.vehicleNumber}</td>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {v.vehicleImage && (
+                            <img
+                              src={v.vehicleImage}
+                              alt={v.vehicleNumber}
+                              style={{ width: 40, height: 32, objectFit: 'cover', borderRadius: 4, border: '1px solid #e5e7eb' }}
+                            />
+                          )}
+                          <span style={{ fontWeight: 600 }}>{v.vehicleNumber}</span>
+                        </div>
+                      </td>
                       <td>{v.vehicleModel}</td>
                       <td style={{ textTransform: 'capitalize' }}>{v.vehicleType}</td>
                       <td>{v.loadCapacity?.value} {v.loadCapacity?.unit}</td>
+                      <td style={{ textTransform: 'capitalize' }}>{v.bodyType || 'open'}</td>
                       <td>
                         {v.driver?.fullName ? (
                           <div>
@@ -550,15 +698,38 @@ export default function AgencyDashboard() {
                         <span style={{ color: v.isAvailable ? '#166534' : '#991b1b', fontWeight: 600, fontSize: 12 }}>
                           {v.isAvailable ? 'Available' : 'On Trip'}
                         </span>
+                        {!v.isActive && (
+                          <span style={{ display: 'block', fontSize: 10, color: 'var(--danger)' }}>Inactive</span>
+                        )}
                       </td>
                       <td>
-                        <button
-                          type="button"
-                          className="btn"
-                          onClick={() => setAssignModal({ open: true, vehicleId: v._id, driverId: v.driver?._id || '' })}
-                        >
-                          Reassign Driver
-                        </button>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={() => setEditVehicleModal({
+                              open: true,
+                              vehicleId: v._id,
+                              vehicleModel: v.vehicleModel || '',
+                              vehicleType: v.vehicleType || 'mini-truck',
+                              loadCapacityValue: v.loadCapacity?.value || 1000,
+                              loadCapacityUnit: v.loadCapacity?.unit || 'kg',
+                              bodyType: v.bodyType || 'open',
+                              vehicleImage: v.vehicleImage || '',
+                              isActive: v.isActive !== false,
+                              saving: false
+                            })}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={() => setAssignModal({ open: true, vehicleId: v._id, driverId: v.driver?._id || '', assigning: false })}
+                          >
+                            Assign Driver
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -645,7 +816,7 @@ export default function AgencyDashboard() {
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
           background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
         }}>
-          <div style={{ background: '#fff', padding: 24, borderRadius: 12, width: '100%', maxWidth: 440 }}>
+          <div style={{ background: '#fff', padding: 24, borderRadius: 12, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}>
             <h3 style={{ marginTop: 0 }}>Register New Driver</h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
               Driver will be registered under your agency. Super Admin approval is required before the driver can accept bookings.
@@ -661,24 +832,26 @@ export default function AgencyDashboard() {
                   placeholder="Driver full name"
                 />
               </div>
-              <div className="form-group">
-                <label>Phone Number *</label>
-                <input
-                  type="text"
-                  required
-                  value={newDriver.phone}
-                  onChange={(e) => setNewDriver({ ...newDriver, phone: e.target.value })}
-                  placeholder="e.g. +919811122233"
-                />
-              </div>
-              <div className="form-group">
-                <label>Email</label>
-                <input
-                  type="email"
-                  value={newDriver.email}
-                  onChange={(e) => setNewDriver({ ...newDriver, email: e.target.value })}
-                  placeholder="driver@example.com"
-                />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="form-group">
+                  <label>Phone Number *</label>
+                  <input
+                    type="text"
+                    required
+                    value={newDriver.phone}
+                    onChange={(e) => setNewDriver({ ...newDriver, phone: e.target.value })}
+                    placeholder="e.g. +919811122233"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Email</label>
+                  <input
+                    type="email"
+                    value={newDriver.email}
+                    onChange={(e) => setNewDriver({ ...newDriver, email: e.target.value })}
+                    placeholder="driver@example.com"
+                  />
+                </div>
               </div>
               <div className="form-group">
                 <label>Initial Login Password *</label>
@@ -690,9 +863,64 @@ export default function AgencyDashboard() {
                   placeholder="••••••••"
                 />
               </div>
+              <div className="form-group">
+                <label>Driver Address</label>
+                <input
+                  type="text"
+                  value={newDriver.address}
+                  onChange={(e) => setNewDriver({ ...newDriver, address: e.target.value })}
+                  placeholder="e.g. Street 10, Model Town"
+                />
+              </div>
+
+              {/* KYC Documents */}
+              <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 12, marginTop: 4 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, color: '#374151' }}>
+                  Driver KYC Documents (Private Vault)
+                </div>
+                <div className="form-group">
+                  <label style={{ fontSize: 12 }}>Driver Aadhaar Card (PDF / Image)</label>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(e) => handleFileUpload(e, 'aadhaarUrl', setNewDriver, 'aadhaar')}
+                    />
+                    {uploadingDoc === 'aadhaarUrl' && <span style={{ fontSize: 11, color: 'var(--primary)' }}>Uploading to vault…</span>}
+                  </div>
+                  <input
+                    type="url"
+                    value={newDriver.aadhaarUrl}
+                    onChange={(e) => setNewDriver({ ...newDriver, aadhaarUrl: e.target.value })}
+                    placeholder="Or enter URL: https://.../driver-aadhaar.pdf"
+                    style={{ fontSize: 12 }}
+                  />
+                </div>
+                <div className="form-group">
+                  <label style={{ fontSize: 12 }}>Driver Driving Licence (PDF / Image)</label>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      onChange={(e) => handleFileUpload(e, 'dlUrl', setNewDriver, 'drivingLicense')}
+                    />
+                    {uploadingDoc === 'dlUrl' && <span style={{ fontSize: 11, color: 'var(--primary)' }}>Uploading to vault…</span>}
+                  </div>
+                  <input
+                    type="url"
+                    value={newDriver.dlUrl}
+                    onChange={(e) => setNewDriver({ ...newDriver, dlUrl: e.target.value })}
+                    placeholder="Or enter URL: https://.../driver-dl.pdf"
+                    style={{ fontSize: 12 }}
+                  />
+                </div>
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
                 <button type="button" className="btn" onClick={() => setNewDriverModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Create Driver</button>
+                <button type="submit" className="btn btn-primary" disabled={creatingDriver}>
+                  {creatingDriver ? 'Registering...' : 'Create Driver'}
+                </button>
               </div>
             </form>
           </div>
@@ -749,10 +977,12 @@ export default function AgencyDashboard() {
                 />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
-                <button type="button" className="btn" onClick={() => setDocModal({ open: false, driverId: null, aadhaarUrl: '', dlUrl: '' })}>
+                <button type="button" className="btn" onClick={() => setDocModal({ open: false, driverId: null, aadhaarUrl: '', dlUrl: '', updating: false })}>
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">Save Documents</button>
+                <button type="submit" className="btn btn-primary" disabled={docModal.updating}>
+                  {docModal.updating ? 'Saving...' : 'Save Documents'}
+                </button>
               </div>
             </form>
           </div>
@@ -831,8 +1061,9 @@ export default function AgencyDashboard() {
                     style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
                   >
                     <option value="open">Open</option>
-                    <option value="closed">Closed / Container</option>
-                    <option value="tarpaulin">Tarpaulin</option>
+                    <option value="closed">Closed</option>
+                    <option value="container">Container</option>
+                    <option value="flatbed">Flatbed</option>
                   </select>
                 </div>
               </div>
@@ -881,7 +1112,128 @@ export default function AgencyDashboard() {
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
                 <button type="button" className="btn" onClick={() => setNewVehicleModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Add Vehicle</button>
+                <button type="submit" className="btn btn-primary" disabled={creatingVehicle}>
+                  {creatingVehicle ? 'Adding...' : 'Add Vehicle'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Edit Vehicle */}
+      {editVehicleModal.open && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div style={{ background: '#fff', padding: 24, borderRadius: 12, width: '100%', maxWidth: 460 }}>
+            <h3 style={{ marginTop: 0 }}>Edit Fleet Vehicle</h3>
+            <form onSubmit={handleUpdateVehicle} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div className="form-group">
+                <label>Vehicle Model *</label>
+                <input
+                  type="text"
+                  required
+                  value={editVehicleModal.vehicleModel}
+                  onChange={(e) => setEditVehicleModal({ ...editVehicleModal, vehicleModel: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="form-group">
+                  <label>Vehicle Type *</label>
+                  <select
+                    value={editVehicleModal.vehicleType}
+                    onChange={(e) => setEditVehicleModal({ ...editVehicleModal, vehicleType: e.target.value })}
+                    style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+                  >
+                    <option value="mini-truck">Mini Truck</option>
+                    <option value="pickup">Pickup</option>
+                    <option value="small-truck">Small Truck</option>
+                    <option value="medium-truck">Medium Truck</option>
+                    <option value="large-truck">Large Truck</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Body Type</label>
+                  <select
+                    value={editVehicleModal.bodyType}
+                    onChange={(e) => setEditVehicleModal({ ...editVehicleModal, bodyType: e.target.value })}
+                    style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+                  >
+                    <option value="open">Open</option>
+                    <option value="closed">Closed</option>
+                    <option value="container">Container</option>
+                    <option value="flatbed">Flatbed</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+                <div className="form-group">
+                  <label>Load Capacity *</label>
+                  <input
+                    type="number"
+                    required
+                    min="1"
+                    value={editVehicleModal.loadCapacityValue}
+                    onChange={(e) => setEditVehicleModal({ ...editVehicleModal, loadCapacityValue: e.target.value })}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Unit</label>
+                  <select
+                    value={editVehicleModal.loadCapacityUnit}
+                    onChange={(e) => setEditVehicleModal({ ...editVehicleModal, loadCapacityUnit: e.target.value })}
+                    style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+                  >
+                    <option value="kg">kg</option>
+                    <option value="ton">ton</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Vehicle Photo</label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleFileUpload(e, 'vehicleImage', setEditVehicleModal, 'vehicle')}
+                  />
+                  {uploadingDoc === 'vehicleImage' && <span style={{ fontSize: 12, color: 'var(--primary)' }}>Uploading…</span>}
+                </div>
+                <input
+                  type="url"
+                  value={editVehicleModal.vehicleImage}
+                  onChange={(e) => setEditVehicleModal({ ...editVehicleModal, vehicleImage: e.target.value })}
+                  placeholder="Or enter URL: https://.../vehicle.jpg"
+                />
+              </div>
+
+              <div className="form-group">
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={editVehicleModal.isActive}
+                    onChange={(e) => setEditVehicleModal({ ...editVehicleModal, isActive: e.target.checked })}
+                  />
+                  <span>Vehicle is Active for Dispatches</span>
+                </label>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setEditVehicleModal({ open: false, vehicleId: null, vehicleModel: '', vehicleType: 'mini-truck', loadCapacityValue: 1000, loadCapacityUnit: 'kg', bodyType: 'open', vehicleImage: '', isActive: true, saving: false })}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={editVehicleModal.saving}>
+                  {editVehicleModal.saving ? 'Saving...' : 'Update Vehicle'}
+                </button>
               </div>
             </form>
           </div>
@@ -914,10 +1266,12 @@ export default function AgencyDashboard() {
                 </select>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
-                <button type="button" className="btn" onClick={() => setAssignModal({ open: false, vehicleId: null, driverId: '' })}>
+                <button type="button" className="btn" onClick={() => setAssignModal({ open: false, vehicleId: null, driverId: '', assigning: false })}>
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary">Save Assignment</button>
+                <button type="submit" className="btn btn-primary" disabled={assignModal.assigning}>
+                  {assignModal.assigning ? 'Saving...' : 'Save Assignment'}
+                </button>
               </div>
             </form>
           </div>
