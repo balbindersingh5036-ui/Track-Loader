@@ -30,6 +30,7 @@ import uploadRoutes from "./routes/uploadRoutes.js";
 import bannerRoutes from "./routes/bannerRoutes.js";
 import agencyRoutes from "./routes/agencyRoutes.js";
 import adminAgencyRoutes from "./routes/adminAgencyRoutes.js";
+import documentRoutes from "./routes/documentRoutes.js";
 import { checkMaintenanceMode } from "./middleware/maintenanceMiddleware.js";
 import {
   notFound,
@@ -98,6 +99,7 @@ app.use("/api/uploads", uploadRoutes);
 app.use("/api/banners", bannerRoutes);
 app.use("/api/agency", agencyRoutes);
 app.use("/api/admin/agencies", adminAgencyRoutes);
+app.use("/api/documents", documentRoutes);
 app.use(notFound);
 app.use(errorHandler);
 

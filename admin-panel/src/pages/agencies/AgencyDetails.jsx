@@ -181,16 +181,16 @@ export default function AgencyDetails() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>Owner Aadhaar Document:</div>
-              {docs.ownerAadhaar?.url ? (
+              {(docs.ownerAadhaar?.viewUrl || docs.ownerAadhaar?.url) ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <a
-                    href={docs.ownerAadhaar.url}
+                    href={docs.ownerAadhaar.viewUrl || docs.ownerAadhaar.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-primary"
                     style={{ fontSize: 13, textDecoration: 'none' }}
                   >
-                    View Aadhaar Document
+                    View Aadhaar (Authorized Link)
                   </a>
                   <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Status: {docs.ownerAadhaar.status || 'Submitted'}</span>
                 </div>
@@ -201,10 +201,10 @@ export default function AgencyDetails() {
 
             <div>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>Business Registration / Trade Licence:</div>
-              {docs.businessRegistration?.url ? (
+              {(docs.businessRegistration?.viewUrl || docs.businessRegistration?.url) ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <a
-                    href={docs.businessRegistration.url}
+                    href={docs.businessRegistration.viewUrl || docs.businessRegistration.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn"
@@ -221,10 +221,10 @@ export default function AgencyDetails() {
 
             <div>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>Tax ID / GST Document:</div>
-              {docs.taxId?.url ? (
+              {(docs.taxId?.viewUrl || docs.taxId?.url) ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <a
-                    href={docs.taxId.url}
+                    href={docs.taxId.viewUrl || docs.taxId.url}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn"
@@ -281,8 +281,8 @@ export default function AgencyDetails() {
                       </span>
                     </td>
                     <td>
-                      {d.documents?.idProof?.url ? (
-                        <a href={d.documents.idProof.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                      {(d.documents?.idProof?.viewUrl || d.documents?.idProof?.url) ? (
+                        <a href={d.documents.idProof.viewUrl || d.documents.idProof.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>
                           View Aadhaar
                         </a>
                       ) : (
@@ -290,8 +290,8 @@ export default function AgencyDetails() {
                       )}
                     </td>
                     <td>
-                      {d.documents?.drivingLicense?.url ? (
-                        <a href={d.documents.drivingLicense.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                      {(d.documents?.drivingLicense?.viewUrl || d.documents?.drivingLicense?.url) ? (
+                        <a href={d.documents.drivingLicense.viewUrl || d.documents.drivingLicense.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>
                           View Licence
                         </a>
                       ) : (

@@ -48,6 +48,18 @@ const agencySchema = new mongoose.Schema(
           type: String,
           default: ""
         },
+        publicId: {
+          type: String,
+          default: ""
+        },
+        resourceType: {
+          type: String,
+          default: "image"
+        },
+        format: {
+          type: String,
+          default: ""
+        },
         status: {
           type: String,
           enum: ["pending", "approved", "rejected"],
@@ -60,6 +72,22 @@ const agencySchema = new mongoose.Schema(
           type: String,
           default: ""
         },
+        publicId: {
+          type: String,
+          default: ""
+        },
+        resourceType: {
+          type: String,
+          default: "image"
+        },
+        format: {
+          type: String,
+          default: ""
+        },
+        maskedNumber: {
+          type: String,
+          default: ""
+        },
         status: {
           type: String,
           enum: ["pending", "approved", "rejected"],
@@ -69,6 +97,18 @@ const agencySchema = new mongoose.Schema(
 
       taxId: {
         url: {
+          type: String,
+          default: ""
+        },
+        publicId: {
+          type: String,
+          default: ""
+        },
+        resourceType: {
+          type: String,
+          default: "image"
+        },
+        format: {
           type: String,
           default: ""
         },

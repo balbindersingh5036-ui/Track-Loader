@@ -7,14 +7,15 @@ const ALLOWED_MIME_TYPES = [
   "image/jpg",
   "image/png",
   "image/webp",
-  "image/gif"
+  "image/gif",
+  "application/pdf"
 ];
 
 const fileFilter = (req, file, cb) => {
   if (ALLOWED_MIME_TYPES.includes(file.mimetype.toLowerCase())) {
     cb(null, true);
   } else {
-    const error = new Error("Invalid file type. Only JPEG, PNG, WebP, and GIF images are allowed.");
+    const error = new Error("Invalid file type. Only JPEG, PNG, WebP, GIF, and PDF files are allowed.");
     error.code = "INVALID_FILE_TYPE";
     cb(error, false);
   }

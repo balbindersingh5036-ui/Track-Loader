@@ -33,7 +33,11 @@ export const agencyService = {
     return api.post('/upload/image', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
-  }
+  },
+
+  // Authenticated KYC Document View URLs (Short-lived signed access)
+  getAgencyDocumentView: (agencyId, docType) => api.get(`/documents/agency/${agencyId}/${docType}`),
+  getDriverDocumentView: (driverId, docType) => api.get(`/documents/driver/${driverId}/${docType}`)
 };
 
 export default agencyService;

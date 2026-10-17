@@ -36,7 +36,17 @@ export default function AgencyDashboard() {
       setUploadingDoc(targetField);
       const res = await agencyService.uploadFile(file, purpose);
       const url = res.data?.imageUrl || res.data?.url;
-      setter(prev => ({ ...prev, [targetField]: url }));
+      const publicId = res.data?.publicId || '';
+      const resourceType = res.data?.resourceType || 'image';
+      const format = res.data?.format || 'pdf';
+
+      setter(prev => ({
+        ...prev,
+        [targetField]: url,
+        [`${targetField}_publicId`]: publicId,
+        [`${targetField}_resourceType`]: resourceType,
+        [`${targetField}_format`]: format
+      }));
     } catch (uploadErr) {
       alert(uploadErr.response?.data?.message || uploadErr.message || 'File upload failed');
     } finally {
@@ -104,8 +114,20 @@ export default function AgencyDashboard() {
         address: regForm.address,
         city: regForm.city,
         documents: {
-          businessRegistration: { url: regForm.businessRegUrl, status: 'pending' },
-          ownerAadhaar: { url: regForm.ownerAadhaarUrl, status: 'pending' }
+          businessRegistration: {
+            url: regForm.businessRegUrl,
+            publicId: regForm.businessRegUrl_publicId || '',
+            resourceType: regForm.businessRegUrl_resourceType || 'image',
+            format: regForm.businessRegUrl_format || 'pdf',
+            status: 'pending'
+          },
+          ownerAadhaar: {
+            url: regForm.ownerAadhaarUrl,
+            publicId: regForm.ownerAadhaarUrl_publicId || '',
+            resourceType: regForm.ownerAadhaarUrl_resourceType || 'image',
+            format: regForm.ownerAadhaarUrl_format || 'pdf',
+            status: 'pending'
+          }
         }
       });
       await loadData();
@@ -132,8 +154,20 @@ export default function AgencyDashboard() {
     e.preventDefault();
     try {
       await agencyService.updateDriverDocuments(docModal.driverId, {
-        idProof: { url: docModal.aadhaarUrl, status: 'pending' },
-        drivingLicense: { url: docModal.dlUrl, status: 'pending' }
+        idProof: {
+          url: docModal.aadhaarUrl,
+          publicId: docModal.aadhaarUrl_publicId || '',
+          resourceType: docModal.aadhaarUrl_resourceType || 'image',
+          format: docModal.aadhaarUrl_format || 'pdf',
+          status: 'pending'
+        },
+        drivingLicense: {
+          url: docModal.dlUrl,
+          publicId: docModal.dlUrl_publicId || '',
+          resourceType: docModal.dlUrl_resourceType || 'image',
+          format: docModal.dlUrl_format || 'pdf',
+          status: 'pending'
+        }
       });
       setDocModal({ open: false, driverId: null, aadhaarUrl: '', dlUrl: '' });
       await loadData();
@@ -252,13 +286,16 @@ export default function AgencyDashboard() {
 
           <div className="form-group">
             <label>Owner Aadhaar Document (PDF or Image)</label>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
+              🛡️ <strong>Privacy Notice:</strong> For regulatory compliance, please upload a <strong>Masked Aadhaar</strong> (first 8 digits hidden, showing only last 4 digits). Documents are encrypted and accessible only via short-lived authenticated links.
+            </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
               <input
                 type="file"
                 accept="image/*,application/pdf"
                 onChange={(e) => handleFileUpload(e, 'ownerAadhaarUrl', setRegForm, 'aadhaar')}
               />
-              {uploadingDoc === 'ownerAadhaarUrl' && <span style={{ fontSize: 12, color: 'var(--primary)' }}>Uploading…</span>}
+              {uploadingDoc === 'ownerAadhaarUrl' && <span style={{ fontSize: 12, color: 'var(--primary)' }}>Uploading to secure vault…</span>}
             </div>
             <input
               type="url"
@@ -591,9 +628,9 @@ export default function AgencyDashboard() {
             <dd style={{ margin: 0 }}>{agency.city || '—'}</dd>
             <dt style={{ fontWeight: 600 }}>Aadhaar Doc:</dt>
             <dd style={{ margin: 0 }}>
-              {agency.documents?.ownerAadhaar?.url ? (
-                <a href={agency.documents.ownerAadhaar.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)' }}>
-                  View Submitted Aadhaar
+              {(agency.documents?.ownerAadhaar?.viewUrl || agency.documents?.ownerAadhaar?.url) ? (
+                <a href={agency.documents.ownerAadhaar.viewUrl || agency.documents.ownerAadhaar.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)' }}>
+                  View Submitted Aadhaar (Authorized Link)
                 </a>
               ) : 'Not submitted'}
             </dd>
@@ -675,13 +712,16 @@ export default function AgencyDashboard() {
             <form onSubmit={handleUpdateDriverDocs} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div className="form-group">
                 <label>Driver Aadhaar Card (PDF or Image)</label>
+                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
+                  🛡️ <strong>UIDAI Notice:</strong> Please submit a <strong>Masked Aadhaar</strong> (first 8 digits hidden). Stored in private vault with authorized delivery.
+                </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
                   <input
                     type="file"
                     accept="image/*,application/pdf"
                     onChange={(e) => handleFileUpload(e, 'aadhaarUrl', setDocModal, 'aadhaar')}
                   />
-                  {uploadingDoc === 'aadhaarUrl' && <span style={{ fontSize: 12, color: 'var(--primary)' }}>Uploading…</span>}
+                  {uploadingDoc === 'aadhaarUrl' && <span style={{ fontSize: 12, color: 'var(--primary)' }}>Uploading to private vault…</span>}
                 </div>
                 <input
                   type="url"

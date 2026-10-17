@@ -29,6 +29,42 @@ export const registerAgency = async (req, res) => {
       return errorResponse(res, "Agency with this owner or phone number already exists", 409);
     }
 
+    const sanitizedDocs = {};
+    if (documents?.ownerAadhaar?.url) {
+      const url = String(documents.ownerAadhaar.url).trim();
+      if (!url.startsWith("https://")) return errorResponse(res, "Owner Aadhaar URL must be a valid secure HTTPS link", 400);
+      sanitizedDocs.ownerAadhaar = {
+        url,
+        publicId: documents.ownerAadhaar.publicId || "",
+        resourceType: documents.ownerAadhaar.resourceType || "image",
+        format: documents.ownerAadhaar.format || (url.endsWith(".pdf") ? "pdf" : "jpg"),
+        maskedNumber: documents.ownerAadhaar.maskedNumber || "",
+        status: "pending"
+      };
+    }
+    if (documents?.businessRegistration?.url) {
+      const url = String(documents.businessRegistration.url).trim();
+      if (!url.startsWith("https://")) return errorResponse(res, "Business Registration URL must be a valid secure HTTPS link", 400);
+      sanitizedDocs.businessRegistration = {
+        url,
+        publicId: documents.businessRegistration.publicId || "",
+        resourceType: documents.businessRegistration.resourceType || "image",
+        format: documents.businessRegistration.format || (url.endsWith(".pdf") ? "pdf" : "jpg"),
+        status: "pending"
+      };
+    }
+    if (documents?.taxId?.url) {
+      const url = String(documents.taxId.url).trim();
+      if (!url.startsWith("https://")) return errorResponse(res, "Tax ID URL must be a valid secure HTTPS link", 400);
+      sanitizedDocs.taxId = {
+        url,
+        publicId: documents.taxId.publicId || "",
+        resourceType: documents.taxId.resourceType || "image",
+        format: documents.taxId.format || (url.endsWith(".pdf") ? "pdf" : "jpg"),
+        status: "pending"
+      };
+    }
+
     const agency = await Agency.create({
       owner: req.user._id,
       agencyName: agencyName.trim(),
@@ -36,7 +72,7 @@ export const registerAgency = async (req, res) => {
       email: email ? email.trim().toLowerCase() : "",
       address: address ? address.trim() : "",
       city: city ? city.trim() : "",
-      documents: documents || {}
+      documents: sanitizedDocs
     });
 
     // Update user role to agency if not already admin
@@ -56,7 +92,30 @@ export const getMyAgency = async (req, res) => {
     if (!agency) {
       return errorResponse(res, "Agency not found", 404);
     }
-    return successResponse(res, { agency }, "Agency profile fetched");
+
+    const agencyObj = agency.toObject();
+    const { generateSignedDocumentUrl, extractCloudinaryAssetInfo } = await import("../utils/documentSigner.js");
+
+    if (agencyObj.documents) {
+      for (const [key, doc] of Object.entries(agencyObj.documents)) {
+        if (doc && (doc.publicId || doc.url)) {
+          let pubId = doc.publicId;
+          let fmt = doc.format || "pdf";
+          let resType = doc.resourceType || "image";
+          if (!pubId && doc.url) {
+            const ext = extractCloudinaryAssetInfo(doc.url);
+            if (ext) { pubId = ext.publicId; fmt = ext.format; }
+          }
+          if (pubId) {
+            agencyObj.documents[key].viewUrl = generateSignedDocumentUrl(pubId, fmt, 300, resType);
+          } else {
+            agencyObj.documents[key].viewUrl = doc.url;
+          }
+        }
+      }
+    }
+
+    return successResponse(res, { agency: agencyObj }, "Agency profile fetched");
   } catch (error) {
     return errorResponse(res, "Failed to fetch agency profile", 500);
   }
@@ -95,7 +154,32 @@ export const getAgencyDrivers = async (req, res) => {
       .populate("user", "name phone email profileImage isActive")
       .sort({ createdAt: -1 });
 
-    return successResponse(res, { drivers }, "Agency drivers fetched");
+    const { generateSignedDocumentUrl, extractCloudinaryAssetInfo } = await import("../utils/documentSigner.js");
+
+    const enhancedDrivers = drivers.map((d) => {
+      const dObj = d.toObject();
+      if (dObj.documents) {
+        for (const [key, doc] of Object.entries(dObj.documents)) {
+          if (doc && (doc.publicId || doc.url)) {
+            let pubId = doc.publicId;
+            let fmt = doc.format || "pdf";
+            let resType = doc.resourceType || "image";
+            if (!pubId && doc.url) {
+              const ext = extractCloudinaryAssetInfo(doc.url);
+              if (ext) { pubId = ext.publicId; fmt = ext.format; }
+            }
+            if (pubId) {
+              dObj.documents[key].viewUrl = generateSignedDocumentUrl(pubId, fmt, 300, resType);
+            } else {
+              dObj.documents[key].viewUrl = doc.url;
+            }
+          }
+        }
+      }
+      return dObj;
+    });
+
+    return successResponse(res, { drivers: enhancedDrivers }, "Agency drivers fetched");
   } catch (error) {
     return errorResponse(res, "Failed to fetch agency drivers", 500);
   }
@@ -164,7 +248,32 @@ export const updateAgencyDriverDocuments = async (req, res) => {
       return errorResponse(res, "Driver not found in your agency", 404);
     }
 
-    driver.documents = { ...driver.documents, ...documents };
+    const cleanDocs = {};
+    if (documents?.idProof?.url) {
+      const url = String(documents.idProof.url).trim();
+      if (!url.startsWith("https://")) return errorResponse(res, "Aadhaar URL must be a valid secure HTTPS link", 400);
+      cleanDocs.idProof = {
+        url,
+        publicId: documents.idProof.publicId || "",
+        resourceType: documents.idProof.resourceType || "image",
+        format: documents.idProof.format || (url.endsWith(".pdf") ? "pdf" : "jpg"),
+        maskedNumber: documents.idProof.maskedNumber || "",
+        status: "pending"
+      };
+    }
+    if (documents?.drivingLicense?.url) {
+      const url = String(documents.drivingLicense.url).trim();
+      if (!url.startsWith("https://")) return errorResponse(res, "Driving Licence URL must be a valid secure HTTPS link", 400);
+      cleanDocs.drivingLicense = {
+        url,
+        publicId: documents.drivingLicense.publicId || "",
+        resourceType: documents.drivingLicense.resourceType || "image",
+        format: documents.drivingLicense.format || (url.endsWith(".pdf") ? "pdf" : "jpg"),
+        status: "pending"
+      };
+    }
+
+    driver.documents = { ...driver.documents, ...cleanDocs };
     await driver.save();
 
     return successResponse(res, { driver }, "Driver documents updated successfully");

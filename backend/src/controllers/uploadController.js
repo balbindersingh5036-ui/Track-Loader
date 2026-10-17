@@ -22,14 +22,28 @@ export const uploadImage = async (req, res, next) => {
     const b64 = Buffer.from(req.file.buffer).toString("base64");
     const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
     
-    const result = await cloudinary.uploader.upload(dataURI, {
-      folder: "loadbalbin_profiles",
-      resource_type: "auto"
-    });
+    const isSensitiveKYC = ["aadhaar", "drivingLicense", "document", "kyc"].includes(req.body?.purpose);
+    const isDocumentOrFleet = ["document", "aadhaar", "drivingLicense", "vehicle", "banner", "kyc"].includes(req.body?.purpose);
+
+    // Sensitive KYC documents use private authenticated storage in a dedicated folder
+    // Public media (profile photos, fleet vehicles, banners) continue to use public upload
+    const uploadOptions = isSensitiveKYC
+      ? {
+          folder: "loadbalbin_kyc",
+          resource_type: "auto",
+          type: "authenticated"
+        }
+      : {
+          folder: "loadbalbin_profiles",
+          resource_type: "auto"
+        };
+
+    const result = await cloudinary.uploader.upload(dataURI, uploadOptions);
 
     const secureUrl = result.secure_url;
-
-    const isDocumentOrFleet = ["document", "aadhaar", "drivingLicense", "vehicle", "banner"].includes(req.body?.purpose);
+    const publicId = result.public_id;
+    const resourceType = result.resource_type || "image";
+    const format = result.format || (req.file.mimetype === "application/pdf" ? "pdf" : "jpg");
 
     // Save image to authenticated user profile only when purpose is profile update
     if (req.user?._id && !isDocumentOrFleet) {
@@ -43,8 +57,12 @@ export const uploadImage = async (req, res, next) => {
       success: true,
       imageUrl: secureUrl,
       url: secureUrl,
+      publicId,
+      resourceType,
+      format,
+      isPrivate: isSensitiveKYC,
       profileImage: secureUrl,
-      message: "Image uploaded successfully"
+      message: isSensitiveKYC ? "Document securely uploaded to private vault" : "Image uploaded successfully"
     });
   } catch (error) {
     let detailedDetails = {

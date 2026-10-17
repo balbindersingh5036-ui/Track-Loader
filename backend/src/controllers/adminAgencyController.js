@@ -32,6 +32,7 @@ export const getAdminAgencies = async (req, res) => {
 
     const [agencies, total] = await Promise.all([
       Agency.find(query)
+        .select("-documents")
         .populate("owner", "name phone email profileImage")
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -75,8 +76,56 @@ export const getAdminAgencyById = async (req, res) => {
       Vehicle.find({ agency: agency._id }).populate("driver", "fullName phone")
     ]);
 
-    return successResponse(res, { agency, drivers, vehicles }, "Agency details fetched");
+    const agencyObj = agency.toObject();
+    const { generateSignedDocumentUrl, extractCloudinaryAssetInfo } = await import("../utils/documentSigner.js");
+
+    // Augment agency KYC docs with signed delivery URLs
+    if (agencyObj.documents) {
+      for (const [key, doc] of Object.entries(agencyObj.documents)) {
+        if (doc && (doc.publicId || doc.url)) {
+          let pubId = doc.publicId;
+          let fmt = doc.format || "pdf";
+          let resType = doc.resourceType || "image";
+          if (!pubId && doc.url) {
+            const ext = extractCloudinaryAssetInfo(doc.url);
+            if (ext) { pubId = ext.publicId; fmt = ext.format; }
+          }
+          if (pubId) {
+            agencyObj.documents[key].viewUrl = generateSignedDocumentUrl(pubId, fmt, 300, resType);
+          } else {
+            agencyObj.documents[key].viewUrl = doc.url;
+          }
+        }
+      }
+    }
+
+    // Augment driver KYC docs with signed delivery URLs
+    const enhancedDrivers = drivers.map((d) => {
+      const dObj = d.toObject();
+      if (dObj.documents) {
+        for (const [key, doc] of Object.entries(dObj.documents)) {
+          if (doc && (doc.publicId || doc.url)) {
+            let pubId = doc.publicId;
+            let fmt = doc.format || "pdf";
+            let resType = doc.resourceType || "image";
+            if (!pubId && doc.url) {
+              const ext = extractCloudinaryAssetInfo(doc.url);
+              if (ext) { pubId = ext.publicId; fmt = ext.format; }
+            }
+            if (pubId) {
+              dObj.documents[key].viewUrl = generateSignedDocumentUrl(pubId, fmt, 300, resType);
+            } else {
+              dObj.documents[key].viewUrl = doc.url;
+            }
+          }
+        }
+      }
+      return dObj;
+    });
+
+    return successResponse(res, { agency: agencyObj, drivers: enhancedDrivers, vehicles }, "Agency details fetched");
   } catch (error) {
+    console.error("getAdminAgencyById error:", error);
     return errorResponse(res, "Failed to fetch agency details", 500);
   }
 };

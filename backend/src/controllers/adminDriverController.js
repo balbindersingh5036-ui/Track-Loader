@@ -110,8 +110,28 @@ export const getAdminDriverById = async (req, res) => {
     const vehiclesByDriver = await loadVehiclesByDriver([driver]);
     const driverData = safeDriver(driver, vehiclesByDriver.get(driver._id.toString()));
     
-    // Allow authorized admin in detail view to inspect driver KYC documents
-    driverData.documents = driver.documents || {};
+    // Allow authorized admin in detail view to inspect driver KYC documents with short-lived signed URLs
+    const docs = driver.documents ? JSON.parse(JSON.stringify(driver.documents)) : {};
+    const { generateSignedDocumentUrl, extractCloudinaryAssetInfo } = await import("../utils/documentSigner.js");
+
+    for (const [key, doc] of Object.entries(docs)) {
+      if (doc && (doc.publicId || doc.url)) {
+        let pubId = doc.publicId;
+        let fmt = doc.format || "pdf";
+        let resType = doc.resourceType || "image";
+        if (!pubId && doc.url) {
+          const ext = extractCloudinaryAssetInfo(doc.url);
+          if (ext) { pubId = ext.publicId; fmt = ext.format; }
+        }
+        if (pubId) {
+          docs[key].viewUrl = generateSignedDocumentUrl(pubId, fmt, 300, resType);
+        } else {
+          docs[key].viewUrl = doc.url;
+        }
+      }
+    }
+
+    driverData.documents = docs;
     driverData.agency = driver.agency || null;
 
     return successResponse(res, {

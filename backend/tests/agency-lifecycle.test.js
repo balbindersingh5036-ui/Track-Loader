@@ -576,3 +576,32 @@ test("Security Audit: Unapproved driver is blocked from going online", async (t)
   assert.equal(res.body.success, false);
 });
 
+test("Security Audit: Rejects insecure non-HTTPS or plain text URLs in KYC document submissions", async (t) => {
+  const agencyId = new mongoose.Types.ObjectId();
+  const ownerId = new mongoose.Types.ObjectId();
+  const driverId = new mongoose.Types.ObjectId();
+
+  t.mock.method(Agency, "findOne", async () => ({
+    _id: agencyId,
+    owner: ownerId
+  }));
+  t.mock.method(Driver, "findOne", async () => ({
+    _id: driverId,
+    agency: agencyId,
+    documents: {}
+  }));
+
+  // Attempt to submit an insecure HTTP or javascript URL
+  const reqInsecure = {
+    user: { _id: ownerId, role: "agency" },
+    params: { id: driverId.toString() },
+    body: { documents: { idProof: { url: "http://insecure-site.com/fake.pdf" } } }
+  };
+  const resInsecure = createResponse();
+  await updateAgencyDriverDocuments(reqInsecure, resInsecure);
+
+  assert.equal(resInsecure.statusCode, 400);
+  assert.equal(resInsecure.body.success, false);
+});
+
+
