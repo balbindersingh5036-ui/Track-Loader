@@ -30,7 +30,7 @@ export const agencyService = {
     const formData = new FormData();
     formData.append('image', file);
     formData.append('purpose', purpose);
-    return api.post('/upload/image', formData, {
+    return api.post('/uploads/image', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
   },
