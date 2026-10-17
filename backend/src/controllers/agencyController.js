@@ -275,37 +275,59 @@ export const updateAgencyDriverDocuments = async (req, res) => {
       return errorResponse(res, "Driver not found in your agency", 404);
     }
 
-    const cleanDocs = {};
+    const { extractCloudinaryAssetInfo } = await import("../utils/documentSigner.js");
+
     if (documents?.idProof?.url) {
       const url = String(documents.idProof.url).trim();
       if (!url.startsWith("https://")) return errorResponse(res, "Aadhaar URL must be a valid secure HTTPS link", 400);
-      cleanDocs.idProof = {
+      let pubId = documents.idProof.publicId || "";
+      let fmt = documents.idProof.format || "";
+      if (!pubId) {
+        const ext = extractCloudinaryAssetInfo(url);
+        if (ext) { pubId = ext.publicId; fmt = ext.format; }
+      }
+      if (!fmt) fmt = url.endsWith(".pdf") ? "pdf" : "jpg";
+
+      if (!driver.documents) driver.documents = {};
+      driver.documents.idProof = {
         url,
-        publicId: documents.idProof.publicId || "",
+        publicId: pubId,
         resourceType: documents.idProof.resourceType || "image",
-        format: documents.idProof.format || (url.endsWith(".pdf") ? "pdf" : "jpg"),
-        maskedNumber: documents.idProof.maskedNumber || "",
-        status: "pending"
-      };
-    }
-    if (documents?.drivingLicense?.url) {
-      const url = String(documents.drivingLicense.url).trim();
-      if (!url.startsWith("https://")) return errorResponse(res, "Driving Licence URL must be a valid secure HTTPS link", 400);
-      cleanDocs.drivingLicense = {
-        url,
-        publicId: documents.drivingLicense.publicId || "",
-        resourceType: documents.drivingLicense.resourceType || "image",
-        format: documents.drivingLicense.format || (url.endsWith(".pdf") ? "pdf" : "jpg"),
+        format: fmt,
+        maskedNumber: documents.idProof.maskedNumber || driver.documents?.idProof?.maskedNumber || "",
         status: "pending"
       };
     }
 
-    driver.documents = { ...driver.documents, ...cleanDocs };
+    if (documents?.drivingLicense?.url) {
+      const url = String(documents.drivingLicense.url).trim();
+      if (!url.startsWith("https://")) return errorResponse(res, "Driving Licence URL must be a valid secure HTTPS link", 400);
+      let pubId = documents.drivingLicense.publicId || "";
+      let fmt = documents.drivingLicense.format || "";
+      if (!pubId) {
+        const ext = extractCloudinaryAssetInfo(url);
+        if (ext) { pubId = ext.publicId; fmt = ext.format; }
+      }
+      if (!fmt) fmt = url.endsWith(".pdf") ? "pdf" : "jpg";
+
+      if (!driver.documents) driver.documents = {};
+      driver.documents.drivingLicense = {
+        url,
+        publicId: pubId,
+        resourceType: documents.drivingLicense.resourceType || "image",
+        format: fmt,
+        status: "pending"
+      };
+    }
+
+    if (typeof driver.markModified === "function") {
+      driver.markModified("documents");
+    }
     await driver.save();
 
     return successResponse(res, { driver }, "Driver documents updated successfully");
   } catch (error) {
-    return errorResponse(res, "Failed to update driver documents", 500);
+    return errorResponse(res, error.message || "Failed to update driver documents", 500);
   }
 };
 

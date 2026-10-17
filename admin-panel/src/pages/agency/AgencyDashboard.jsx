@@ -36,7 +36,26 @@ export default function AgencyDashboard() {
   });
   const [newDriverModal, setNewDriverModal] = useState(false);
   const [creatingDriver, setCreatingDriver] = useState(false);
-  const [docModal, setDocModal] = useState({ open: false, driverId: null, aadhaarUrl: '', dlUrl: '', updating: false });
+  const [docModal, setDocModal] = useState({
+    open: false,
+    driverId: null,
+    driverName: '',
+    aadhaarUrl: '',
+    aadhaarFile: null,
+    aadhaarFileName: '',
+    aadhaarUrl_publicId: '',
+    aadhaarUrl_resourceType: 'image',
+    aadhaarUrl_format: 'pdf',
+    dlUrl: '',
+    dlFile: null,
+    dlFileName: '',
+    dlUrl_publicId: '',
+    dlUrl_resourceType: 'image',
+    dlUrl_format: 'pdf',
+    updating: false,
+    error: '',
+    success: ''
+  });
 
   const [newVehicle, setNewVehicle] = useState({
     driverId: '',
@@ -77,6 +96,13 @@ export default function AgencyDashboard() {
   const handleFileUpload = async (e, targetField, setter, purpose = 'document') => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size exceeds 5MB limit. Please choose a smaller file.');
+      e.target.value = '';
+      return;
+    }
+
     try {
       setUploadingDoc(targetField);
       const res = await agencyService.uploadFile(file, purpose);
@@ -88,9 +114,12 @@ export default function AgencyDashboard() {
       setter(prev => ({
         ...prev,
         [targetField]: url,
+        [`${targetField}_file`]: file,
+        [`${targetField}_fileName`]: file.name,
         [`${targetField}_publicId`]: publicId,
         [`${targetField}_resourceType`]: resourceType,
-        [`${targetField}_format`]: format
+        [`${targetField}_format`]: format,
+        error: ''
       }));
     } catch (uploadErr) {
       alert(uploadErr.response?.data?.message || uploadErr.message || 'File upload failed');
@@ -268,8 +297,16 @@ export default function AgencyDashboard() {
 
   const handleUpdateDriverDocs = async (e) => {
     e.preventDefault();
+    if (!docModal.aadhaarUrl || !docModal.dlUrl) {
+      setDocModal(prev => ({
+        ...prev,
+        error: 'Both Driver Aadhaar Card and Driving Licence are required to update verification documents.'
+      }));
+      return;
+    }
+
     try {
-      setDocModal(prev => ({ ...prev, updating: true }));
+      setDocModal(prev => ({ ...prev, updating: true, error: '', success: '' }));
       await agencyService.updateDriverDocuments(docModal.driverId, {
         idProof: {
           url: docModal.aadhaarUrl,
@@ -286,11 +323,33 @@ export default function AgencyDashboard() {
           status: 'pending'
         }
       });
-      setDocModal({ open: false, driverId: null, aadhaarUrl: '', dlUrl: '', updating: false });
+      setDocModal(prev => ({ ...prev, updating: false, success: 'Driver documents successfully saved and queued for Super Admin review!' }));
       await loadData();
+      setTimeout(() => {
+        setDocModal({
+          open: false,
+          driverId: null,
+          driverName: '',
+          aadhaarUrl: '',
+          aadhaarFile: null,
+          aadhaarFileName: '',
+          aadhaarUrl_publicId: '',
+          aadhaarUrl_resourceType: 'image',
+          aadhaarUrl_format: 'pdf',
+          dlUrl: '',
+          dlFile: null,
+          dlFileName: '',
+          dlUrl_publicId: '',
+          dlUrl_resourceType: 'image',
+          dlUrl_format: 'pdf',
+          updating: false,
+          error: '',
+          success: ''
+        });
+      }, 1500);
     } catch (err) {
-      alert(err.response?.data?.message || err.message || 'Failed to update documents');
-      setDocModal(prev => ({ ...prev, updating: false }));
+      const serverMsg = err.response?.data?.message || err.message || 'Failed to update driver documents';
+      setDocModal(prev => ({ ...prev, updating: false, error: serverMsg }));
     }
   };
 
@@ -1008,9 +1067,22 @@ export default function AgencyDashboard() {
                           onClick={() => setDocModal({
                             open: true,
                             driverId: d._id,
+                            driverName: d.fullName || d.user?.name || 'Driver',
                             aadhaarUrl: d.documents?.idProof?.url || '',
+                            aadhaarFile: null,
+                            aadhaarFileName: d.documents?.idProof?.url ? 'Current Aadhaar Document' : '',
+                            aadhaarUrl_publicId: d.documents?.idProof?.publicId || '',
+                            aadhaarUrl_resourceType: d.documents?.idProof?.resourceType || 'image',
+                            aadhaarUrl_format: d.documents?.idProof?.format || 'pdf',
                             dlUrl: d.documents?.drivingLicense?.url || '',
-                            updating: false
+                            dlFile: null,
+                            dlFileName: d.documents?.drivingLicense?.url ? 'Current Driving Licence' : '',
+                            dlUrl_publicId: d.documents?.drivingLicense?.publicId || '',
+                            dlUrl_resourceType: d.documents?.drivingLicense?.resourceType || 'image',
+                            dlUrl_format: d.documents?.drivingLicense?.format || 'pdf',
+                            updating: false,
+                            error: '',
+                            success: ''
                           })}
                         >
                           Upload / Update Docs
@@ -1537,58 +1609,119 @@ export default function AgencyDashboard() {
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
           background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
         }}>
-          <div style={{ background: '#fff', padding: 24, borderRadius: 12, width: '100%', maxWidth: 460 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <h3 style={{ margin: 0, fontSize: 17 }}>Upload Driver KYC Documents</h3>
-              <button type="button" onClick={() => setDocModal({ open: false, driverId: null, aadhaarUrl: '', dlUrl: '', updating: false })} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6b7280' }}>&times;</button>
+          <div style={{ background: '#fff', padding: 24, borderRadius: 12, width: '100%', maxWidth: 480, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 17, color: '#111827' }}>Upload Driver KYC Documents</h3>
+                <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>Driver: <strong>{docModal.driverName}</strong></div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDocModal({ open: false, driverId: null, driverName: '', aadhaarUrl: '', aadhaarFile: null, aadhaarFileName: '', aadhaarUrl_publicId: '', aadhaarUrl_resourceType: 'image', aadhaarUrl_format: 'pdf', dlUrl: '', dlFile: null, dlFileName: '', dlUrl_publicId: '', dlUrl_resourceType: 'image', dlUrl_format: 'pdf', updating: false, error: '', success: '' })}
+                style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6b7280' }}
+              >
+                &times;
+              </button>
             </div>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 16 }}>
-              Upload Aadhaar and Driving Licence to update this driver's KYC dossier for Super Admin verification.
+
+            <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 14 }}>
+              Upload Aadhaar card and Driving Licence files to update this driver's compliance dossier for Super Admin verification.
             </p>
+
+            {docModal.error && (
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', padding: '10px 12px', borderRadius: 6, fontSize: 13, marginBottom: 14 }}>
+                <strong>Error:</strong> {docModal.error}
+              </div>
+            )}
+
+            {docModal.success && (
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '10px 12px', borderRadius: 6, fontSize: 13, marginBottom: 14 }}>
+                <strong>Success:</strong> {docModal.success}
+              </div>
+            )}
+
             <form onSubmit={handleUpdateDriverDocs} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div className="form-group">
-                <label>Driver Aadhaar Card (PDF or Image)</label>
-                <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
+              {/* Aadhaar File Upload */}
+              <div className="form-group" style={{ padding: 12, background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                <label style={{ fontWeight: 600, fontSize: 13, display: 'block', marginBottom: 4 }}>
+                  Driver Aadhaar Card (PDF / Image) *
+                </label>
+                <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 8 }}>
                   🛡️ <strong>UIDAI Notice:</strong> Please submit a <strong>Masked Aadhaar</strong> (first 8 digits hidden).
                 </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <input
                     type="file"
                     accept="image/*,application/pdf"
                     onChange={(e) => handleFileUpload(e, 'aadhaarUrl', setDocModal, 'aadhaar')}
+                    disabled={uploadingDoc === 'aadhaarUrl' || docModal.updating}
+                    style={{ fontSize: 13 }}
                   />
-                  {uploadingDoc === 'aadhaarUrl' && <span style={{ fontSize: 12, color: 'var(--primary)' }}>Uploading to private vault…</span>}
+                  
+                  {uploadingDoc === 'aadhaarUrl' && (
+                    <div style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>
+                      ⏳ Encrypting and uploading to private KYC vault...
+                    </div>
+                  )}
+
+                  {docModal.aadhaarUrl && uploadingDoc !== 'aadhaarUrl' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#166534', background: '#dcfce7', padding: '4px 8px', borderRadius: 4, width: 'fit-content' }}>
+                      <span>✓ Document ready</span>
+                      {docModal.aadhaarFileName && <span style={{ color: '#374151' }}>({docModal.aadhaarFileName})</span>}
+                    </div>
+                  )}
                 </div>
-                <input
-                  type="url"
-                  value={docModal.aadhaarUrl}
-                  onChange={(e) => setDocModal({ ...docModal, aadhaarUrl: e.target.value })}
-                  placeholder="Or enter URL: https://.../driver-aadhaar.pdf"
-                />
               </div>
-              <div className="form-group">
-                <label>Driver Driving Licence (PDF or Image)</label>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+
+              {/* Driving Licence File Upload */}
+              <div className="form-group" style={{ padding: 12, background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                <label style={{ fontWeight: 600, fontSize: 13, display: 'block', marginBottom: 4 }}>
+                  Driver Driving Licence (PDF / Image) *
+                </label>
+                <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 8 }}>
+                  Commercial transport licence or Light Motor Vehicle licence.
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <input
                     type="file"
                     accept="image/*,application/pdf"
                     onChange={(e) => handleFileUpload(e, 'dlUrl', setDocModal, 'drivingLicense')}
+                    disabled={uploadingDoc === 'dlUrl' || docModal.updating}
+                    style={{ fontSize: 13 }}
                   />
-                  {uploadingDoc === 'dlUrl' && <span style={{ fontSize: 12, color: 'var(--primary)' }}>Uploading…</span>}
+
+                  {uploadingDoc === 'dlUrl' && (
+                    <div style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>
+                      ⏳ Encrypting and uploading to private KYC vault...
+                    </div>
+                  )}
+
+                  {docModal.dlUrl && uploadingDoc !== 'dlUrl' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#166534', background: '#dcfce7', padding: '4px 8px', borderRadius: 4, width: 'fit-content' }}>
+                      <span>✓ Document ready</span>
+                      {docModal.dlFileName && <span style={{ color: '#374151' }}>({docModal.dlFileName})</span>}
+                    </div>
+                  )}
                 </div>
-                <input
-                  type="url"
-                  value={docModal.dlUrl}
-                  onChange={(e) => setDocModal({ ...docModal, dlUrl: e.target.value })}
-                  placeholder="Or enter URL: https://.../driver-dl.pdf"
-                />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setDocModal({ open: false, driverId: null, aadhaarUrl: '', dlUrl: '', updating: false })}>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 8 }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={docModal.updating || uploadingDoc !== ''}
+                  onClick={() => setDocModal({ open: false, driverId: null, driverName: '', aadhaarUrl: '', aadhaarFile: null, aadhaarFileName: '', aadhaarUrl_publicId: '', aadhaarUrl_resourceType: 'image', aadhaarUrl_format: 'pdf', dlUrl: '', dlFile: null, dlFileName: '', dlUrl_publicId: '', dlUrl_resourceType: 'image', dlUrl_format: 'pdf', updating: false, error: '', success: '' })}
+                >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={docModal.updating}>
-                  {docModal.updating ? 'Saving...' : 'Save Documents'}
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={docModal.updating || uploadingDoc !== '' || !docModal.aadhaarUrl || !docModal.dlUrl}
+                >
+                  {docModal.updating ? 'Saving Documents...' : 'Save Documents'}
                 </button>
               </div>
             </form>
