@@ -48,11 +48,21 @@ export const fetchProfile = createAsyncThunk(
   }
 );
 
+const getStoredJson = (key) => {
+  try {
+    const val = localStorage.getItem(key);
+    return val ? JSON.parse(val) : null;
+  } catch {
+    return null;
+  }
+};
+
 const initialState = {
-  user: null,
+  user: getStoredJson('adminUser'),
+  agency: getStoredJson('adminAgency'),
   token: localStorage.getItem('adminToken') || null,
   loading: false,
-  restoring: true,
+  restoring: !!localStorage.getItem('adminToken'),
   error: null,
 };
 
@@ -62,8 +72,11 @@ const authSlice = createSlice({
   reducers: {
     logout: (state) => {
       state.user = null;
+      state.agency = null;
       state.token = null;
       localStorage.removeItem('adminToken');
+      localStorage.removeItem('adminUser');
+      localStorage.removeItem('adminAgency');
     },
   },
   extraReducers: (builder) => {
@@ -75,13 +88,19 @@ const authSlice = createSlice({
         state.restoring = false;
         state.user = action.payload.user;
         state.token = action.payload.token;
+        if (action.payload.user) {
+          localStorage.setItem('adminUser', JSON.stringify(action.payload.user));
+        }
       })
       .addCase(restoreSession.rejected, (state, action) => {
         state.restoring = false;
         state.error = action.payload;
         if (!localStorage.getItem('adminToken')) {
           state.user = null;
+          state.agency = null;
           state.token = null;
+          localStorage.removeItem('adminUser');
+          localStorage.removeItem('adminAgency');
         }
       })
       .addCase(login.pending, (state) => {
@@ -93,7 +112,16 @@ const authSlice = createSlice({
         state.restoring = false;
         state.token = action.payload.token;
         state.user = action.payload.user;
+        state.agency = action.payload.agency || null;
         localStorage.setItem('adminToken', action.payload.token);
+        if (action.payload.user) {
+          localStorage.setItem('adminUser', JSON.stringify(action.payload.user));
+        }
+        if (action.payload.agency) {
+          localStorage.setItem('adminAgency', JSON.stringify(action.payload.agency));
+        } else {
+          localStorage.removeItem('adminAgency');
+        }
       })
       .addCase(login.rejected, (state, action) => {
         state.loading = false;
@@ -101,6 +129,9 @@ const authSlice = createSlice({
       })
       .addCase(fetchProfile.fulfilled, (state, action) => {
         state.user = action.payload;
+        if (action.payload) {
+          localStorage.setItem('adminUser', JSON.stringify(action.payload));
+        }
       });
   },
 });

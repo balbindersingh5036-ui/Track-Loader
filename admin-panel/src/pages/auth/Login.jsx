@@ -9,15 +9,29 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { loading, error } = useSelector((state) => state.auth);
+  const { user, token, loading, restoring, error } = useSelector((state) => state.auth);
+
+  React.useEffect(() => {
+    if (!restoring && token && user) {
+      if (user.role === 'agency') {
+        navigate('/agency/dashboard', { replace: true });
+      } else if (user.role === 'admin') {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [restoring, token, user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
     const resultAction = await dispatch(login({ email, password }));
     if (login.fulfilled.match(resultAction)) {
-      // user + token already set by login.fulfilled reducer
-      // navigate immediately — ProtectedRoute will read from Redux
-      navigate('/dashboard', { replace: true });
+      const loggedUser = resultAction.payload?.user;
+      if (loggedUser?.role === 'agency') {
+        navigate('/agency/dashboard', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     }
   };
 

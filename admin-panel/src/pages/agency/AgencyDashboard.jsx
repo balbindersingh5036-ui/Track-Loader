@@ -336,8 +336,8 @@ export default function AgencyDashboard() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* Agency Status Banner */}
       <section className="card" style={{
-        background: agency.approvalStatus === 'approved' ? '#f0fdf4' : agency.approvalStatus === 'rejected' ? '#fef2f2' : '#fffbeb',
-        borderColor: agency.approvalStatus === 'approved' ? '#bbf7d0' : agency.approvalStatus === 'rejected' ? '#fecaca' : '#fef08a'
+        background: agency.approvalStatus === 'approved' ? '#f0fdf4' : agency.approvalStatus === 'rejected' || agency.approvalStatus === 'suspended' ? '#fef2f2' : '#fffbeb',
+        borderColor: agency.approvalStatus === 'approved' ? '#bbf7d0' : agency.approvalStatus === 'rejected' || agency.approvalStatus === 'suspended' ? '#fecaca' : '#fef08a'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
           <div>
@@ -345,18 +345,19 @@ export default function AgencyDashboard() {
             <div style={{ fontSize: 14, color: '#4b5563' }}>
               Verification Status: <strong style={{
                 textTransform: 'uppercase',
-                color: agency.approvalStatus === 'approved' ? '#166534' : agency.approvalStatus === 'rejected' ? '#991b1b' : '#854d0e'
+                color: agency.approvalStatus === 'approved' ? '#166534' : agency.approvalStatus === 'rejected' || agency.approvalStatus === 'suspended' ? '#991b1b' : '#854d0e'
               }}>
                 {agency.approvalStatus}
               </strong>
               {agency.approvalStatus === 'approved' && ' — Approved by Super Admin. Fleet is active for dispatches.'}
-              {agency.approvalStatus === 'pending' && ' — Under Super Admin review. You can add drivers and vehicles while pending.'}
-              {agency.approvalStatus === 'rejected' && ' — Verification rejected. Please review feedback.'}
+              {agency.approvalStatus === 'pending' && ' — Under Super Admin review. You can add drivers and vehicles while pending verification.'}
+              {agency.approvalStatus === 'rejected' && ' — Verification rejected by Super Admin. Please review feedback.'}
+              {agency.approvalStatus === 'suspended' && ' — Account suspended by Super Admin. Fleet operations are paused.'}
             </div>
           </div>
           <span style={{
-            background: agency.approvalStatus === 'approved' ? '#dcfce7' : agency.approvalStatus === 'rejected' ? '#fee2e2' : '#fef9c3',
-            color: agency.approvalStatus === 'approved' ? '#166534' : agency.approvalStatus === 'rejected' ? '#991b1b' : '#854d0e',
+            background: agency.approvalStatus === 'approved' ? '#dcfce7' : agency.approvalStatus === 'rejected' || agency.approvalStatus === 'suspended' ? '#fee2e2' : '#fef9c3',
+            color: agency.approvalStatus === 'approved' ? '#166534' : agency.approvalStatus === 'rejected' || agency.approvalStatus === 'suspended' ? '#991b1b' : '#854d0e',
             padding: '6px 14px', borderRadius: 20, fontWeight: 'bold', fontSize: 13, textTransform: 'capitalize'
           }}>
             {agency.approvalStatus}
@@ -365,7 +366,7 @@ export default function AgencyDashboard() {
 
         {agency.rejectionReason && (
           <div style={{ marginTop: 12, padding: 10, background: '#fee2e2', color: '#991b1b', borderRadius: 6, fontSize: 13 }}>
-            <strong>Rejection reason:</strong> {agency.rejectionReason}
+            <strong>Reason:</strong> {agency.rejectionReason}
           </div>
         )}
       </section>
