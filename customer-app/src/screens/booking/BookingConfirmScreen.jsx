@@ -9,8 +9,20 @@ import { getErrorMessage } from "../../utils/errorMessage";
 
 export default function BookingConfirmScreen({ route, navigation }) {
   const details = route.params || {};
+  const bookingMode = details.bookingMode || "instant";
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [fareEstimate, setFareEstimate] = useState(null);
+
+  React.useEffect(() => {
+    if (details.vehicleType) {
+      import("../../services/fareService").then(({ default: fareService }) => {
+        fareService.getFare(details.vehicleType)
+          .then((fare) => setFareEstimate(fare))
+          .catch(() => {});
+      });
+    }
+  }, [details.vehicleType]);
 
   const submit = async () => {
     if (busy) return;
@@ -29,13 +41,18 @@ export default function BookingConfirmScreen({ route, navigation }) {
         weight: details.weight,
         preferredPickupDate: details.preferredPickupDate,
         preferredPickupTime: details.preferredPickupTime,
-        vehicleType: details.vehicleType
+        vehicleType: details.vehicleType,
+        bookingMode
       };
       if (details.vehicleId) payload.vehicle = details.vehicleId;
       if (details.customerNote) payload.customerNote = details.customerNote;
 
       const booking = await bookingService.createBooking(payload);
-      navigation.replace("BookingSuccess", { booking });
+      navigation.replace("BookingSuccess", {
+        booking,
+        alternativeAssigned: booking.alternativeAssigned,
+        serverMessage: booking.serverMessage
+      });
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -137,6 +154,38 @@ export default function BookingConfirmScreen({ route, navigation }) {
             </Text>
           </View>
         </View>
+      </Card>
+
+      {/* FARE & BOOKING MODE CARD */}
+      <Card>
+        <View style={styles.cardHeaderRow}>
+          <Text style={styles.cardHeaderTitle}>Fare & Booking Summary</Text>
+          <Ionicons name="pricetag-outline" size={18} color={colors.primary} />
+        </View>
+
+        <View style={styles.grid2}>
+          <View style={styles.gridItem}>
+            <Text style={styles.gridLabel}>Booking Mode</Text>
+            <Text style={[styles.gridValue, { color: colors.primary, textTransform: "uppercase" }]}>
+              {bookingMode}
+            </Text>
+          </View>
+          <View style={styles.gridItem}>
+            <Text style={styles.gridLabel}>Base Fare</Text>
+            <Text style={styles.gridValue}>
+              {fareEstimate?.baseFare ? `₹${fareEstimate.baseFare}` : "Calculating..."}
+            </Text>
+          </View>
+        </View>
+
+        {fareEstimate ? (
+          <View style={styles.noteBox}>
+            <Text style={styles.noteLabel}>Rate Details:</Text>
+            <Text style={styles.noteText}>
+              ₹{fareEstimate.perKmRate}/km · ₹{fareEstimate.perTonRate || 0}/ton · Min ₹{fareEstimate.minimumFare || fareEstimate.baseFare}
+            </Text>
+          </View>
+        ) : null}
       </Card>
 
       <Notice message={error} />

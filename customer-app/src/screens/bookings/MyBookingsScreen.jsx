@@ -145,7 +145,23 @@ export default function MyBookingsScreen({ navigation }) {
             >
               <View style={styles.bookingTopRow}>
                 <View>
-                  <Text style={styles.bookingId}>{booking.bookingId}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={styles.bookingId}>{booking.bookingId}</Text>
+                    {booking.bookingMode ? (
+                      <View style={{ backgroundColor: colors.surfaceAlt, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "700", textTransform: "uppercase" }}>
+                          {booking.bookingMode}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {booking.alternativeVehicleAssigned ? (
+                      <View style={{ backgroundColor: colors.warningBg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ color: colors.warningText, fontSize: 9, fontWeight: "800", textTransform: "uppercase" }}>
+                          Alt Assigned
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
                   <Text style={styles.vehicleType}>
                     {booking.vehicle?.vehicleModel ||
                       booking.vehicleType?.replace(/-/g, " ") ||

@@ -3,7 +3,11 @@ import api from "./api";
 export const bookingService = {
   async createBooking(booking) {
     const { data } = await api.post("/bookings", booking);
-    return data.data.booking;
+    return {
+      ...data.data.booking,
+      alternativeAssigned: data.data.alternativeAssigned,
+      serverMessage: data.data.message
+    };
   },
   async getMyBookings(params = {}) {
     const { data } = await api.get("/bookings/my", { params });

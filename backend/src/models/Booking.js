@@ -139,6 +139,18 @@ const bookingSchema = new mongoose.Schema(
       index: true
     },
 
+    bookingMode: {
+      type: String,
+      enum: ["instant", "scheduled"],
+      default: "instant",
+      index: true
+    },
+
+    alternativeVehicleAssigned: {
+      type: Boolean,
+      default: false
+    },
+
     bookingStatus: {
       type: String,
       enum: [

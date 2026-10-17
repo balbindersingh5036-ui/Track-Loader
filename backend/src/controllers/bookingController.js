@@ -43,7 +43,22 @@ export const createBooking = async (req, res) => {
       return errorResponse(res, "Booking service is currently unavailable", 403);
     }
 
-    const { pickup, drop, goods, weight, preferredPickupDate, preferredPickupTime, vehicleType, vehicle, customerNote } = req.body;
+    const {
+      pickup,
+      drop,
+      goods,
+      weight,
+      preferredPickupDate,
+      preferredPickupTime,
+      vehicleType,
+      vehicle,
+      customerNote,
+      bookingMode = "instant"
+    } = req.body;
+
+    if (!["instant", "scheduled"].includes(bookingMode)) {
+      return errorResponse(res, "Invalid booking mode. Must be instant or scheduled", 400);
+    }
 
     if (
       !pickup?.address ||
@@ -80,13 +95,74 @@ export const createBooking = async (req, res) => {
     if (!preferredPickupDate || !preferredPickupTime) return errorResponse(res, "Preferred date and time are required", 400);
     if (!vehicleType) return errorResponse(res, "Vehicle type is required", 400);
 
+    // Validate scheduled pickup date & time if bookingMode is scheduled
+    if (bookingMode === "scheduled") {
+      const scheduledDateTime = new Date(`${preferredPickupDate}T${preferredPickupTime}`);
+      if (isNaN(scheduledDateTime.getTime()) || scheduledDateTime.getTime() <= Date.now()) {
+        return errorResponse(res, "Scheduled pickup date and time must be in the future", 400);
+      }
+    }
+
     let vehicleId = vehicle;
+    let alternativeVehicleAssigned = false;
+
     if (vehicleId) {
       if (!mongoose.Types.ObjectId.isValid(vehicleId)) return errorResponse(res, "Invalid vehicle ID", 400);
       const vehicleDoc = await Vehicle.findById(vehicleId);
       if (!vehicleDoc) return errorResponse(res, "Vehicle not found", 404);
-      if (!vehicleDoc.isActive || !vehicleDoc.isAvailable || vehicleDoc.vehicleType !== vehicleType) {
-        return errorResponse(res, "Vehicle not available or type mismatch", 400);
+      
+      const isSelectedAvailable = vehicleDoc.isActive && vehicleDoc.isAvailable && vehicleDoc.vehicleType === vehicleType;
+      
+      if (!isSelectedAvailable) {
+        if (bookingMode === "instant") {
+          // Automatic same-type alternative vehicle search
+          // Candidate must:
+          // 1. Be different from unavailable vehicle
+          // 2. Match the exact vehicleType
+          // 3. Be active and available
+          // 4. Have an approved, active driver
+          const candidateVehicles = await Vehicle.find({
+            _id: { $ne: vehicleId },
+            vehicleType,
+            isActive: true,
+            isAvailable: true
+          }).populate("driver");
+
+          // Convert required weight to KG for comparison
+          const requiredWeightKg = weight.unit === "ton" ? Number(weight.value) * 1000 : Number(weight.value);
+
+          const eligibleCandidate = candidateVehicles.find((v) => {
+            // Verify driver is assigned, active, and approved by Super Admin
+            const d = v.driver;
+            if (!d || !d.isActive || d.approvalStatus !== "approved") {
+              return false;
+            }
+            // Verify vehicle load capacity satisfies required cargo weight
+            const vehicleCapacityKg =
+              v.loadCapacity?.unit === "ton"
+                ? (v.loadCapacity?.value || 0) * 1000
+                : (v.loadCapacity?.value || 0);
+
+            if (vehicleCapacityKg < requiredWeightKg) {
+              return false;
+            }
+
+            return true;
+          });
+
+          if (!eligibleCandidate) {
+            return errorResponse(
+              res,
+              "Selected vehicle is no longer available and no eligible alternative vehicles of the same type were found. Please retry or choose another option.",
+              409
+            );
+          }
+
+          vehicleId = eligibleCandidate._id;
+          alternativeVehicleAssigned = true;
+        } else {
+          return errorResponse(res, "Vehicle not available or type mismatch", 400);
+        }
       }
     }
 
@@ -106,19 +182,62 @@ export const createBooking = async (req, res) => {
 
     const bookingId = await generateBookingId();
     const booking = new Booking({
-      bookingId, customer: req.user._id, vehicle: vehicleId || null,
-      pickup, drop, distanceKm: Math.max(0, parseFloat(distanceKm.toFixed(2))),
-      goods, weight, preferredPickupDate, preferredPickupTime, vehicleType,
-      estimatedFare: parseFloat(estimatedFare.toFixed(2)), customerNote
+      bookingId,
+      customer: req.user._id,
+      vehicle: vehicleId || null,
+      bookingMode,
+      alternativeVehicleAssigned,
+      pickup,
+      drop,
+      distanceKm: Math.max(0, parseFloat(distanceKm.toFixed(2))),
+      goods,
+      weight,
+      preferredPickupDate,
+      preferredPickupTime,
+      vehicleType,
+      estimatedFare: parseFloat(estimatedFare.toFixed(2)),
+      customerNote
     });
 
     await booking.save();
 
-    await notifyCustomer(req.user._id, "Booking Created", "Booking request created successfully", booking._id);
+    await notifyCustomer(
+      req.user._id,
+      "Booking Created",
+      alternativeVehicleAssigned
+        ? `Booking created with alternative ${vehicleType.replace(/-/g, " ")} assigned`
+        : "Booking request created successfully",
+      booking._id
+    );
     await notifyAdmins("New Booking", `New booking ${booking.bookingId} created`, booking._id);
+
+    // Notify assigned vehicle's driver if a specific vehicle was assigned
+    if (booking.vehicle) {
+      const assignedVehicle = await Vehicle.findById(booking.vehicle).populate("driver");
+      if (assignedVehicle?.driver?.user) {
+        await notifyDriver(
+          assignedVehicle.driver.user,
+          "New Booking Request",
+          `New ${booking.vehicleType.replace(/-/g, " ")} booking request #${booking.bookingId}`,
+          booking._id
+        );
+      }
+    }
+
     emitBookingEvent(booking, "booking:created", req.user._id);
 
-    return successResponse(res, { booking }, "Booking created", 201);
+    return successResponse(
+      res,
+      {
+        booking,
+        alternativeAssigned: alternativeVehicleAssigned,
+        message: alternativeVehicleAssigned
+          ? "Selected vehicle was unavailable; an alternative vehicle of the same type has been assigned."
+          : undefined
+      },
+      "Booking created",
+      201
+    );
   } catch (error) {
     return errorResponse(res, "Failed to create booking", 500);
   }

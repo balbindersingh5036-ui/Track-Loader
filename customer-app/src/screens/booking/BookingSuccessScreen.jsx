@@ -6,6 +6,11 @@ import { colors } from "../../theme/theme";
 
 export default function BookingSuccessScreen({ route, navigation }) {
   const booking = route.params?.booking;
+  const isAlternativeAssigned =
+    route.params?.alternativeAssigned ||
+    booking?.alternativeVehicleAssigned ||
+    false;
+  const serverMessage = route.params?.serverMessage;
 
   if (!booking) {
     return (
@@ -33,13 +38,33 @@ export default function BookingSuccessScreen({ route, navigation }) {
         </Text>
       </View>
 
+      {isAlternativeAssigned ? (
+        <Card style={{ backgroundColor: colors.warningBg, borderColor: colors.warningBorder, borderWidth: 1, padding: 14 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Ionicons name="information-circle" size={20} color={colors.warningText} />
+            <Text style={{ color: colors.warningText, fontSize: 13, fontWeight: "700", flex: 1 }}>
+              {serverMessage || "Notice: Your originally selected vehicle became unavailable. An alternative eligible vehicle of the same vehicle type was automatically assigned."}
+            </Text>
+          </View>
+        </Card>
+      ) : null}
+
       <Card style={styles.detailsCard}>
         <View style={styles.cardTopRow}>
           <View>
             <Text style={styles.bookingIdLabel}>Booking ID</Text>
             <Text style={styles.bookingIdValue}>{booking.bookingId}</Text>
           </View>
-          <Status value={booking.bookingStatus} />
+          <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+            {booking.bookingMode ? (
+              <View style={{ backgroundColor: colors.surfaceAlt, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>
+                  {booking.bookingMode}
+                </Text>
+              </View>
+            ) : null}
+            <Status value={booking.bookingStatus} />
+          </View>
         </View>
 
         <View style={styles.divider} />

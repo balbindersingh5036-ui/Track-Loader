@@ -204,17 +204,22 @@ export default function HomeScreen({ navigation }) {
                 isBookingDisabled && styles.btnDisabled
               ]}
               disabled={isBookingDisabled}
-              onPress={() => navigation.navigate("BookingLocation")}
+              onPress={() => navigation.navigate("BookingLocation", { bookingMode: "instant" })}
             >
-              <Ionicons name="search" size={18} color="#FFFFFF" />
-              <Text style={styles.primaryCtaText}>Find a Truck</Text>
+              <Ionicons name="flash-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.primaryCtaText}>Instant Booking</Text>
             </Pressable>
 
             <Pressable
-              style={styles.secondaryCta}
-              onPress={() => navigation.navigate("VehicleList")}
+              style={[
+                styles.secondaryCta,
+                isBookingDisabled && styles.btnDisabled
+              ]}
+              disabled={isBookingDisabled}
+              onPress={() => navigation.navigate("BookingLocation", { bookingMode: "scheduled" })}
             >
-              <Text style={styles.secondaryCtaText}>Book a Transport</Text>
+              <Ionicons name="calendar-outline" size={18} color={colors.primary} />
+              <Text style={styles.secondaryCtaText}>Schedule Booking</Text>
             </Pressable>
           </View>
         </View>
@@ -542,14 +547,16 @@ const styles = StyleSheet.create({
   },
   secondaryCta: {
     flex: 1,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.surfaceAlt, // Secondary surface
+    backgroundColor: colors.surfaceAlt,
     borderWidth: 1.5,
     borderColor: colors.primary,
     paddingVertical: 14,
     paddingHorizontal: 10,
     borderRadius: 10,
+    gap: 8,
     minHeight: 50
   },
   secondaryCtaText: {

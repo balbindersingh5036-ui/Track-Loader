@@ -159,6 +159,18 @@ export default function BookingDetailsScreen({ route, navigation }) {
 
   return (
     <Screen>
+      {/* ALTERNATIVE VEHICLE ASSIGNMENT NOTICE */}
+      {booking.alternativeVehicleAssigned ? (
+        <Card style={{ backgroundColor: colors.warningBg, borderColor: colors.warningBorder, borderWidth: 1, padding: 14 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <Ionicons name="information-circle" size={20} color={colors.warningText} />
+            <Text style={{ color: colors.warningText, fontSize: 13, fontWeight: "700", flex: 1 }}>
+              Same-Type Alternative Vehicle: The originally selected vehicle was unavailable; an eligible vehicle of the same category was assigned.
+            </Text>
+          </View>
+        </Card>
+      ) : null}
+
       {/* HEADER CARD */}
       <Card style={styles.headerCard}>
         <View style={styles.topRow}>
@@ -168,7 +180,16 @@ export default function BookingDetailsScreen({ route, navigation }) {
               {booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : ""}
             </Text>
           </View>
-          <Status value={booking.bookingStatus} />
+          <View style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+            {booking.bookingMode ? (
+              <View style={{ backgroundColor: colors.surfaceAlt, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "700", textTransform: "uppercase" }}>
+                  {booking.bookingMode}
+                </Text>
+              </View>
+            ) : null}
+            <Status value={booking.bookingStatus} />
+          </View>
         </View>
 
         <View style={styles.divider} />

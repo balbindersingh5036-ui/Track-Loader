@@ -5,6 +5,7 @@ import { Button, Card, Field, Heading, Notice, Screen } from "../../components/P
 import { colors } from "../../theme/theme";
 
 export default function LocationScreen({ route, navigation }) {
+  const bookingMode = route.params?.bookingMode || "instant";
   const [pickupAddress, setPickupAddress] = useState(route.params?.pickup?.address || "");
   const [dropAddress, setDropAddress] = useState(route.params?.drop?.address || "");
   const [error, setError] = useState("");
@@ -33,6 +34,7 @@ export default function LocationScreen({ route, navigation }) {
 
     navigation.navigate("BookingGoods", {
       ...route.params,
+      bookingMode,
       pickup,
       drop,
       vehicleType: route.params?.vehicleType,
@@ -42,10 +44,29 @@ export default function LocationScreen({ route, navigation }) {
 
   return (
     <Screen>
-      <Heading
-        title="Route Details"
-        subtitle="Specify the pickup point and destination for your goods transport."
-      />
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <Heading
+          title="Route Details"
+          subtitle="Specify the pickup point and destination for your goods transport."
+        />
+        <View style={{
+          backgroundColor: bookingMode === "instant" ? colors.surfaceAlt : colors.primary,
+          borderWidth: 1,
+          borderColor: colors.primary,
+          paddingHorizontal: 10,
+          paddingVertical: 4,
+          borderRadius: 8
+        }}>
+          <Text style={{
+            color: bookingMode === "instant" ? colors.primary : colors.white,
+            fontSize: 11,
+            fontWeight: "800",
+            textTransform: "uppercase"
+          }}>
+            {bookingMode === "instant" ? "Instant Mode" : "Scheduled Mode"}
+          </Text>
+        </View>
+      </View>
 
       {/* STEP INDICATOR */}
       <View style={styles.stepRow}>

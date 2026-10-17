@@ -5,16 +5,30 @@ import { Button, Card, Field, Heading, Notice, Screen } from "../../components/P
 import { colors } from "../../theme/theme";
 
 export default function GoodsDetailsScreen({ route, navigation }) {
+  const bookingMode = route.params?.bookingMode || "instant";
+
+  const getTodayDateString = () => {
+    const d = new Date();
+    return d.toISOString().split("T")[0];
+  };
+
+  const getCurrentTimeString = () => {
+    const d = new Date();
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
+  };
+
   const [goods, setGoods] = useState(route.params?.goods || "");
   const [weightValue, setWeightValue] = useState(
     route.params?.weight?.value !== undefined ? String(route.params.weight.value) : ""
   );
   const [weightUnit, setWeightUnit] = useState(route.params?.weight?.unit || "kg");
   const [preferredPickupDate, setPreferredPickupDate] = useState(
-    route.params?.preferredPickupDate || ""
+    route.params?.preferredPickupDate || (bookingMode === "instant" ? getTodayDateString() : "")
   );
   const [preferredPickupTime, setPreferredPickupTime] = useState(
-    route.params?.preferredPickupTime || ""
+    route.params?.preferredPickupTime || (bookingMode === "instant" ? getCurrentTimeString() : "")
   );
   const [customerNote, setCustomerNote] = useState(route.params?.customerNote || "");
   const [error, setError] = useState("");
@@ -41,8 +55,16 @@ export default function GoodsDetailsScreen({ route, navigation }) {
       return setError("Please enter the pickup time in HH:MM 24-hr format (e.g. 14:30).");
     }
 
+    if (bookingMode === "scheduled") {
+      const scheduledDateTime = new Date(`${preferredPickupDate}T${preferredPickupTime}`);
+      if (isNaN(scheduledDateTime.getTime()) || scheduledDateTime.getTime() <= Date.now()) {
+        return setError("Scheduled pickup date and time must be set to a future date and time.");
+      }
+    }
+
     navigation.navigate("BookingVehicle", {
       ...route.params,
+      bookingMode,
       goods: goods.trim(),
       weight: { value: weight, unit: weightUnit },
       preferredPickupDate,
@@ -53,10 +75,29 @@ export default function GoodsDetailsScreen({ route, navigation }) {
 
   return (
     <Screen>
-      <Heading
-        title="Goods & Schedule"
-        subtitle="Provide cargo specifications and your preferred loading time."
-      />
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <Heading
+          title={bookingMode === "instant" ? "Goods & Instant Pickup" : "Goods & Scheduled Pickup"}
+          subtitle="Provide cargo specifications and pickup schedule."
+        />
+        <View style={{
+          backgroundColor: bookingMode === "instant" ? colors.surfaceAlt : colors.primary,
+          borderWidth: 1,
+          borderColor: colors.primary,
+          paddingHorizontal: 10,
+          paddingVertical: 4,
+          borderRadius: 8
+        }}>
+          <Text style={{
+            color: bookingMode === "instant" ? colors.primary : colors.white,
+            fontSize: 11,
+            fontWeight: "800",
+            textTransform: "uppercase"
+          }}>
+            {bookingMode === "instant" ? "Instant" : "Scheduled"}
+          </Text>
+        </View>
+      </View>
 
       {/* STEP INDICATOR */}
       <View style={styles.stepRow}>
