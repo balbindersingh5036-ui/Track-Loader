@@ -9,6 +9,13 @@ const vehicleSchema = new mongoose.Schema(
       index: true
     },
 
+    agency: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Agency",
+      default: null,
+      index: true
+    },
+
     vehicleNumber: {
       type: String,
       required: true,

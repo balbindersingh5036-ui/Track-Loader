@@ -29,8 +29,10 @@ export const uploadImage = async (req, res, next) => {
 
     const secureUrl = result.secure_url;
 
-    // Save image to authenticated user profile
-    if (req.user?._id && req.body?.purpose !== "banner") {
+    const isDocumentOrFleet = ["document", "aadhaar", "drivingLicense", "vehicle", "banner"].includes(req.body?.purpose);
+
+    // Save image to authenticated user profile only when purpose is profile update
+    if (req.user?._id && !isDocumentOrFleet) {
       await User.findByIdAndUpdate(req.user._id, { profileImage: secureUrl });
       if (req.user.role === "driver") {
         await Driver.findOneAndUpdate({ user: req.user._id }, { profileImage: secureUrl });

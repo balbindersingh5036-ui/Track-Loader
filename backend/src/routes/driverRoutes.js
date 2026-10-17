@@ -57,18 +57,23 @@ router.patch("/status", protect, driverOnly, async (req, res) => {
       });
     }
 
-    const driver = await Driver.findOneAndUpdate(
-      { user: req.user._id },
-      { isOnline },
-      { new: true }
-    );
-
+    const driver = await Driver.findOne({ user: req.user._id });
     if (!driver) {
       return res.status(404).json({
         success: false,
         message: "Driver profile not found"
       });
     }
+
+    if (isOnline && (driver.approvalStatus !== "approved" || !driver.isActive)) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account is not approved or inactive. Only approved drivers can go online."
+      });
+    }
+
+    driver.isOnline = isOnline;
+    await driver.save();
 
     return res.status(200).json({
       success: true,
@@ -87,10 +92,9 @@ router.get("/profile", protect, driverOnly, async (req, res) => {
   try {
     const driver = await Driver.findOne({
       user: req.user._id
-    }).populate(
-      "user",
-      "name phone email profileImage role"
-    );
+    })
+      .populate("user", "name phone email profileImage role")
+      .populate("agency", "agencyName phone email address city approvalStatus isActive");
 
     if (!driver) {
       return res.status(404).json({

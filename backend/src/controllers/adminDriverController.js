@@ -14,6 +14,7 @@ const safeDriver = (driver, vehicles = []) => ({
   rating: driver.rating,
   totalTrips: driver.totalTrips,
   approvalStatus: driver.approvalStatus,
+  rejectionReason: driver.rejectionReason || "",
   isOnline: driver.isOnline,
   isActive: driver.isActive,
   createdAt: driver.createdAt,
@@ -101,11 +102,20 @@ export const getAdminDrivers = async (req, res) => {
 export const getAdminDriverById = async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return errorResponse(res, "Invalid driver ID", 400);
-    const driver = await Driver.findById(req.params.id).populate("user", "name phone email profileImage").lean();
+    const driver = await Driver.findById(req.params.id)
+      .populate("user", "name phone email profileImage")
+      .populate("agency", "agencyName phone email address city")
+      .lean();
     if (!driver) return errorResponse(res, "Driver not found", 404);
     const vehiclesByDriver = await loadVehiclesByDriver([driver]);
+    const driverData = safeDriver(driver, vehiclesByDriver.get(driver._id.toString()));
+    
+    // Allow authorized admin in detail view to inspect driver KYC documents
+    driverData.documents = driver.documents || {};
+    driverData.agency = driver.agency || null;
+
     return successResponse(res, {
-      driver: safeDriver(driver, vehiclesByDriver.get(driver._id.toString()))
+      driver: driverData
     }, "Driver fetched");
   } catch (error) {
     console.error("Admin driver detail error:", error);
@@ -116,10 +126,24 @@ export const getAdminDriverById = async (req, res) => {
 const updateApproval = (approvalStatus) => async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return errorResponse(res, "Invalid driver ID", 400);
-    if (Object.keys(req.body || {}).length) return errorResponse(res, "This action does not accept request fields", 400);
+    const bodyKeys = Object.keys(req.body || {});
+    if (approvalStatus === "rejected") {
+      const invalidKeys = bodyKeys.filter((k) => k !== "reason" && k !== "rejectionReason");
+      if (invalidKeys.length > 0) {
+        return errorResponse(res, "This action only accepts an optional reason field", 400);
+      }
+    } else {
+      if (bodyKeys.length > 0) return errorResponse(res, "This action does not accept request fields", 400);
+    }
+
+    const updateDoc = { approvalStatus };
+    if (approvalStatus === "rejected" && (req.body?.reason || req.body?.rejectionReason)) {
+      updateDoc.rejectionReason = req.body?.reason || req.body?.rejectionReason;
+    }
+
     const driver = await Driver.findByIdAndUpdate(
       req.params.id,
-      { $set: { approvalStatus } },
+      { $set: updateDoc },
       { new: true, runValidators: true }
     ).populate("user", "name phone email profileImage");
     if (!driver) return errorResponse(res, "Driver not found", 404);

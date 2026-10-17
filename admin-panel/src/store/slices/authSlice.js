@@ -22,7 +22,7 @@ export const restoreSession = createAsyncThunk(
     try {
       const response = await api.get('/auth/me');
       const user = response.data.data.user;
-      if (user?.role !== 'admin') {
+      if (!['admin', 'agency'].includes(user?.role)) {
         localStorage.removeItem('adminToken');
         return { user: null, token: null };
       }

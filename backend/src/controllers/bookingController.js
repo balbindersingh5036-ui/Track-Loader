@@ -126,17 +126,28 @@ export const createBooking = async (req, res) => {
             vehicleType,
             isActive: true,
             isAvailable: true
-          }).populate("driver");
+          }).populate("driver").populate("agency");
 
           // Convert required weight to KG for comparison
           const requiredWeightKg = weight.unit === "ton" ? Number(weight.value) * 1000 : Number(weight.value);
 
           const eligibleCandidate = candidateVehicles.find((v) => {
+            // If vehicle belongs to an agency, agency must be approved and active
+            if (v.agency && (v.agency.approvalStatus !== "approved" || !v.agency.isActive)) {
+              return false;
+            }
+
             // Verify driver is assigned, active, and approved by Super Admin
             const d = v.driver;
             if (!d || !d.isActive || d.approvalStatus !== "approved") {
               return false;
             }
+
+            // If driver belongs to an agency, agency must be approved and active
+            if (d.agency && typeof d.agency === "object" && (d.agency.approvalStatus !== "approved" || !d.agency.isActive)) {
+              return false;
+            }
+
             // Verify vehicle load capacity satisfies required cargo weight
             const vehicleCapacityKg =
               v.loadCapacity?.unit === "ton"

@@ -479,14 +479,62 @@ export default function App() {
               <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Your account</Text>
             </View>
             
+            {/* VERIFICATION & AGENCY STATUS BANNER */}
+            {driver?.approvalStatus !== 'approved' && (
+              <View style={[cardStyle, {
+                backgroundColor: driver?.approvalStatus === 'rejected' ? '#2A1215' : '#2A2412',
+                borderColor: driver?.approvalStatus === 'rejected' ? colors.danger : colors.warning,
+                borderWidth: 1,
+                padding: 16
+              }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                  <Ionicons
+                    name={driver?.approvalStatus === 'rejected' ? 'alert-circle' : 'time'}
+                    size={22}
+                    color={driver?.approvalStatus === 'rejected' ? colors.danger : colors.warning}
+                  />
+                  <Text style={{
+                    color: driver?.approvalStatus === 'rejected' ? colors.danger : colors.warning,
+                    fontSize: 16,
+                    fontWeight: '800',
+                    textTransform: 'uppercase'
+                  }}>
+                    Account {driver?.approvalStatus}
+                  </Text>
+                </View>
+                <Text style={{ color: colors.ink, fontSize: 13, lineHeight: 18 }}>
+                  {driver?.approvalStatus === 'rejected'
+                    ? 'Your driver application was rejected by Super Admin. Please contact your agency or support to re-upload documents.'
+                    : 'Your driver account is pending Super Admin document verification. You cannot go online or accept booking requests until approved.'}
+                </Text>
+                {driver?.rejectionReason ? (
+                  <View style={{ marginTop: 8, padding: 8, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 6 }}>
+                    <Text style={{ color: colors.danger, fontSize: 12, fontWeight: '700' }}>
+                      Rejection Reason: {driver.rejectionReason}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
+
             <View style={[cardStyle, { alignItems: 'center', paddingVertical: 20 }]}>
-              <Text style={{ color: colors.ink, fontSize: 16, fontWeight: '700', marginBottom: 12 }}>
+              <Text style={{ color: colors.ink, fontSize: 16, fontWeight: '700', marginBottom: 6 }}>
                 Currently {driver?.isOnline ? 'Online' : 'Offline'}
               </Text>
+              {driver?.approvalStatus !== 'approved' ? (
+                <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 12, textAlign: 'center' }}>
+                  Going online is disabled until Super Admin approves your account.
+                </Text>
+              ) : null}
               <ActionButton 
-                style={{ width: '100%', backgroundColor: driver?.isOnline ? 'transparent' : colors.primary, borderColor: driver?.isOnline ? colors.border : colors.primary }}
+                style={{
+                  width: '100%',
+                  backgroundColor: driver?.isOnline ? 'transparent' : (driver?.approvalStatus === 'approved' ? colors.primary : colors.surface),
+                  borderColor: driver?.isOnline ? colors.border : (driver?.approvalStatus === 'approved' ? colors.primary : colors.border)
+                }}
+                disabled={driver?.approvalStatus !== 'approved'}
                 label={driver?.isOnline ? 'Go Offline' : 'Go Online'} 
-                secondary={driver?.isOnline}
+                secondary={driver?.isOnline || driver?.approvalStatus !== 'approved'}
                 onPress={toggleOnline} 
               />
             </View>
@@ -503,14 +551,41 @@ export default function App() {
                   </View>
                 </View>
                 <Text style={[labelStyle, { textTransform: 'none' }]}>Email: <Text style={bodyText}>{profile.email || profile.user?.email || user.email || '—'}</Text></Text>
-                <Text style={[labelStyle, { marginTop: 8, textTransform: 'none' }]}>Status: <Text style={[bodyText, { color: colors.teal, textTransform: 'capitalize' }]}>{profile.approvalStatus}</Text></Text>
+                <Text style={[labelStyle, { marginTop: 8, textTransform: 'none' }]}>Approval Status: <Text style={[bodyText, {
+                  color: profile.approvalStatus === 'approved' ? colors.green : profile.approvalStatus === 'rejected' ? colors.danger : colors.warning,
+                  textTransform: 'capitalize',
+                  fontWeight: '700'
+                }]}>{profile.approvalStatus}</Text></Text>
+
+                {/* Agency Affiliation Details */}
+                {profile.agency ? (
+                  <View style={{ marginTop: 16, padding: 12, backgroundColor: colors.card2, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}>
+                    <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '800', letterSpacing: 1.1, textTransform: 'uppercase', marginBottom: 4 }}>
+                      AFFILIATED FLEET AGENCY
+                    </Text>
+                    <Text style={[bodyText, { fontSize: 15, fontWeight: '700' }]}>{profile.agency.agencyName}</Text>
+                    <Text style={mutedText}>Phone: {profile.agency.phone || '—'}</Text>
+                    <Text style={mutedText}>Location: {profile.agency.city || profile.agency.address || '—'}</Text>
+                    <Text style={[mutedText, { marginTop: 4, fontSize: 11 }]}>Agency Status: <Text style={{ color: profile.agency.approvalStatus === 'approved' ? colors.green : colors.warning, textTransform: 'capitalize' }}>{profile.agency.approvalStatus}</Text></Text>
+                  </View>
+                ) : (
+                  <View style={{ marginTop: 16, padding: 10, backgroundColor: colors.surface, borderRadius: 8 }}>
+                    <Text style={[mutedText, { fontSize: 12 }]}>Independent Driver (No Agency Linked)</Text>
+                  </View>
+                )}
                 
-                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 24, marginBottom: 4 }}>VEHICLE & KYC</Text>
-                {(!profile.vehicles || profile.vehicles.length === 0) && <Text style={mutedText}>No vehicles registered.</Text>}
+                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 24, marginBottom: 4 }}>ASSIGNED VEHICLE & KYC</Text>
+                {(!profile.vehicles || profile.vehicles.length === 0) && <Text style={mutedText}>No vehicle assigned by agency yet.</Text>}
                 {(profile.vehicles || []).map((item) => (
-                  <View key={item._id} style={{ marginTop: 8, padding: 16, backgroundColor: colors.card2, borderRadius: 12 }}>
-                    <Text style={[bodyText, { fontSize: 16, marginBottom: 4 }]}>{item.vehicleNumber}</Text>
-                    <Text style={mutedText}>{item.vehicleModel} · {item.vehicleType}</Text>
+                  <View key={item._id} style={{ marginTop: 8, padding: 16, backgroundColor: colors.card2, borderRadius: 12, borderWidth: 1, borderColor: colors.border }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={[bodyText, { fontSize: 16, fontWeight: '700' }]}>{item.vehicleNumber}</Text>
+                      <Text style={{ color: item.isAvailable ? colors.green : colors.orange, fontSize: 11, fontWeight: '700' }}>
+                        {item.isAvailable ? 'AVAILABLE' : 'ON TRIP'}
+                      </Text>
+                    </View>
+                    <Text style={[mutedText, { marginTop: 4 }]}>{item.vehicleModel} · {item.vehicleType}</Text>
+                    <Text style={[mutedText, { fontSize: 12, marginTop: 2 }]}>Capacity: {item.loadCapacity?.value} {item.loadCapacity?.unit}</Text>
                   </View>
                 ))}
               </View>

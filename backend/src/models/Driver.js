@@ -10,6 +10,13 @@ const driverSchema = new mongoose.Schema(
       index: true
     },
 
+    agency: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Agency",
+      default: null,
+      index: true
+    },
+
     fullName: {
       type: String,
       required: true,
@@ -118,6 +125,12 @@ const driverSchema = new mongoose.Schema(
       ],
       default: "pending",
       index: true
+    },
+
+    rejectionReason: {
+      type: String,
+      default: "",
+      trim: true
     },
 
     isOnline: {

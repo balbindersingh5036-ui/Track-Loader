@@ -388,58 +388,64 @@ export const adminLogin = async (req, res) => {
       queryOr.push({ phone: normalizedPhone });
     }
 
-    const admin = await User.findOne({
-      role: "admin",
+    const user = await User.findOne({
+      role: { $in: ["admin", "agency"] },
       $or: queryOr
     }).select("+password");
 
-    if (!admin) {
+    if (!user) {
       return res.status(401).json({
         success: false,
-        message: "Invalid admin credentials"
+        message: "Invalid credentials"
       });
     }
 
-    if (!admin.isActive) {
+    if (!user.isActive) {
       return res.status(403).json({
         success: false,
-        message: "Admin account is inactive"
+        message: "Account is inactive"
       });
     }
 
     const passwordMatch = await comparePassword(
       password,
-      admin.password
+      user.password
     );
 
     if (!passwordMatch) {
       return res.status(401).json({
         success: false,
-        message: "Invalid admin credentials"
+        message: "Invalid credentials"
       });
     }
 
-    admin.lastLoginAt = new Date();
-
-    await admin.save();
+    user.lastLoginAt = new Date();
+    await user.save();
 
     const token = generateToken({
-      userId: admin._id.toString(),
-      role: "admin"
+      userId: user._id.toString(),
+      role: user.role
     });
+
+    let agency = null;
+    if (user.role === "agency") {
+      const Agency = (await import("../models/Agency.js")).default;
+      agency = await Agency.findOne({ owner: user._id }).lean();
+    }
 
     return res.status(200).json({
       success: true,
-      message: "Admin login successful",
+      message: `${user.role === "admin" ? "Admin" : "Agency"} login successful`,
       data: {
         token,
         user: {
-          id: admin._id,
-          name: admin.name,
-          phone: admin.phone,
-          email: admin.email || "",
-          role: admin.role
-        }
+          id: user._id,
+          name: user.name,
+          phone: user.phone,
+          email: user.email || "",
+          role: user.role
+        },
+        agency
       }
     });
   } catch (error) {

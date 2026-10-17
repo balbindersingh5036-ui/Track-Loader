@@ -65,3 +65,11 @@
 {"_e":"metro:instantiate","_t":1792222397451,"atlas":false,"workers":8,"host":null,"port":null}
 {"_e":"metro:bundling:started","_t":1792222401529,"id":"1","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
 {"_e":"metro:bundling:done","_t":1792222404832,"id":"1","total":730,"ms":3302.7578}
+{"_e":"root:init","_t":1792223297617,"format":"v0-jsonl","version":"57.0.27"}
+{"_e":"env:mode","_t":1792223297785,"nodeEnv":"production","babelEnv":"production","mode":"production"}
+{"_e":"env:load","_t":1792223297788,"mode":"production","files":["../..\\..\\.env"],"env":{"EXPO_PUBLIC_API_URL":"https://track-loader.onrender.com/api"}}
+{"_e":"devserver:start","_t":1792223297820,"mode":"production","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":true}
+{"_e":"metro:config","_t":1792223298091,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":true,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"metro:instantiate","_t":1792223298246,"atlas":false,"workers":8,"host":null,"port":null}
+{"_e":"metro:bundling:started","_t":1792223298571,"id":"1","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:done","_t":1792223298994,"id":"1","total":730,"ms":422.7387}
