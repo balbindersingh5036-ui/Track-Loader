@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 
-export default function ApiListPage({ title, endpoint, collection, columns, rowKey = '_id', actions, detailPath, searchParam }) {
+export default function ApiListPage({ title, endpoint, collection, columns, rowKey = '_id', actions, detailPath, searchParam, filters, activeFilter, onFilterChange }) {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -18,6 +18,9 @@ export default function ApiListPage({ title, endpoint, collection, columns, rowK
     try {
       const params = { page: requestedPage, limit: 20 };
       if (searchParam && requestedSearch.trim()) params[searchParam] = requestedSearch.trim();
+      if (activeFilter && activeFilter.value) {
+        params[activeFilter.param || 'approvalStatus'] = activeFilter.value;
+      }
       const response = await api.get(endpoint, { params });
       const data = response.data?.data;
       const records = collection ? data?.[collection] : data;
@@ -32,7 +35,7 @@ export default function ApiListPage({ title, endpoint, collection, columns, rowK
     } finally {
       setLoading(false);
     }
-  }, [endpoint, collection, searchParam, appliedSearch]);
+  }, [endpoint, collection, searchParam, appliedSearch, activeFilter]);
 
   useEffect(() => {
     load(1);
@@ -72,6 +75,24 @@ export default function ApiListPage({ title, endpoint, collection, columns, rowK
           />
           <button type="submit" className="btn" disabled={loading}>Search</button>
         </form>
+      )}
+      {filters && filters.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+          {filters.map((f) => {
+            const isSelected = (!activeFilter?.value && !f.value) || (activeFilter?.value === f.value);
+            return (
+              <button
+                key={f.label}
+                type="button"
+                className={`btn ${isSelected ? 'btn-primary' : ''}`}
+                style={{ fontSize: 13, padding: '4px 12px', borderRadius: 16 }}
+                onClick={() => onFilterChange?.(f)}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
       )}
       {error && <p role="alert" style={{ color: 'var(--danger)' }}>{error}</p>}
       {loading ? <p role="status">Loading {title.toLowerCase()}…</p> : (

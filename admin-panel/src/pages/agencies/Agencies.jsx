@@ -7,6 +7,15 @@ export default function Agencies() {
   const navigate = useNavigate();
   const [rejectModal, setRejectModal] = useState({ open: false, id: null, type: 'reject', reason: '' });
   const [actionError, setActionError] = useState('');
+  const [activeFilter, setActiveFilter] = useState({ label: 'All Agencies', value: '' });
+
+  const statusFilters = [
+    { label: 'All Agencies', value: '' },
+    { label: 'Pending Verification', value: 'pending', param: 'approvalStatus' },
+    { label: 'Approved', value: 'approved', param: 'approvalStatus' },
+    { label: 'Rejected', value: 'rejected', param: 'approvalStatus' },
+    { label: 'Suspended', value: 'suspended', param: 'approvalStatus' }
+  ];
 
   const submitActionWithReason = async () => {
     try {
@@ -25,7 +34,7 @@ export default function Agencies() {
   const getStatusBadge = (status) => {
     const map = {
       approved: { bg: '#dcfce7', color: '#166534', label: 'Approved' },
-      pending: { bg: '#fef9c3', color: '#854d0e', label: 'Pending' },
+      pending: { bg: '#fef9c3', color: '#854d0e', label: 'Pending Verification' },
       rejected: { bg: '#fee2e2', color: '#991b1b', label: 'Rejected' },
       suspended: { bg: '#f3f4f6', color: '#374151', label: 'Suspended' }
     };
@@ -52,6 +61,9 @@ export default function Agencies() {
         endpoint="/admin/agencies"
         collection="agencies"
         searchParam="search"
+        filters={statusFilters}
+        activeFilter={activeFilter}
+        onFilterChange={setActiveFilter}
         rowKey="_id"
         detailPath={(item) => `/agencies/${item._id}`}
         columns={[
