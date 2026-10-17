@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import agencyService from '../../services/agencyService';
+import { 
+  Building2, Users, Car, MapPin, RefreshCw, PlusCircle, 
+  UploadCloud, AlertCircle, CheckCircle2, XCircle, Clock, 
+  Search, ShieldCheck, Phone, Mail, FileText, ArrowRight,
+  ChevronRight, Calendar, Info, Check, Eye
+} from 'lucide-react';
 
 export default function AgencyDashboard() {
   const [agency, setAgency] = useState(null);
@@ -7,8 +13,16 @@ export default function AgencyDashboard() {
   const [vehicles, setVehicles] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview'); // overview, drivers, vehicles, bookings, profile
+
+  // Search & filter states
+  const [driverSearch, setDriverSearch] = useState('');
+  const [driverFilter, setDriverFilter] = useState('all');
+  const [vehicleSearch, setVehicleSearch] = useState('');
+  const [vehicleFilter, setVehicleFilter] = useState('all');
+  const [bookingFilter, setBookingFilter] = useState('all');
 
   // Form states
   const [newDriver, setNewDriver] = useState({
@@ -51,6 +65,15 @@ export default function AgencyDashboard() {
   const [assignModal, setAssignModal] = useState({ open: false, vehicleId: null, driverId: '', assigning: false });
   const [uploadingDoc, setUploadingDoc] = useState('');
 
+  // Profile update form state
+  const [profileForm, setProfileForm] = useState({
+    agencyName: '',
+    address: '',
+    city: '',
+    saving: false,
+    message: ''
+  });
+
   const handleFileUpload = async (e, targetField, setter, purpose = 'document') => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -88,17 +111,30 @@ export default function AgencyDashboard() {
   });
   const [registering, setRegistering] = useState(false);
 
-  const loadData = async () => {
+  const loadData = async (isManualRefresh = false) => {
     try {
-      setLoading(true);
+      if (isManualRefresh) setRefreshing(true);
+      else setLoading(true);
       setError('');
+
       try {
         const agRes = await agencyService.getMyAgency();
-        setAgency(agRes.data.data.agency);
+        const agencyData = agRes.data.data.agency;
+        setAgency(agencyData);
+        if (agencyData) {
+          setProfileForm({
+            agencyName: agencyData.agencyName || '',
+            address: agencyData.address || '',
+            city: agencyData.city || '',
+            saving: false,
+            message: ''
+          });
+        }
       } catch (err) {
         if (err.response?.status === 404) {
           setAgency(null);
           setLoading(false);
+          setRefreshing(false);
           return;
         }
         throw err;
@@ -117,6 +153,7 @@ export default function AgencyDashboard() {
       setError(err.response?.data?.message || err.message || 'Failed to load agency dashboard data');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
@@ -157,6 +194,24 @@ export default function AgencyDashboard() {
       setError(err.response?.data?.message || err.message || 'Registration failed');
     } finally {
       setRegistering(false);
+    }
+  };
+
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    try {
+      setProfileForm(prev => ({ ...prev, saving: true, message: '' }));
+      const res = await agencyService.updateMyAgency({
+        agencyName: profileForm.agencyName,
+        address: profileForm.address,
+        city: profileForm.city
+      });
+      setAgency(res.data.data.agency);
+      setProfileForm(prev => ({ ...prev, saving: false, message: 'Agency profile updated successfully!' }));
+      setTimeout(() => setProfileForm(prev => ({ ...prev, message: '' })), 4000);
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Failed to update profile');
+      setProfileForm(prev => ({ ...prev, saving: false }));
     }
   };
 
@@ -316,23 +371,36 @@ export default function AgencyDashboard() {
   };
 
   if (loading) {
-    return <section className="card"><p role="status">Loading Agency Dashboard...</p></section>;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 320, gap: 12 }}>
+        <RefreshCw className="animate-spin" size={32} color="var(--primary)" />
+        <p style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Loading Agency Fleet Dashboard...</p>
+      </div>
+    );
   }
 
   // If user has not yet registered an agency
   if (!agency) {
     return (
-      <section className="card" style={{ maxWidth: 650, margin: '40px auto' }}>
-        <h2 className="card-title">Register Your Transport Agency</h2>
-        <p style={{ color: 'var(--text-secondary)', marginBottom: 24 }}>
-          Register your fleet agency to manage commercial vehicles and assign approved drivers. Once submitted, your registration and Aadhaar will be reviewed by Super Admin.
+      <section className="card" style={{ maxWidth: 640, margin: '40px auto', padding: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <div style={{ width: 44, height: 44, borderRadius: 10, background: 'rgba(22, 119, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}>
+            <Building2 size={24} />
+          </div>
+          <div>
+            <h2 style={{ fontSize: 20, margin: 0 }}>Register Your Transport Agency</h2>
+            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Commercial Fleet Management & Driver Verification</div>
+          </div>
+        </div>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5, marginBottom: 20 }}>
+          Register your transport fleet to manage commercial vehicles and assign verified drivers. Once submitted, your business details and Aadhaar will be reviewed by Super Admin.
         </p>
 
-        {error && <div style={{ color: 'var(--danger)', marginBottom: 16 }}>{error}</div>}
+        {error && <div style={{ color: 'var(--danger)', background: '#fef2f2', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 13 }}>{error}</div>}
 
         <form onSubmit={handleRegisterAgency} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div className="form-group">
-            <label>Agency Name *</label>
+            <label>Agency Business Name *</label>
             <input
               type="text"
               required
@@ -342,9 +410,9 @@ export default function AgencyDashboard() {
             />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
             <div className="form-group">
-              <label>Phone Number *</label>
+              <label>Office Phone Number *</label>
               <input
                 type="text"
                 required
@@ -354,7 +422,7 @@ export default function AgencyDashboard() {
               />
             </div>
             <div className="form-group">
-              <label>Email Address</label>
+              <label>Official Email</label>
               <input
                 type="email"
                 value={regForm.email}
@@ -388,7 +456,7 @@ export default function AgencyDashboard() {
           <div className="form-group">
             <label>Owner Aadhaar Document (PDF or Image)</label>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
-              🛡️ <strong>Privacy Notice:</strong> For regulatory compliance, please upload a <strong>Masked Aadhaar</strong> (first 8 digits hidden, showing only last 4 digits). Documents are encrypted and accessible only via short-lived authenticated links.
+              🛡️ <strong>Regulatory Notice:</strong> Please upload a <strong>Masked Aadhaar</strong> (first 8 digits hidden, showing only last 4 digits). Documents are encrypted and accessible only via short-lived authenticated links.
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
               <input
@@ -402,7 +470,7 @@ export default function AgencyDashboard() {
               type="url"
               value={regForm.ownerAadhaarUrl}
               onChange={(e) => setRegForm({ ...regForm, ownerAadhaarUrl: e.target.value })}
-              placeholder="Or enter URL: https://.../owner-aadhaar.pdf"
+              placeholder="Or enter secure URL: https://.../owner-aadhaar.pdf"
             />
           </div>
 
@@ -424,7 +492,7 @@ export default function AgencyDashboard() {
             />
           </div>
 
-          <button type="submit" className="btn btn-primary" disabled={registering} style={{ marginTop: 12 }}>
+          <button type="submit" className="btn btn-primary" disabled={registering} style={{ marginTop: 8, height: 42 }}>
             {registering ? 'Submitting Registration...' : 'Submit Agency for Super Admin Review'}
           </button>
         </form>
@@ -432,133 +500,465 @@ export default function AgencyDashboard() {
     );
   }
 
-  // Agency exists: Display Full Agency Dashboard
+  // Filtered views
+  const filteredDrivers = drivers.filter(d => {
+    const matchesSearch = (d.fullName || d.user?.name || '').toLowerCase().includes(driverSearch.toLowerCase()) ||
+      (d.phone || d.user?.phone || '').includes(driverSearch);
+    if (driverFilter === 'all') return matchesSearch;
+    return matchesSearch && d.approvalStatus === driverFilter;
+  });
+
+  const filteredVehicles = vehicles.filter(v => {
+    const matchesSearch = (v.vehicleNumber || '').toLowerCase().includes(vehicleSearch.toLowerCase()) ||
+      (v.vehicleModel || '').toLowerCase().includes(vehicleSearch.toLowerCase());
+    if (vehicleFilter === 'all') return matchesSearch;
+    if (vehicleFilter === 'available') return matchesSearch && v.isAvailable;
+    if (vehicleFilter === 'onTrip') return matchesSearch && !v.isAvailable;
+    return matchesSearch;
+  });
+
+  const filteredBookings = bookings.filter(b => {
+    if (bookingFilter === 'all') return true;
+    return b.bookingStatus === bookingFilter;
+  });
+
+  const approvedDriversCount = drivers.filter(d => d.approvalStatus === 'approved').length;
+  const pendingDriversCount = drivers.filter(d => d.approvalStatus === 'pending').length;
+  const activeFleetCount = vehicles.filter(v => v.isAvailable).length;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Agency Status Banner */}
-      <section className="card" style={{
-        background: agency.approvalStatus === 'approved' ? '#f0fdf4' : agency.approvalStatus === 'rejected' || agency.approvalStatus === 'suspended' ? '#fef2f2' : '#fffbeb',
-        borderColor: agency.approvalStatus === 'approved' ? '#bbf7d0' : agency.approvalStatus === 'rejected' || agency.approvalStatus === 'suspended' ? '#fecaca' : '#fef08a'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-          <div>
-            <h2 style={{ margin: '0 0 4px 0', color: '#111827' }}>{agency.agencyName}</h2>
-            <div style={{ fontSize: 14, color: '#4b5563' }}>
-              Verification Status: <strong style={{
-                textTransform: 'uppercase',
-                color: agency.approvalStatus === 'approved' ? '#166534' : agency.approvalStatus === 'rejected' || agency.approvalStatus === 'suspended' ? '#991b1b' : '#854d0e'
-              }}>
-                {agency.approvalStatus}
-              </strong>
-              {agency.approvalStatus === 'approved' && ' — Approved by Super Admin. Fleet is active for dispatches.'}
-              {agency.approvalStatus === 'pending' && ' — Under Super Admin review. You can add drivers and vehicles while pending verification.'}
-              {agency.approvalStatus === 'rejected' && ' — Verification rejected by Super Admin. Please review feedback.'}
-              {agency.approvalStatus === 'suspended' && ' — Account suspended by Super Admin. Fleet operations are paused.'}
-            </div>
+      {/* 1. Header Section */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Agency Dashboard</h1>
+            <span className={`badge ${
+              agency.approvalStatus === 'approved' ? 'success' :
+              agency.approvalStatus === 'rejected' || agency.approvalStatus === 'suspended' ? 'danger' : 'warning'
+            }`}>
+              {agency.approvalStatus === 'approved' && <CheckCircle2 size={13} />}
+              {agency.approvalStatus === 'pending' && <Clock size={13} />}
+              {(agency.approvalStatus === 'rejected' || agency.approvalStatus === 'suspended') && <XCircle size={13} />}
+              {agency.approvalStatus.toUpperCase()}
+            </span>
           </div>
-          <span style={{
-            background: agency.approvalStatus === 'approved' ? '#dcfce7' : agency.approvalStatus === 'rejected' || agency.approvalStatus === 'suspended' ? '#fee2e2' : '#fef9c3',
-            color: agency.approvalStatus === 'approved' ? '#166534' : agency.approvalStatus === 'rejected' || agency.approvalStatus === 'suspended' ? '#991b1b' : '#854d0e',
-            padding: '6px 14px', borderRadius: 20, fontWeight: 'bold', fontSize: 13, textTransform: 'capitalize'
-          }}>
-            {agency.approvalStatus}
-          </span>
+          <div style={{ color: 'var(--text-secondary)', fontSize: 13, marginTop: 4 }}>
+            {agency.agencyName} &bull; Fleet Management & Operations
+          </div>
         </div>
 
-        {agency.rejectionReason && (
-          <div style={{ marginTop: 12, padding: 10, background: '#fee2e2', color: '#991b1b', borderRadius: 6, fontSize: 13 }}>
-            <strong>Reason:</strong> {agency.rejectionReason}
-          </div>
-        )}
-      </section>
-
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 8, borderBottom: '1px solid var(--border-color)', paddingBottom: 8 }}>
-        {['overview', 'drivers', 'vehicles', 'bookings', 'profile'].map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            className={`btn ${activeTab === tab ? 'btn-primary' : ''}`}
-            onClick={() => setActiveTab(tab)}
-            style={{ textTransform: 'capitalize' }}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button 
+            type="button" 
+            className="btn btn-secondary btn-sm"
+            onClick={() => loadData(true)} 
+            disabled={refreshing}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
-            {tab}
+            <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
           </button>
-        ))}
+        </div>
       </div>
+
+      {/* 2. Compact Verification Status Section */}
+      {agency.approvalStatus !== 'approved' && (
+        <div style={{
+          background: agency.approvalStatus === 'rejected' || agency.approvalStatus === 'suspended' ? '#fef2f2' : '#fffbeb',
+          border: `1px solid ${agency.approvalStatus === 'rejected' || agency.approvalStatus === 'suspended' ? '#fecaca' : '#fde68a'}`,
+          borderRadius: 10,
+          padding: '14px 18px',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: 12
+        }}>
+          <AlertCircle size={20} color={agency.approvalStatus === 'rejected' || agency.approvalStatus === 'suspended' ? '#dc2626' : '#d97706'} style={{ marginTop: 2, flexShrink: 0 }} />
+          <div style={{ flex: 1, fontSize: 13, lineHeight: 1.5 }}>
+            <div style={{ fontWeight: 600, color: agency.approvalStatus === 'rejected' || agency.approvalStatus === 'suspended' ? '#991b1b' : '#92400e' }}>
+              Verification Status: {agency.approvalStatus.toUpperCase()}
+            </div>
+            {agency.approvalStatus === 'pending' && (
+              <div style={{ color: '#78350f', marginTop: 2 }}>
+                Your agency registration is currently under Super Admin review. You can add drivers and vehicles now; commercial bookings will dispatch once verified.
+              </div>
+            )}
+            {agency.approvalStatus === 'rejected' && (
+              <div style={{ color: '#991b1b', marginTop: 2 }}>
+                Verification rejected by Super Admin. {agency.rejectionReason ? `Reason: ${agency.rejectionReason}` : 'Please update your verification documents in the Profile tab.'}
+              </div>
+            )}
+            {agency.approvalStatus === 'suspended' && (
+              <div style={{ color: '#991b1b', marginTop: 2 }}>
+                This agency account is currently suspended. Vehicle assignments and trip dispatches are paused. Please contact support.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 3. Metric Summary Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+        <div className="metric-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>Registered Drivers</span>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(22, 119, 255, 0.1)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Users size={18} />
+            </div>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)' }}>{drivers.length}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+              {pendingDriversCount > 0 ? `${pendingDriversCount} pending verification` : 'All drivers processed'}
+            </div>
+          </div>
+        </div>
+
+        <div className="metric-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>Fleet Vehicles</span>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Car size={18} />
+            </div>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 28, fontWeight: 700, color: '#10b981' }}>{vehicles.length}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+              {vehicles.length > 0 ? `${activeFleetCount} available for dispatches` : 'No vehicles registered'}
+            </div>
+          </div>
+        </div>
+
+        <div className="metric-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>Approved Drivers</span>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ShieldCheck size={18} />
+            </div>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 28, fontWeight: 700, color: '#f59e0b' }}>{approvedDriversCount}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+              Super Admin approved & active
+            </div>
+          </div>
+        </div>
+
+        <div className="metric-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>Fleet Trips</span>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <MapPin size={18} />
+            </div>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 28, fontWeight: 700, color: '#6366f1' }}>{bookings.length}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
+              Commercial client dispatches
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. Quick Actions Bar */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+        <button
+          type="button"
+          className="quick-action-btn"
+          onClick={() => setNewDriverModal(true)}
+        >
+          <PlusCircle size={18} color="var(--primary)" />
+          <span>Register Driver</span>
+        </button>
+
+        <button
+          type="button"
+          className="quick-action-btn"
+          onClick={() => {
+            if (drivers.length === 0) {
+              alert('Please register at least one driver before adding a vehicle.');
+              setNewDriverModal(true);
+            } else {
+              setNewVehicleModal(true);
+            }
+          }}
+        >
+          <Car size={18} color="#10b981" />
+          <span>Add Fleet Vehicle</span>
+        </button>
+
+        <button
+          type="button"
+          className="quick-action-btn"
+          onClick={() => setActiveTab('profile')}
+        >
+          <UploadCloud size={18} color="#f59e0b" />
+          <span>Agency KYC & Profile</span>
+        </button>
+
+        <button
+          type="button"
+          className="quick-action-btn"
+          onClick={() => setActiveTab('bookings')}
+        >
+          <MapPin size={18} color="#6366f1" />
+          <span>View Fleet Trips</span>
+        </button>
+      </div>
+
+      {/* 5. Navigation Tabs */}
+      <div className="agency-tabs">
+        <button
+          type="button"
+          className={`agency-tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
+          onClick={() => setActiveTab('overview')}
+        >
+          <Building2 size={16} />
+          Overview
+        </button>
+        <button
+          type="button"
+          className={`agency-tab-btn ${activeTab === 'drivers' ? 'active' : ''}`}
+          onClick={() => setActiveTab('drivers')}
+        >
+          <Users size={16} />
+          Drivers ({drivers.length})
+        </button>
+        <button
+          type="button"
+          className={`agency-tab-btn ${activeTab === 'vehicles' ? 'active' : ''}`}
+          onClick={() => setActiveTab('vehicles')}
+        >
+          <Car size={16} />
+          Fleet Vehicles ({vehicles.length})
+        </button>
+        <button
+          type="button"
+          className={`agency-tab-btn ${activeTab === 'bookings' ? 'active' : ''}`}
+          onClick={() => setActiveTab('bookings')}
+        >
+          <MapPin size={16} />
+          Fleet Trips ({bookings.length})
+        </button>
+        <button
+          type="button"
+          className={`agency-tab-btn ${activeTab === 'profile' ? 'active' : ''}`}
+          onClick={() => setActiveTab('profile')}
+        >
+          <FileText size={16} />
+          Profile & KYC
+        </button>
+      </div>
+
+      {/* 6. TAB WORKSPACE */}
 
       {/* TAB 1: OVERVIEW */}
       {activeTab === 'overview' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-            <div className="card" style={{ textAlign: 'center', padding: '24px 16px' }}>
-              <div style={{ fontSize: 32, fontWeight: 'bold', color: 'var(--primary)' }}>{drivers.length}</div>
-              <div style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>Registered Drivers</div>
-            </div>
-            <div className="card" style={{ textAlign: 'center', padding: '24px 16px' }}>
-              <div style={{ fontSize: 32, fontWeight: 'bold', color: '#10b981' }}>{vehicles.length}</div>
-              <div style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>Fleet Vehicles</div>
-            </div>
-            <div className="card" style={{ textAlign: 'center', padding: '24px 16px' }}>
-              <div style={{ fontSize: 32, fontWeight: 'bold', color: '#f59e0b' }}>
-                {drivers.filter(d => d.approvalStatus === 'approved').length}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
+            {/* Recent Drivers & Status */}
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <h3 style={{ fontSize: 15, margin: 0 }}>Driver Verification Status</h3>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => setActiveTab('drivers')}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                >
+                  Manage <ArrowRight size={12} />
+                </button>
               </div>
-              <div style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>Approved Drivers</div>
+
+              {drivers.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--text-secondary)' }}>
+                  <Users size={32} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
+                  <div style={{ fontWeight: 500, fontSize: 13, marginBottom: 4 }}>No drivers registered yet</div>
+                  <p style={{ fontSize: 12, margin: '0 0 12px 0' }}>Register drivers under your agency to assign vehicles and receive trips.</p>
+                  <button type="button" className="btn btn-primary btn-sm" onClick={() => setNewDriverModal(true)}>
+                    + Register Driver
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {drivers.slice(0, 4).map(d => (
+                    <div key={d._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#f9fafb', borderRadius: 8 }}>
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{d.fullName || d.user?.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{d.phone || d.user?.phone}</div>
+                      </div>
+                      <span className={`badge ${
+                        d.approvalStatus === 'approved' ? 'success' :
+                        d.approvalStatus === 'rejected' ? 'danger' : 'warning'
+                      }`}>
+                        {d.approvalStatus}
+                      </span>
+                    </div>
+                  ))}
+                  {drivers.length > 4 && (
+                    <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--primary)', cursor: 'pointer', paddingTop: 4 }} onClick={() => setActiveTab('drivers')}>
+                      View all {drivers.length} drivers &rarr;
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="card" style={{ textAlign: 'center', padding: '24px 16px' }}>
-              <div style={{ fontSize: 32, fontWeight: 'bold', color: '#6366f1' }}>{bookings.length}</div>
-              <div style={{ color: 'var(--text-secondary)', fontSize: 14, marginTop: 4 }}>Fleet Trips</div>
+
+            {/* Recent Fleet Vehicles */}
+            <div className="card">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <h3 style={{ fontSize: 15, margin: 0 }}>Fleet Inventory</h3>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => setActiveTab('vehicles')}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}
+                >
+                  Manage <ArrowRight size={12} />
+                </button>
+              </div>
+
+              {vehicles.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--text-secondary)' }}>
+                  <Car size={32} style={{ margin: '0 auto 8px', opacity: 0.4 }} />
+                  <div style={{ fontWeight: 500, fontSize: 13, marginBottom: 4 }}>No vehicles added yet</div>
+                  <p style={{ fontSize: 12, margin: '0 0 12px 0' }}>Add commercial trucks and assign drivers to enable customer bookings.</p>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={() => {
+                      if (drivers.length === 0) setNewDriverModal(true);
+                      else setNewVehicleModal(true);
+                    }}
+                  >
+                    + Add Fleet Vehicle
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {vehicles.slice(0, 4).map(v => (
+                    <div key={v._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#f9fafb', borderRadius: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {v.vehicleImage ? (
+                          <img src={v.vehicleImage} alt={v.vehicleNumber} style={{ width: 36, height: 28, objectFit: 'cover', borderRadius: 4 }} />
+                        ) : (
+                          <div style={{ width: 36, height: 28, background: '#e5e7eb', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Car size={16} color="#9ca3af" />
+                          </div>
+                        )}
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: 13 }}>{v.vehicleNumber}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{v.vehicleModel} &bull; {v.vehicleType}</div>
+                        </div>
+                      </div>
+                      <span className={`badge ${v.isAvailable ? 'success' : 'default'}`}>
+                        {v.isAvailable ? 'Available' : 'On Trip'}
+                      </span>
+                    </div>
+                  ))}
+                  {vehicles.length > 4 && (
+                    <div style={{ textAlign: 'center', fontSize: 12, color: 'var(--primary)', cursor: 'pointer', paddingTop: 4 }} onClick={() => setActiveTab('vehicles')}>
+                      View all {vehicles.length} vehicles &rarr;
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
-          <section className="card">
-            <h3 style={{ marginTop: 0 }}>Agency Operations Notice</h3>
-            <ul style={{ color: 'var(--text-secondary)', lineHeight: 1.6, paddingLeft: 20, margin: 0 }}>
-              <li><strong>Super Admin Authority:</strong> Only Super Admin can approve, reject or suspend drivers. Submitted drivers will remain in <code>pending</code> status until verified.</li>
-              <li><strong>Booking Dispatch Eligibility:</strong> Vehicles will only receive customer booking requests or same-type alternative dispatch when the assigned driver is approved by Super Admin and online.</li>
-              <li><strong>Data Isolation:</strong> Your drivers and fleet vehicles are strictly isolated to your agency account.</li>
+          {/* Operational Policy & Guidelines Card */}
+          <div className="card" style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <Info size={16} color="var(--primary)" />
+              <h3 style={{ fontSize: 14, margin: 0, color: '#1e293b' }}>Agency Operations & Dispatch Protocols</h3>
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: '#475569', lineHeight: 1.6 }}>
+              <li><strong>Verification Pre-requisite:</strong> Commercial bookings are dispatched only to vehicles whose assigned driver is approved by Super Admin and currently marked online.</li>
+              <li><strong>Autonomous Dispatches:</strong> Customer requests for instant and scheduled freight select available agency vehicles matching the required cargo type.</li>
+              <li><strong>Agency Data Boundaries:</strong> All vehicle assignments, driver profiles, and trip records remain strictly isolated to your verified transport agency.</li>
             </ul>
-          </section>
+          </div>
         </div>
       )}
 
       {/* TAB 2: DRIVERS */}
       {activeTab === 'drivers' && (
-        <section className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h3 style={{ margin: 0 }}>Agency Drivers ({drivers.length})</h3>
-            <button type="button" className="btn btn-primary" onClick={() => setNewDriverModal(true)}>
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 16 }}>Agency Fleet Drivers</h3>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Manage drivers and submit required KYC documents for Super Admin review.</div>
+            </div>
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => setNewDriverModal(true)}>
               + Register Driver
             </button>
           </div>
 
-          {drivers.length === 0 ? (
-            <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px 0' }}>
-              No drivers added yet. Click "+ Register Driver" to add your first driver.
-            </p>
+          {/* Search & Filter */}
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 10px', flex: '1', minWidth: 200 }}>
+              <Search size={14} color="#9ca3af" style={{ marginRight: 8 }} />
+              <input
+                type="text"
+                placeholder="Search driver by name or phone..."
+                value={driverSearch}
+                onChange={e => setDriverSearch(e.target.value)}
+                style={{ border: 'none', background: 'transparent', padding: '4px 0', fontSize: 13 }}
+              />
+            </div>
+            <select
+              value={driverFilter}
+              onChange={e => setDriverFilter(e.target.value)}
+              style={{ width: 'auto', minWidth: 150, padding: '6px 10px', fontSize: 13 }}
+            >
+              <option value="all">All Verification Statuses</option>
+              <option value="pending">Pending Verification</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="suspended">Suspended</option>
+            </select>
+          </div>
+
+          {filteredDrivers.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '36px 0', color: 'var(--text-secondary)' }}>
+              <Users size={36} style={{ margin: '0 auto 8px', opacity: 0.3 }} />
+              <p style={{ margin: '0 0 12px 0', fontSize: 13 }}>
+                {driverSearch || driverFilter !== 'all' ? 'No drivers match the current filter.' : 'No drivers registered yet.'}
+              </p>
+              {!driverSearch && driverFilter === 'all' && (
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => setNewDriverModal(true)}>
+                  + Register Your First Driver
+                </button>
+              )}
+            </div>
           ) : (
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
-                    <th>Driver Name</th>
-                    <th>Phone</th>
-                    <th>Super Admin Status</th>
-                    <th>Documents</th>
+                    <th>Driver Details</th>
+                    <th>Contact</th>
+                    <th>Admin Approval</th>
+                    <th>KYC Documents</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {drivers.map((d) => (
+                  {filteredDrivers.map((d) => (
                     <tr key={d._id}>
-                      <td style={{ fontWeight: 600 }}>{d.fullName || d.user?.name}</td>
-                      <td>{d.phone || d.user?.phone}</td>
                       <td>
-                        <span style={{
-                          background: d.approvalStatus === 'approved' ? '#dcfce7' : d.approvalStatus === 'rejected' ? '#fee2e2' : '#fef9c3',
-                          color: d.approvalStatus === 'approved' ? '#166534' : d.approvalStatus === 'rejected' ? '#991b1b' : '#854d0e',
-                          padding: '3px 8px', borderRadius: 10, fontSize: 11, fontWeight: 'bold', textTransform: 'capitalize'
-                        }}>
+                        <div style={{ fontWeight: 600 }}>{d.fullName || d.user?.name}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>ID: {d._id.slice(-6).toUpperCase()}</div>
+                      </td>
+                      <td>
+                        <div style={{ fontSize: 13 }}>{d.phone || d.user?.phone}</div>
+                        {d.email && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{d.email}</div>}
+                      </td>
+                      <td>
+                        <span className={`badge ${
+                          d.approvalStatus === 'approved' ? 'success' :
+                          d.approvalStatus === 'rejected' ? 'danger' : 'warning'
+                        }`}>
                           {d.approvalStatus}
                         </span>
                         {d.approvalStatus === 'rejected' && d.rejectionReason && (
@@ -568,7 +968,7 @@ export default function AgencyDashboard() {
                         )}
                       </td>
                       <td>
-                        <div style={{ fontSize: 12 }}>
+                        <div style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <div>
                             Aadhaar:{' '}
                             {d.documents?.idProof?.viewUrl || d.documents?.idProof?.url ? (
@@ -604,7 +1004,7 @@ export default function AgencyDashboard() {
                       <td>
                         <button
                           type="button"
-                          className="btn"
+                          className="btn btn-secondary btn-sm"
                           onClick={() => setDocModal({
                             open: true,
                             driverId: d._id,
@@ -622,17 +1022,20 @@ export default function AgencyDashboard() {
               </table>
             </div>
           )}
-        </section>
+        </div>
       )}
 
       {/* TAB 3: VEHICLES */}
       {activeTab === 'vehicles' && (
-        <section className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h3 style={{ margin: 0 }}>Fleet Vehicles ({vehicles.length})</h3>
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 16 }}>Fleet Vehicles Inventory</h3>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Commercial trucks registered and assigned to agency drivers.</div>
+            </div>
             <button
               type="button"
-              className="btn btn-primary"
+              className="btn btn-primary btn-sm"
               disabled={drivers.length === 0}
               onClick={() => setNewVehicleModal(true)}
             >
@@ -641,15 +1044,46 @@ export default function AgencyDashboard() {
           </div>
 
           {drivers.length === 0 && (
-            <p style={{ color: 'var(--danger)', fontSize: 13 }}>
-              * You must register at least one driver before adding fleet vehicles.
-            </p>
+            <div style={{ background: '#fffbeb', border: '1px solid #fef08a', padding: '10px 14px', borderRadius: 8, fontSize: 12, color: '#92400e', marginBottom: 14 }}>
+              * You must register at least one driver before you can add fleet vehicles.
+            </div>
           )}
 
-          {vehicles.length === 0 ? (
-            <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px 0' }}>
-              No fleet vehicles added yet. Click "+ Add Vehicle" to add your first vehicle.
-            </p>
+          {/* Search & Filter */}
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, padding: '4px 10px', flex: '1', minWidth: 200 }}>
+              <Search size={14} color="#9ca3af" style={{ marginRight: 8 }} />
+              <input
+                type="text"
+                placeholder="Search by vehicle number or model..."
+                value={vehicleSearch}
+                onChange={e => setVehicleSearch(e.target.value)}
+                style={{ border: 'none', background: 'transparent', padding: '4px 0', fontSize: 13 }}
+              />
+            </div>
+            <select
+              value={vehicleFilter}
+              onChange={e => setVehicleFilter(e.target.value)}
+              style={{ width: 'auto', minWidth: 150, padding: '6px 10px', fontSize: 13 }}
+            >
+              <option value="all">All Availability</option>
+              <option value="available">Available</option>
+              <option value="onTrip">On Trip</option>
+            </select>
+          </div>
+
+          {filteredVehicles.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '36px 0', color: 'var(--text-secondary)' }}>
+              <Car size={36} style={{ margin: '0 auto 8px', opacity: 0.3 }} />
+              <p style={{ margin: '0 0 12px 0', fontSize: 13 }}>
+                {vehicleSearch || vehicleFilter !== 'all' ? 'No vehicles match the search criteria.' : 'No fleet vehicles added yet.'}
+              </p>
+              {!vehicleSearch && vehicleFilter === 'all' && drivers.length > 0 && (
+                <button type="button" className="btn btn-primary btn-sm" onClick={() => setNewVehicleModal(true)}>
+                  + Add Your First Vehicle
+                </button>
+              )}
+            </div>
           ) : (
             <div className="table-container">
               <table>
@@ -666,18 +1100,25 @@ export default function AgencyDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {vehicles.map((v) => (
+                  {filteredVehicles.map((v) => (
                     <tr key={v._id}>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          {v.vehicleImage && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          {v.vehicleImage ? (
                             <img
                               src={v.vehicleImage}
                               alt={v.vehicleNumber}
-                              style={{ width: 40, height: 32, objectFit: 'cover', borderRadius: 4, border: '1px solid #e5e7eb' }}
+                              style={{ width: 44, height: 34, objectFit: 'cover', borderRadius: 4, border: '1px solid #e5e7eb' }}
                             />
+                          ) : (
+                            <div style={{ width: 44, height: 34, background: '#e5e7eb', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <Car size={18} color="#9ca3af" />
+                            </div>
                           )}
-                          <span style={{ fontWeight: 600 }}>{v.vehicleNumber}</span>
+                          <div>
+                            <div style={{ fontWeight: 600 }}>{v.vehicleNumber}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>ID: {v._id.slice(-6).toUpperCase()}</div>
+                          </div>
                         </div>
                       </td>
                       <td>{v.vehicleModel}</td>
@@ -687,26 +1128,26 @@ export default function AgencyDashboard() {
                       <td>
                         {v.driver?.fullName ? (
                           <div>
-                            <div>{v.driver.fullName}</div>
+                            <div style={{ fontWeight: 500 }}>{v.driver.fullName}</div>
                             <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Status: {v.driver.approvalStatus}</div>
                           </div>
                         ) : (
-                          <span style={{ color: 'var(--danger)' }}>Unassigned</span>
+                          <span style={{ color: 'var(--danger)', fontWeight: 500 }}>Unassigned</span>
                         )}
                       </td>
                       <td>
-                        <span style={{ color: v.isAvailable ? '#166534' : '#991b1b', fontWeight: 600, fontSize: 12 }}>
+                        <span className={`badge ${v.isAvailable ? 'success' : 'warning'}`}>
                           {v.isAvailable ? 'Available' : 'On Trip'}
                         </span>
                         {!v.isActive && (
-                          <span style={{ display: 'block', fontSize: 10, color: 'var(--danger)' }}>Inactive</span>
+                          <div style={{ fontSize: 10, color: 'var(--danger)', marginTop: 2 }}>Inactive</div>
                         )}
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button
                             type="button"
-                            className="btn"
+                            className="btn btn-secondary btn-sm"
                             onClick={() => setEditVehicleModal({
                               open: true,
                               vehicleId: v._id,
@@ -724,7 +1165,7 @@ export default function AgencyDashboard() {
                           </button>
                           <button
                             type="button"
-                            className="btn"
+                            className="btn btn-outline btn-sm"
                             onClick={() => setAssignModal({ open: true, vehicleId: v._id, driverId: v.driver?._id || '', assigning: false })}
                           >
                             Assign Driver
@@ -737,78 +1178,238 @@ export default function AgencyDashboard() {
               </table>
             </div>
           )}
-        </section>
+        </div>
       )}
 
       {/* TAB 4: BOOKINGS */}
       {activeTab === 'bookings' && (
-        <section className="card">
-          <h3 style={{ marginTop: 0, marginBottom: 16 }}>Fleet Trips & Bookings ({bookings.length})</h3>
-          {bookings.length === 0 ? (
-            <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '24px 0' }}>
-              No customer bookings assigned to your fleet yet.
-            </p>
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 16 }}>Fleet Trips & Dispatches ({bookings.length})</h3>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Commercial customer shipments allocated to agency vehicles.</div>
+            </div>
+            <select
+              value={bookingFilter}
+              onChange={e => setBookingFilter(e.target.value)}
+              style={{ width: 'auto', minWidth: 150, padding: '6px 10px', fontSize: 13 }}
+            >
+              <option value="all">All Booking Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="in_transit">In Transit</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          {filteredBookings.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-secondary)' }}>
+              <MapPin size={36} style={{ margin: '0 auto 8px', opacity: 0.3 }} />
+              <div style={{ fontWeight: 500, fontSize: 14, marginBottom: 4 }}>No customer bookings found</div>
+              <p style={{ fontSize: 13, margin: 0, maxWidth: 440, marginInline: 'auto' }}>
+                Customer bookings will appear here automatically when customer requests match your approved drivers and available fleet vehicles.
+              </p>
+            </div>
           ) : (
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
-                    <th>Booking ID</th>
+                    <th>Booking Ref</th>
                     <th>Customer</th>
-                    <th>Vehicle / Type</th>
-                    <th>Driver</th>
+                    <th>Pickup & Drop</th>
+                    <th>Vehicle & Driver</th>
                     <th>Status</th>
                     <th>Fare</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {bookings.map((b) => (
+                  {filteredBookings.map((b) => (
                     <tr key={b._id}>
-                      <td style={{ fontWeight: 600 }}>{b.bookingId}</td>
-                      <td>{b.customer?.name || '—'} ({b.customer?.phone || '—'})</td>
-                      <td>{b.vehicle?.vehicleNumber || b.vehicleType}</td>
-                      <td>{b.driver?.fullName || 'Pending'}</td>
                       <td>
-                        <span style={{ fontWeight: 600, textTransform: 'capitalize', fontSize: 12 }}>
+                        <div style={{ fontWeight: 600 }}>{b.bookingId}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                          {b.createdAt ? new Date(b.createdAt).toLocaleDateString() : '—'}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ fontWeight: 500 }}>{b.customer?.name || 'Customer'}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{b.customer?.phone || '—'}</div>
+                      </td>
+                      <td>
+                        <div style={{ fontSize: 12, maxWidth: 220, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <strong>From:</strong> {b.pickup?.address || '—'}
+                        </div>
+                        <div style={{ fontSize: 12, maxWidth: 220, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text-secondary)' }}>
+                          <strong>To:</strong> {b.drop?.address || '—'}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ fontSize: 13, fontWeight: 500 }}>{b.vehicle?.vehicleNumber || b.vehicleType}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Driver: {b.driver?.fullName || 'Pending'}</div>
+                      </td>
+                      <td>
+                        <span className={`badge ${
+                          b.bookingStatus === 'completed' ? 'success' :
+                          b.bookingStatus === 'in_transit' ? 'info' :
+                          b.bookingStatus === 'cancelled' ? 'danger' : 'warning'
+                        }`}>
                           {b.bookingStatus}
                         </span>
                       </td>
-                      <td style={{ fontWeight: 700 }}>₹{b.finalFare || b.estimatedFare || 0}</td>
+                      <td style={{ fontWeight: 700 }}>
+                        ₹{b.finalFare || b.estimatedFare || 0}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           )}
-        </section>
+        </div>
       )}
 
-      {/* TAB 5: PROFILE */}
+      {/* TAB 5: PROFILE & KYC */}
       {activeTab === 'profile' && (
-        <section className="card" style={{ maxWidth: 600 }}>
-          <h3 style={{ marginTop: 0 }}>Agency Profile & KYC Status</h3>
-          <dl style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 12 }}>
-            <dt style={{ fontWeight: 600 }}>Agency Name:</dt>
-            <dd style={{ margin: 0 }}>{agency.agencyName}</dd>
-            <dt style={{ fontWeight: 600 }}>Phone:</dt>
-            <dd style={{ margin: 0 }}>{agency.phone}</dd>
-            <dt style={{ fontWeight: 600 }}>Email:</dt>
-            <dd style={{ margin: 0 }}>{agency.email || '—'}</dd>
-            <dt style={{ fontWeight: 600 }}>Address:</dt>
-            <dd style={{ margin: 0 }}>{agency.address || '—'}</dd>
-            <dt style={{ fontWeight: 600 }}>City:</dt>
-            <dd style={{ margin: 0 }}>{agency.city || '—'}</dd>
-            <dt style={{ fontWeight: 600 }}>Aadhaar Doc:</dt>
-            <dd style={{ margin: 0 }}>
-              {(agency.documents?.ownerAadhaar?.viewUrl || agency.documents?.ownerAadhaar?.url) ? (
-                <a href={agency.documents.ownerAadhaar.viewUrl || agency.documents.ownerAadhaar.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)' }}>
-                  View Submitted Aadhaar (Authorized Link)
-                </a>
-              ) : 'Not submitted'}
-            </dd>
-          </dl>
-        </section>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
+          {/* Profile Details Edit */}
+          <div className="card">
+            <h3 style={{ fontSize: 16, margin: '0 0 4px 0' }}>Agency Business Profile</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 16 }}>Update registered trade name, physical address and operating city.</p>
+
+            {profileForm.message && (
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', padding: '10px 12px', borderRadius: 8, fontSize: 13, marginBottom: 14 }}>
+                {profileForm.message}
+              </div>
+            )}
+
+            <form onSubmit={handleUpdateProfile} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div className="form-group">
+                <label>Agency Trade Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={profileForm.agencyName}
+                  onChange={e => setProfileForm({ ...profileForm, agencyName: e.target.value })}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Phone Number (Owner Account)</label>
+                <input
+                  type="text"
+                  disabled
+                  value={agency.phone || ''}
+                  style={{ background: '#f3f4f6', cursor: 'not-allowed' }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Email Address</label>
+                <input
+                  type="email"
+                  disabled
+                  value={agency.email || ''}
+                  style={{ background: '#f3f4f6', cursor: 'not-allowed' }}
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Office Address</label>
+                <input
+                  type="text"
+                  value={profileForm.address}
+                  onChange={e => setProfileForm({ ...profileForm, address: e.target.value })}
+                  placeholder="e.g. Plot 45, Transport Nagar"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>City</label>
+                <input
+                  type="text"
+                  value={profileForm.city}
+                  onChange={e => setProfileForm({ ...profileForm, city: e.target.value })}
+                  placeholder="e.g. Ludhiana"
+                />
+              </div>
+
+              <button type="submit" className="btn btn-primary" disabled={profileForm.saving} style={{ marginTop: 8 }}>
+                {profileForm.saving ? 'Saving Changes...' : 'Save Profile Changes'}
+              </button>
+            </form>
+          </div>
+
+          {/* KYC Documents Status */}
+          <div className="card">
+            <h3 style={{ fontSize: 16, margin: '0 0 4px 0' }}>Verification Documents (KYC)</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 16 }}>Documents are secured in an authorized vault accessible via short-lived signed links.</p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Owner Aadhaar */}
+              <div style={{ padding: 14, background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>Owner Aadhaar Document</div>
+                  <span className={`badge ${agency.documents?.ownerAadhaar?.url ? 'success' : 'danger'}`}>
+                    {agency.documents?.ownerAadhaar?.url ? 'Submitted' : 'Missing'}
+                  </span>
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px 0' }}>
+                  Masked Aadhaar proof used for statutory identity compliance.
+                </p>
+                {(agency.documents?.ownerAadhaar?.viewUrl || agency.documents?.ownerAadhaar?.url) ? (
+                  <a
+                    href={agency.documents.ownerAadhaar.viewUrl || agency.documents.ownerAadhaar.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-secondary btn-sm"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <Eye size={13} /> View Submitted Aadhaar
+                  </a>
+                ) : (
+                  <span style={{ fontSize: 12, color: '#991b1b' }}>Not uploaded during registration</span>
+                )}
+              </div>
+
+              {/* Business Registration */}
+              <div style={{ padding: 14, background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>Business Registration Document</div>
+                  <span className={`badge ${agency.documents?.businessRegistration?.url ? 'success' : 'default'}`}>
+                    {agency.documents?.businessRegistration?.url ? 'Submitted' : 'Optional'}
+                  </span>
+                </div>
+                <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px 0' }}>
+                  Trade licence, GSTIN or commercial transport registration document.
+                </p>
+                {(agency.documents?.businessRegistration?.viewUrl || agency.documents?.businessRegistration?.url) ? (
+                  <a
+                    href={agency.documents.businessRegistration.viewUrl || agency.documents.businessRegistration.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-secondary btn-sm"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                  >
+                    <Eye size={13} /> View Registration Certificate
+                  </a>
+                ) : (
+                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>No business certificate attached</span>
+                )}
+              </div>
+
+              {/* Verification Info */}
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: 12, fontSize: 12, color: '#166534', lineHeight: 1.5 }}>
+                <div style={{ fontWeight: 600, marginBottom: 2 }}>Super Admin Authority</div>
+                Only platform administrators can approve, reject or suspend agency accounts. Once approved, your fleet status is active for dispatches across LoadBalbin.
+              </div>
+            </div>
+          </div>
+        </div>
       )}
+
+      {/* MODALS */}
 
       {/* Modal: Register Driver */}
       {newDriverModal && (
@@ -817,19 +1418,22 @@ export default function AgencyDashboard() {
           background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
         }}>
           <div style={{ background: '#fff', padding: 24, borderRadius: 12, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}>
-            <h3 style={{ marginTop: 0 }}>Register New Driver</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 17 }}>Register New Fleet Driver</h3>
+              <button type="button" onClick={() => setNewDriverModal(false)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6b7280' }}>&times;</button>
+            </div>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 16 }}>
               Driver will be registered under your agency. Super Admin approval is required before the driver can accept bookings.
             </p>
             <form onSubmit={handleCreateDriver} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div className="form-group">
-                <label>Full Name *</label>
+                <label>Driver Full Name *</label>
                 <input
                   type="text"
                   required
                   value={newDriver.fullName}
                   onChange={(e) => setNewDriver({ ...newDriver, fullName: e.target.value })}
-                  placeholder="Driver full name"
+                  placeholder="e.g. Gurpreet Singh"
                 />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -864,7 +1468,7 @@ export default function AgencyDashboard() {
                 />
               </div>
               <div className="form-group">
-                <label>Driver Address</label>
+                <label>Residential Address</label>
                 <input
                   type="text"
                   value={newDriver.address}
@@ -892,7 +1496,7 @@ export default function AgencyDashboard() {
                     type="url"
                     value={newDriver.aadhaarUrl}
                     onChange={(e) => setNewDriver({ ...newDriver, aadhaarUrl: e.target.value })}
-                    placeholder="Or enter URL: https://.../driver-aadhaar.pdf"
+                    placeholder="Or enter secure URL: https://.../driver-aadhaar.pdf"
                     style={{ fontSize: 12 }}
                   />
                 </div>
@@ -910,14 +1514,14 @@ export default function AgencyDashboard() {
                     type="url"
                     value={newDriver.dlUrl}
                     onChange={(e) => setNewDriver({ ...newDriver, dlUrl: e.target.value })}
-                    placeholder="Or enter URL: https://.../driver-dl.pdf"
+                    placeholder="Or enter secure URL: https://.../driver-dl.pdf"
                     style={{ fontSize: 12 }}
                   />
                 </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
-                <button type="button" className="btn" onClick={() => setNewDriverModal(false)}>Cancel</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setNewDriverModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={creatingDriver}>
                   {creatingDriver ? 'Registering...' : 'Create Driver'}
                 </button>
@@ -933,16 +1537,19 @@ export default function AgencyDashboard() {
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
           background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
         }}>
-          <div style={{ background: '#fff', padding: 24, borderRadius: 12, width: '100%', maxWidth: 440 }}>
-            <h3 style={{ marginTop: 0 }}>Upload Driver Documents</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
-              Enter secure document URLs for Driver Aadhaar and Driving Licence.
+          <div style={{ background: '#fff', padding: 24, borderRadius: 12, width: '100%', maxWidth: 460 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 17 }}>Upload Driver KYC Documents</h3>
+              <button type="button" onClick={() => setDocModal({ open: false, driverId: null, aadhaarUrl: '', dlUrl: '', updating: false })} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6b7280' }}>&times;</button>
+            </div>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 13, marginBottom: 16 }}>
+              Upload Aadhaar and Driving Licence to update this driver's KYC dossier for Super Admin verification.
             </p>
-            <form onSubmit={handleUpdateDriverDocs} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <form onSubmit={handleUpdateDriverDocs} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div className="form-group">
                 <label>Driver Aadhaar Card (PDF or Image)</label>
                 <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 4 }}>
-                  🛡️ <strong>UIDAI Notice:</strong> Please submit a <strong>Masked Aadhaar</strong> (first 8 digits hidden). Stored in private vault with authorized delivery.
+                  🛡️ <strong>UIDAI Notice:</strong> Please submit a <strong>Masked Aadhaar</strong> (first 8 digits hidden).
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
                   <input
@@ -977,7 +1584,7 @@ export default function AgencyDashboard() {
                 />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
-                <button type="button" className="btn" onClick={() => setDocModal({ open: false, driverId: null, aadhaarUrl: '', dlUrl: '', updating: false })}>
+                <button type="button" className="btn btn-secondary" onClick={() => setDocModal({ open: false, driverId: null, aadhaarUrl: '', dlUrl: '', updating: false })}>
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={docModal.updating}>
@@ -995,8 +1602,11 @@ export default function AgencyDashboard() {
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
           background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
         }}>
-          <div style={{ background: '#fff', padding: 24, borderRadius: 12, width: '100%', maxWidth: 460 }}>
-            <h3 style={{ marginTop: 0 }}>Add Fleet Vehicle</h3>
+          <div style={{ background: '#fff', padding: 24, borderRadius: 12, width: '100%', maxWidth: 480, maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 17 }}>Add Commercial Fleet Vehicle</h3>
+              <button type="button" onClick={() => setNewVehicleModal(false)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6b7280' }}>&times;</button>
+            </div>
             <form onSubmit={handleCreateVehicle} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div className="form-group">
                 <label>Assign Driver *</label>
@@ -1006,7 +1616,7 @@ export default function AgencyDashboard() {
                   onChange={(e) => setNewVehicle({ ...newVehicle, driverId: e.target.value })}
                   style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
                 >
-                  <option value="">Select a driver...</option>
+                  <option value="">Select an agency driver...</option>
                   {drivers.map(d => (
                     <option key={d._id} value={d._id}>
                       {d.fullName || d.user?.name} ({d.approvalStatus})
@@ -1017,13 +1627,13 @@ export default function AgencyDashboard() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div className="form-group">
-                  <label>Vehicle Number *</label>
+                  <label>Vehicle Plate Number *</label>
                   <input
                     type="text"
                     required
                     value={newVehicle.vehicleNumber}
                     onChange={(e) => setNewVehicle({ ...newVehicle, vehicleNumber: e.target.value })}
-                    placeholder="PB10AB1234"
+                    placeholder="e.g. PB10AB1234"
                   />
                 </div>
                 <div className="form-group">
@@ -1033,7 +1643,7 @@ export default function AgencyDashboard() {
                     required
                     value={newVehicle.vehicleModel}
                     onChange={(e) => setNewVehicle({ ...newVehicle, vehicleModel: e.target.value })}
-                    placeholder="Tata 407 / Bolero"
+                    placeholder="e.g. Tata 407 / Bolero"
                   />
                 </div>
               </div>
@@ -1111,7 +1721,7 @@ export default function AgencyDashboard() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
-                <button type="button" className="btn" onClick={() => setNewVehicleModal(false)}>Cancel</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setNewVehicleModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={creatingVehicle}>
                   {creatingVehicle ? 'Adding...' : 'Add Vehicle'}
                 </button>
@@ -1128,7 +1738,10 @@ export default function AgencyDashboard() {
           background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
         }}>
           <div style={{ background: '#fff', padding: 24, borderRadius: 12, width: '100%', maxWidth: 460 }}>
-            <h3 style={{ marginTop: 0 }}>Edit Fleet Vehicle</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 17 }}>Edit Fleet Vehicle</h3>
+              <button type="button" onClick={() => setEditVehicleModal({ open: false, vehicleId: null, vehicleModel: '', vehicleType: 'mini-truck', loadCapacityValue: 1000, loadCapacityUnit: 'kg', bodyType: 'open', vehicleImage: '', isActive: true, saving: false })} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6b7280' }}>&times;</button>
+            </div>
             <form onSubmit={handleUpdateVehicle} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div className="form-group">
                 <label>Vehicle Model *</label>
@@ -1226,7 +1839,7 @@ export default function AgencyDashboard() {
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
                 <button
                   type="button"
-                  className="btn"
+                  className="btn btn-secondary"
                   onClick={() => setEditVehicleModal({ open: false, vehicleId: null, vehicleModel: '', vehicleType: 'mini-truck', loadCapacityValue: 1000, loadCapacityUnit: 'kg', bodyType: 'open', vehicleImage: '', isActive: true, saving: false })}
                 >
                   Cancel
@@ -1246,11 +1859,14 @@ export default function AgencyDashboard() {
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
           background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
         }}>
-          <div style={{ background: '#fff', padding: 24, borderRadius: 12, width: '100%', maxWidth: 400 }}>
-            <h3 style={{ marginTop: 0 }}>Assign Driver to Vehicle</h3>
-            <form onSubmit={handleAssignVehicle} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ background: '#fff', padding: 24, borderRadius: 12, width: '100%', maxWidth: 420 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <h3 style={{ margin: 0, fontSize: 17 }}>Assign Driver to Vehicle</h3>
+              <button type="button" onClick={() => setAssignModal({ open: false, vehicleId: null, driverId: '', assigning: false })} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6b7280' }}>&times;</button>
+            </div>
+            <form onSubmit={handleAssignVehicle} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div className="form-group">
-                <label>Select Driver *</label>
+                <label>Select Agency Driver *</label>
                 <select
                   required
                   value={assignModal.driverId}
@@ -1266,7 +1882,7 @@ export default function AgencyDashboard() {
                 </select>
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
-                <button type="button" className="btn" onClick={() => setAssignModal({ open: false, vehicleId: null, driverId: '', assigning: false })}>
+                <button type="button" className="btn btn-secondary" onClick={() => setAssignModal({ open: false, vehicleId: null, driverId: '', assigning: false })}>
                   Cancel
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={assignModal.assigning}>
