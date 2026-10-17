@@ -190,6 +190,31 @@ export default function AgencyDashboard() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    const handleCustomQuickAction = (e) => {
+      const action = e.detail?.action;
+      if (action === 'register-driver') {
+        setNewDriverModal(true);
+      } else if (action === 'add-vehicle') {
+        if (drivers.length === 0) {
+          alert('Please register at least one driver before adding a vehicle.');
+          setNewDriverModal(true);
+        } else {
+          setNewVehicleModal(true);
+        }
+      } else if (action === 'agency-kyc-profile') {
+        setActiveTab('profile');
+      } else if (action === 'view-fleet-trips') {
+        setActiveTab('bookings');
+      }
+    };
+
+    window.addEventListener('agency-quick-action', handleCustomQuickAction);
+    return () => {
+      window.removeEventListener('agency-quick-action', handleCustomQuickAction);
+    };
+  }, [drivers.length]);
+
   const handleRegisterAgency = async (e) => {
     e.preventDefault();
     try {
@@ -719,53 +744,7 @@ export default function AgencyDashboard() {
         </div>
       </div>
 
-      {/* 4. Quick Actions Bar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-        <button
-          type="button"
-          className="quick-action-btn"
-          onClick={() => setNewDriverModal(true)}
-        >
-          <PlusCircle size={18} color="var(--primary)" />
-          <span>Register Driver</span>
-        </button>
-
-        <button
-          type="button"
-          className="quick-action-btn"
-          onClick={() => {
-            if (drivers.length === 0) {
-              alert('Please register at least one driver before adding a vehicle.');
-              setNewDriverModal(true);
-            } else {
-              setNewVehicleModal(true);
-            }
-          }}
-        >
-          <Car size={18} color="#10b981" />
-          <span>Add Fleet Vehicle</span>
-        </button>
-
-        <button
-          type="button"
-          className="quick-action-btn"
-          onClick={() => setActiveTab('profile')}
-        >
-          <UploadCloud size={18} color="#f59e0b" />
-          <span>Agency KYC & Profile</span>
-        </button>
-
-        <button
-          type="button"
-          className="quick-action-btn"
-          onClick={() => setActiveTab('bookings')}
-        >
-          <MapPin size={18} color="#6366f1" />
-          <span>View Fleet Trips</span>
-        </button>
-      </div>
-
-      {/* 5. Navigation Tabs */}
+      {/* Navigation Tabs */}
       <div className="agency-tabs">
         <button
           type="button"
