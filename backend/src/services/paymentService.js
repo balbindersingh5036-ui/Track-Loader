@@ -13,8 +13,23 @@ export const createRazorpayOrder = async (amount, receipt) => {
     const order = await razorpayInstance.orders.create(options);
     return order;
   } catch (error) {
-    console.error("Razorpay Create Order Error:", error);
-    throw new Error("Failed to create payment order");
+    const providerMsg = error?.error?.description || error?.message || "Payment gateway provider error";
+    console.error("Razorpay Create Order Error:", error?.statusCode, providerMsg);
+    const err = new Error(providerMsg);
+    err.statusCode = error?.statusCode || 502;
+    throw err;
+  }
+};
+
+export const fetchRazorpayPayment = async (paymentId) => {
+  try {
+    const payment = await razorpayInstance.payments.fetch(paymentId);
+    return payment;
+  } catch (error) {
+    const providerMsg = error?.error?.description || error?.message || "Payment not found with provider";
+    const err = new Error(providerMsg);
+    err.statusCode = error?.statusCode || 400;
+    throw err;
   }
 };
 

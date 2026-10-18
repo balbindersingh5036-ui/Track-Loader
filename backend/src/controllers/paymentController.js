@@ -6,6 +6,7 @@ import {
   createRazorpayOrder,
   verifyRazorpayPaymentSignature,
   verifyRazorpayWebhookSignature,
+  fetchRazorpayPayment,
   createRefund
 } from "../services/paymentService.js";
 import { notifyCustomer } from "../services/notificationService.js";
@@ -36,11 +37,25 @@ export const createOrder = async (req, res) => {
     const amount = booking.estimatedFare;
     if (!amount || amount <= 0) return errorResponse(res, "Invalid booking amount", 400);
 
-    const order = await createRazorpayOrder(amount, bookingId.toString());
-
     let payment = await Payment.findOne({ booking: bookingId });
     if (payment) {
       if (payment.status === "success") return errorResponse(res, "Payment already successful", 409);
+      // If a pending order already exists for the same amount, reuse it to prevent duplicate order generation
+      if (payment.orderId && payment.amount === amount) {
+        return successResponse(res, {
+          paymentId: payment._id,
+          bookingId: booking._id,
+          orderId: payment.orderId,
+          amount: Math.round(payment.amount * 100),
+          currency: "INR",
+          keyId: env.razorpay.keyId
+        }, "Existing order reused");
+      }
+    }
+
+    const order = await createRazorpayOrder(amount, bookingId.toString());
+
+    if (payment) {
       payment.orderId = order.id;
       payment.amount = amount;
       await payment.save();
@@ -65,8 +80,10 @@ export const createOrder = async (req, res) => {
       keyId: env.razorpay.keyId
     }, "Order created");
   } catch (error) {
-    console.error("Create order error:", error);
-    return errorResponse(res, "Failed to create order", 500);
+    console.error("Create order error:", error?.message || error);
+    const statusCode = error.statusCode || 500;
+    const message = error.message || "Failed to create order";
+    return errorResponse(res, message, statusCode);
   }
 };
 
@@ -86,6 +103,23 @@ export const verifyPayment = async (req, res) => {
 
     const isValid = verifyRazorpayPaymentSignature(razorpay_order_id, razorpay_payment_id, razorpay_signature);
     if (!isValid) return errorResponse(res, "Invalid signature", 400);
+
+    // Verify against Razorpay provider API that payment genuinely exists, belongs to order, and is captured/authorized
+    let providerPayment;
+    try {
+      providerPayment = await fetchRazorpayPayment(razorpay_payment_id);
+    } catch (providerErr) {
+      console.error("Provider payment fetch error:", providerErr.message);
+      return errorResponse(res, "Payment could not be verified with gateway provider", 400);
+    }
+
+    if (!providerPayment || providerPayment.order_id !== razorpay_order_id) {
+      return errorResponse(res, "Payment does not match the booking order", 400);
+    }
+
+    if (!["captured", "authorized"].includes(providerPayment.status)) {
+      return errorResponse(res, `Payment status is ${providerPayment.status}, not completed`, 400);
+    }
 
     payment.status = "success";
     payment.transactionId = razorpay_payment_id;

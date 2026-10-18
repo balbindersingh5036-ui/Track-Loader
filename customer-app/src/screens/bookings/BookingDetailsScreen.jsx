@@ -48,9 +48,13 @@ export default function BookingDetailsScreen({ route, navigation }) {
 
       if (isPaymentEnabled) {
         try {
-          setPaymentStatus(await paymentService.getPaymentStatus(currentBooking._id));
+          const statusData = await paymentService.getPaymentStatus(currentBooking._id);
+          setPaymentStatus(statusData);
         } catch (paymentError) {
-          if (paymentError?.response?.status !== 404) throw paymentError;
+          // If no payment record exists yet (404), that is an expected initial state before order creation
+          if (paymentError?.response?.status !== 404) {
+            setError(getErrorMessage(paymentError));
+          }
           setPaymentStatus(null);
         }
       } else {
@@ -111,18 +115,107 @@ export default function BookingDetailsScreen({ route, navigation }) {
     );
   };
 
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      if (typeof window === "undefined") return resolve(false);
+      if (window.Razorpay) return resolve(true);
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.async = true;
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const launchRazorpayCheckout = async (order) => {
+    if (typeof window !== "undefined") {
+      const loaded = await loadRazorpayScript();
+      if (!loaded || !window.Razorpay) {
+        Alert.alert(
+          "Payment Order Created",
+          `Order ID: ${order.orderId}\nAmount: ₹${order.amount ? (order.amount / 100).toFixed(2) : booking.estimatedFare}\n\nPlease proceed to complete payment with your payment provider.`
+        );
+        return;
+      }
+
+      const options = {
+        key: order.keyId,
+        amount: order.amount,
+        currency: order.currency || "INR",
+        name: "LoadBalbin Logistics",
+        description: `Booking #${booking.bookingId}`,
+        order_id: order.orderId,
+        handler: async (response) => {
+          setBusy(true);
+          try {
+            await paymentService.verifyPayment({
+              bookingId: booking._id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            });
+            Alert.alert("Payment Successful", "Your payment was verified successfully!");
+            await load();
+          } catch (verifyErr) {
+            setError(getErrorMessage(verifyErr));
+          } finally {
+            setBusy(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setBusy(false);
+          }
+        },
+        prefill: {
+          name: booking.customer?.fullName || booking.customer?.name || "",
+          contact: booking.customer?.phone || ""
+        },
+        theme: {
+          color: colors.primary || "#0071AB"
+        }
+      };
+
+      try {
+        const rzp = new window.Razorpay(options);
+        rzp.on("payment.failed", (response) => {
+          setError(response.error?.description || "Payment failed at gateway.");
+        });
+        rzp.open();
+      } catch (e) {
+        setError("Could not launch payment window. Please try again.");
+      }
+    } else {
+      Alert.alert(
+        "Payment Order Created",
+        `Order ID: ${order.orderId}\nAmount: ₹${order.amount ? (order.amount / 100).toFixed(2) : booking.estimatedFare}`
+      );
+    }
+  };
+
   const createPaymentOrder = async () => {
     if (!booking || busy) return;
     setBusy(true);
     setError("");
     try {
       const order = await paymentService.createOrder(booking._id);
+      if (!order?.orderId) {
+        throw new Error("Payment order could not be established by the gateway.");
+      }
       setPaymentInfo(order);
-      Alert.alert(
-        "Payment Order Created",
-        `Order ID: ${order.orderId || "Pending"}\nAmount: ₹${order.amount || booking.estimatedFare}\n\nPlease proceed via online payment gateway.`
-      );
+
+      // Refresh payment record state now that the order is confirmed
+      try {
+        const updatedStatus = await paymentService.getPaymentStatus(booking._id);
+        setPaymentStatus(updatedStatus);
+      } catch (statusError) {
+        // Safe fallback
+      }
+
+      await launchRazorpayCheckout(order);
     } catch (requestError) {
+      setPaymentInfo(null);
       setError(getErrorMessage(requestError));
     } finally {
       setBusy(false);
@@ -338,7 +431,7 @@ export default function BookingDetailsScreen({ route, navigation }) {
         ) : null}
 
         {/* ONLINE PAYMENT IF ENABLED */}
-        {paymentEnabled && booking.paymentStatus !== "completed" ? (
+        {paymentEnabled && booking.paymentStatus !== "paid" && paymentStatus?.paymentStatus !== "success" ? (
           <Button
             title="Pay Online"
             loading={busy}
