@@ -3139,3 +3139,229 @@
 {"_e":"metro:bundling:started","_t":1792221338335,"id":"m","platform":"web","environment":null,"entry":"src\\screens\\booking\\BookingSuccessScreen.jsx"}
 {"_e":"metro:bundling:started","_t":1792221350452,"id":"n","platform":"web","environment":null,"entry":"src\\screens\\bookings\\BookingDetailsScreen.jsx"}
 {"_e":"metro:bundling:started","_t":1792221361324,"id":"o","platform":"web","environment":null,"entry":"src\\screens\\bookings\\MyBookingsScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1792223464057,"id":"p","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1792223464057,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1792223464197,"id":"p","total":1,"ms":140.1612}
+{"_e":"metro:client_log","_t":1792223519744,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1792223519745,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1792223519745,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1792223519745,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1792223521835,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1792223521835,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478628/loadbalbin_profiles/w3kdjgfqxfvtm3pbmnhm.png"]}
+{"_e":"metro:client_log","_t":1792223521835,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478218/loadbalbin_profiles/pgmea8yxwaevwoh5uxgr.jpg"]}
+{"_e":"root:init","_t":1792321261877,"format":"v0-jsonl","version":"57.0.27"}
+{"_e":"env:mode","_t":1792321261898,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1792321261926,"mode":"development","files":["../..\\..\\.env.development","../..\\..\\.env"],"env":{"EXPO_PUBLIC_API_URL":"https://track-loader.onrender.com/api"}}
+{"_e":"devserver:start","_t":1792321271015,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1792321285200,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1792321299399,"plugins":[]}
+{"_e":"root:init","_t":1792321856664,"format":"v0-jsonl","version":"57.0.27"}
+{"_e":"env:mode","_t":1792321856666,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1792321856670,"mode":"development","files":["../..\\..\\.env.development","../..\\..\\.env"],"env":{"EXPO_PUBLIC_API_URL":"https://track-loader.onrender.com/api"}}
+{"_e":"devserver:start","_t":1792321867656,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1792321868316,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1792321868790,"plugins":[]}
+{"_e":"metro:instantiate","_t":1792321877768,"atlas":false,"workers":8,"host":"::","port":8082}
+{"_e":"metro:bundling:started","_t":1792322779202,"id":"1","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1792322779202,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1792322779207,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1792322787530,"id":"1","progress":0.010000000000000002,"total":1,"current":1}
+{"_e":"metro:bundling:progress","_t":1792322787630,"id":"1","progress":0.010000000000000002,"total":3,"current":1}
+{"_e":"metro:bundling:progress","_t":1792322787709,"id":"1","progress":0.04000000000000001,"total":3,"current":2}
+{"_e":"metro:bundling:progress","_t":1792322787810,"id":"1","progress":0.1322314049586777,"total":11,"current":4}
+{"_e":"metro:bundling:progress","_t":1792322787925,"id":"1","progress":0.20661157024793386,"total":11,"current":5}
+{"_e":"metro:bundling:progress","_t":1792322788240,"id":"1","progress":0.29752066115702475,"total":11,"current":6}
+{"_e":"metro:bundling:progress","_t":1792322788344,"id":"1","progress":0.29752066115702475,"total":18,"current":9}
+{"_e":"metro:bundling:progress","_t":1792322788444,"id":"1","progress":0.29752066115702475,"total":21,"current":9}
+{"_e":"metro:bundling:progress","_t":1792322788788,"id":"1","progress":0.29752066115702475,"total":21,"current":10}
+{"_e":"metro:bundling:progress","_t":1792322788892,"id":"1","progress":0.4444444444444444,"total":30,"current":20}
+{"_e":"metro:bundling:progress","_t":1792322788999,"id":"1","progress":0.4444444444444444,"total":49,"current":27}
+{"_e":"metro:bundling:progress","_t":1792322789107,"id":"1","progress":0.4444444444444444,"total":56,"current":34}
+{"_e":"metro:bundling:progress","_t":1792322789207,"id":"1","progress":0.48778029730410677,"total":63,"current":44}
+{"_e":"metro:bundling:progress","_t":1792322789307,"id":"1","progress":0.48778029730410677,"total":80,"current":54}
+{"_e":"metro:bundling:progress","_t":1792322789408,"id":"1","progress":0.48778029730410677,"total":138,"current":67}
+{"_e":"metro:bundling:progress","_t":1792322789508,"id":"1","progress":0.48778029730410677,"total":149,"current":76}
+{"_e":"metro:bundling:progress","_t":1792322789620,"id":"1","progress":0.48778029730410677,"total":167,"current":85}
+{"_e":"metro:bundling:progress","_t":1792322789720,"id":"1","progress":0.48778029730410677,"total":170,"current":95}
+{"_e":"metro:bundling:progress","_t":1792322789821,"id":"1","progress":0.48778029730410677,"total":182,"current":105}
+{"_e":"metro:bundling:progress","_t":1792322789928,"id":"1","progress":0.48778029730410677,"total":221,"current":111}
+{"_e":"metro:bundling:progress","_t":1792322790029,"id":"1","progress":0.48778029730410677,"total":228,"current":119}
+{"_e":"metro:bundling:progress","_t":1792322790131,"id":"1","progress":0.48778029730410677,"total":261,"current":135}
+{"_e":"metro:bundling:progress","_t":1792322790231,"id":"1","progress":0.48778029730410677,"total":268,"current":143}
+{"_e":"metro:bundling:progress","_t":1792322790332,"id":"1","progress":0.48778029730410677,"total":278,"current":163}
+{"_e":"metro:bundling:progress","_t":1792322790432,"id":"1","progress":0.48778029730410677,"total":297,"current":177}
+{"_e":"metro:bundling:progress","_t":1792322790532,"id":"1","progress":0.48778029730410677,"total":317,"current":189}
+{"_e":"metro:bundling:progress","_t":1792322790632,"id":"1","progress":0.48778029730410677,"total":324,"current":198}
+{"_e":"metro:bundling:progress","_t":1792322790732,"id":"1","progress":0.48778029730410677,"total":334,"current":213}
+{"_e":"metro:bundling:progress","_t":1792322790832,"id":"1","progress":0.48778029730410677,"total":361,"current":229}
+{"_e":"metro:bundling:progress","_t":1792322790932,"id":"1","progress":0.48778029730410677,"total":395,"current":249}
+{"_e":"metro:bundling:progress","_t":1792322791033,"id":"1","progress":0.48778029730410677,"total":429,"current":265}
+{"_e":"metro:bundling:progress","_t":1792322791133,"id":"1","progress":0.48778029730410677,"total":491,"current":279}
+{"_e":"metro:bundling:progress","_t":1792322791233,"id":"1","progress":0.48778029730410677,"total":499,"current":296}
+{"_e":"metro:bundling:progress","_t":1792322791333,"id":"1","progress":0.48778029730410677,"total":501,"current":316}
+{"_e":"metro:bundling:progress","_t":1792322791434,"id":"1","progress":0.48778029730410677,"total":506,"current":334}
+{"_e":"metro:bundling:progress","_t":1792322791534,"id":"1","progress":0.48778029730410677,"total":538,"current":351}
+{"_e":"metro:bundling:progress","_t":1792322791635,"id":"1","progress":0.48778029730410677,"total":542,"current":364}
+{"_e":"metro:bundling:progress","_t":1792322791738,"id":"1","progress":0.4884683520699024,"total":548,"current":383}
+{"_e":"metro:bundling:progress","_t":1792322791838,"id":"1","progress":0.5296458180309024,"total":551,"current":401}
+{"_e":"metro:bundling:progress","_t":1792322791942,"id":"1","progress":0.543076049021995,"total":555,"current":409}
+{"_e":"metro:bundling:progress","_t":1792322792042,"id":"1","progress":0.5545495699411498,"total":564,"current":420}
+{"_e":"metro:bundling:progress","_t":1792322792143,"id":"1","progress":0.5742388141904431,"total":578,"current":438}
+{"_e":"metro:bundling:progress","_t":1792322792246,"id":"1","progress":0.6449837579532336,"total":579,"current":465}
+{"_e":"metro:bundling:progress","_t":1792322792347,"id":"1","progress":0.6806957565558167,"total":583,"current":481}
+{"_e":"metro:bundling:progress","_t":1792322792448,"id":"1","progress":0.6953768974370524,"total":596,"current":497}
+{"_e":"metro:bundling:progress","_t":1792322792548,"id":"1","progress":0.7439415409259056,"total":611,"current":527}
+{"_e":"metro:bundling:progress","_t":1792322792648,"id":"1","progress":0.7942976260752236,"total":616,"current":549}
+{"_e":"metro:bundling:progress","_t":1792322792755,"id":"1","progress":0.8059794424767018,"total":626,"current":562}
+{"_e":"metro:bundling:progress","_t":1792322792858,"id":"1","progress":0.8313993427986855,"total":635,"current":579}
+{"_e":"metro:bundling:progress","_t":1792322792958,"id":"1","progress":0.8419113105296895,"total":655,"current":601}
+{"_e":"metro:bundling:progress","_t":1792322793061,"id":"1","progress":0.8419113105296895,"total":695,"current":622}
+{"_e":"metro:bundling:progress","_t":1792322793163,"id":"1","progress":0.8419113105296895,"total":703,"current":643}
+{"_e":"metro:bundling:progress","_t":1792322793262,"id":"1","progress":0.8695365771154908,"total":711,"current":663}
+{"_e":"metro:bundling:progress","_t":1792322793362,"id":"1","progress":0.8950259120882904,"total":723,"current":684}
+{"_e":"metro:bundling:progress","_t":1792322793462,"id":"1","progress":0.9245562130177515,"total":728,"current":700}
+{"_e":"metro:bundling:progress","_t":1792322793562,"id":"1","progress":0.9245562130177515,"total":752,"current":719}
+{"_e":"metro:bundling:progress","_t":1792322793664,"id":"1","progress":0.9404666727678672,"total":761,"current":738}
+{"_e":"metro:bundling:progress","_t":1792322793765,"id":"1","progress":0.9947712507880815,"total":764,"current":762}
+{"_e":"metro:bundling:progress","_t":1792322793866,"id":"1","progress":0.999,"total":764,"current":764}
+{"_e":"metro:bundling:done","_t":1792322794335,"id":"1","total":764,"ms":15133.2647}
+{"_e":"metro:client_log","_t":1792322794883,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1792322794883,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1792322794883,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1792323075520,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1792323079144,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1792323079144,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478628/loadbalbin_profiles/w3kdjgfqxfvtm3pbmnhm.png"]}
+{"_e":"metro:client_log","_t":1792323079144,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478218/loadbalbin_profiles/pgmea8yxwaevwoh5uxgr.jpg"]}
+{"_e":"root:init","_t":1792326196185,"format":"v0-jsonl","version":"57.0.27"}
+{"_e":"env:mode","_t":1792326196204,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1792326196227,"mode":"development","files":["../..\\..\\.env.development","../..\\..\\.env"],"env":{"EXPO_PUBLIC_API_URL":"https://track-loader.onrender.com/api"}}
+{"_e":"devserver:start","_t":1792326203178,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1792326219101,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1792326226236,"plugins":[]}
+{"_e":"root:init","_t":1792326304269,"format":"v0-jsonl","version":"57.0.27"}
+{"_e":"env:mode","_t":1792326304269,"nodeEnv":"development","babelEnv":"development","mode":"development"}
+{"_e":"env:load","_t":1792326304273,"mode":"development","files":["../..\\..\\.env.development","../..\\..\\.env"],"env":{"EXPO_PUBLIC_API_URL":"https://track-loader.onrender.com/api"}}
+{"_e":"devserver:start","_t":1792326304456,"mode":"development","web":true,"baseUrl":"","asyncRoutes":false,"routerRoot":"../..\\..\\app","serverComponents":false,"serverActions":false,"serverRendering":false,"apiRoutes":false,"exporting":false}
+{"_e":"metro:config","_t":1792326304710,"serverRoot":"../..\\..","projectRoot":"../..\\..","exporting":false,"flags":{"autolinkingModuleResolution":false,"serverActions":false,"serverComponents":false,"reactCompiler":false,"optimizeGraph":false,"treeshaking":false,"logbox":false}}
+{"_e":"expo:dev-tools-plugin:load","_t":1792326304879,"plugins":[]}
+{"_e":"metro:instantiate","_t":1792326316717,"atlas":false,"workers":8,"host":"::","port":8082}
+{"_e":"metro:bundling:started","_t":1792326449227,"id":"1","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1792326449228,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1792326449596,"id":"1","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1792326450459,"id":"1","progress":0.010000000000000002,"total":1,"current":1}
+{"_e":"metro:bundling:progress","_t":1792326450587,"id":"1","progress":0.010000000000000002,"total":3,"current":1}
+{"_e":"metro:bundling:progress","_t":1792326450722,"id":"1","progress":0.04000000000000001,"total":3,"current":2}
+{"_e":"metro:bundling:progress","_t":1792326450822,"id":"1","progress":0.07438016528925619,"total":11,"current":3}
+{"_e":"metro:bundling:progress","_t":1792326466619,"id":"1","progress":0.1322314049586777,"total":11,"current":4}
+{"_e":"metro:bundling:progress","_t":1792326466720,"id":"1","progress":0.17728531855955676,"total":19,"current":8}
+{"_e":"metro:bundling:progress","_t":1792326478280,"id":"1","progress":0.22437673130193903,"total":19,"current":9}
+{"_e":"metro:bundling:progress","_t":1792326478381,"id":"1","progress":0.22437673130193903,"total":44,"current":11}
+{"_e":"metro:bundling:progress","_t":1792326479137,"id":"1","progress":0.22437673130193903,"total":44,"current":12}
+{"_e":"metro:bundling:progress","_t":1792326479412,"id":"1","progress":0.22437673130193903,"total":48,"current":15}
+{"_e":"metro:bundling:progress","_t":1792326498144,"id":"1","progress":0.22437673130193903,"total":48,"current":16}
+{"_e":"metro:bundling:progress","_t":1792326498270,"id":"1","progress":0.22437673130193903,"total":51,"current":19}
+{"_e":"metro:bundling:progress","_t":1792326498343,"id":"1","progress":0.22437673130193903,"total":51,"current":20}
+{"_e":"metro:bundling:progress","_t":1792326498443,"id":"1","progress":0.22437673130193903,"total":130,"current":44}
+{"_e":"metro:bundling:progress","_t":1792326499181,"id":"1","progress":0.22437673130193903,"total":130,"current":45}
+{"_e":"metro:bundling:progress","_t":1792326499488,"id":"1","progress":0.22437673130193903,"total":134,"current":48}
+{"_e":"metro:bundling:progress","_t":1792326518412,"id":"1","progress":0.22437673130193903,"total":134,"current":49}
+{"_e":"metro:bundling:progress","_t":1792326519250,"id":"1","progress":0.22437673130193903,"total":136,"current":50}
+{"_e":"metro:bundling:progress","_t":1792326519352,"id":"1","progress":0.22437673130193903,"total":137,"current":51}
+{"_e":"metro:bundling:progress","_t":1792326519635,"id":"1","progress":0.22437673130193903,"total":137,"current":52}
+{"_e":"metro:bundling:progress","_t":1792326519928,"id":"1","progress":0.22437673130193903,"total":148,"current":59}
+{"_e":"metro:bundling:progress","_t":1792326527453,"id":"1","progress":0.22437673130193903,"total":148,"current":60}
+{"_e":"metro:bundling:progress","_t":1792326527573,"id":"1","progress":0.22437673130193903,"total":150,"current":64}
+{"_e":"metro:bundling:progress","_t":1792326527688,"id":"1","progress":0.22437673130193903,"total":150,"current":65}
+{"_e":"metro:bundling:progress","_t":1792326527809,"id":"1","progress":0.22437673130193903,"total":175,"current":79}
+{"_e":"metro:bundling:progress","_t":1792326527944,"id":"1","progress":0.23958448753462605,"total":190,"current":93}
+{"_e":"metro:bundling:progress","_t":1792326528089,"id":"1","progress":0.23958448753462605,"total":241,"current":111}
+{"_e":"metro:bundling:progress","_t":1792326528224,"id":"1","progress":0.24218798437596878,"total":254,"current":125}
+{"_e":"metro:bundling:progress","_t":1792326528341,"id":"1","progress":0.2578120305270116,"total":258,"current":131}
+{"_e":"metro:bundling:progress","_t":1792326528466,"id":"1","progress":0.26328044999929867,"total":267,"current":137}
+{"_e":"metro:bundling:progress","_t":1792326528605,"id":"1","progress":0.2935669421487604,"total":275,"current":149}
+{"_e":"metro:bundling:progress","_t":1792326528728,"id":"1","progress":0.42553410156601285,"total":279,"current":182}
+{"_e":"metro:bundling:progress","_t":1792326528875,"id":"1","progress":0.44317551020408164,"total":350,"current":233}
+{"_e":"metro:bundling:progress","_t":1792326529020,"id":"1","progress":0.44317551020408164,"total":401,"current":258}
+{"_e":"metro:bundling:progress","_t":1792326529499,"id":"1","progress":0.44317551020408164,"total":401,"current":259}
+{"_e":"metro:bundling:progress","_t":1792326529676,"id":"1","progress":0.44317551020408164,"total":405,"current":264}
+{"_e":"metro:bundling:progress","_t":1792326541814,"id":"1","progress":0.44317551020408164,"total":405,"current":265}
+{"_e":"metro:bundling:progress","_t":1792326541962,"id":"1","progress":0.5763456358892348,"total":436,"current":331}
+{"_e":"metro:bundling:progress","_t":1792326542063,"id":"1","progress":0.5763456358892348,"total":524,"current":397}
+{"_e":"metro:bundling:progress","_t":1792326542195,"id":"1","progress":0.5763456358892348,"total":541,"current":409}
+{"_e":"metro:bundling:progress","_t":1792326542295,"id":"1","progress":0.6973714989227455,"total":570,"current":476}
+{"_e":"metro:bundling:progress","_t":1792326542396,"id":"1","progress":0.7354957261980976,"total":611,"current":524}
+{"_e":"metro:bundling:progress","_t":1792326542522,"id":"1","progress":0.768819167351828,"total":617,"current":541}
+{"_e":"metro:bundling:progress","_t":1792326543138,"id":"1","progress":0.7716640092043636,"total":617,"current":542}
+{"_e":"metro:bundling:progress","_t":1792326543832,"id":"1","progress":0.8056857599999999,"total":625,"current":561}
+{"_e":"metro:bundling:progress","_t":1792326559357,"id":"1","progress":0.80856064,"total":625,"current":562}
+{"_e":"metro:bundling:progress","_t":1792326559495,"id":"1","progress":0.8414268754593249,"total":665,"current":610}
+{"_e":"metro:bundling:progress","_t":1792326559596,"id":"1","progress":0.8414268754593249,"total":680,"current":611}
+{"_e":"metro:bundling:progress","_t":1792326559853,"id":"1","progress":0.8414268754593249,"total":680,"current":612}
+{"_e":"metro:bundling:progress","_t":1792326560031,"id":"1","progress":0.8414268754593249,"total":682,"current":613}
+{"_e":"metro:bundling:progress","_t":1792326566838,"id":"1","progress":0.8414268754593249,"total":682,"current":614}
+{"_e":"metro:bundling:progress","_t":1792326566962,"id":"1","progress":0.8414268754593249,"total":685,"current":617}
+{"_e":"metro:bundling:progress","_t":1792326566965,"id":"1","progress":0.8414268754593249,"total":685,"current":618}
+{"_e":"metro:bundling:progress","_t":1792326567073,"id":"1","progress":0.8486014295841211,"total":736,"current":678}
+{"_e":"metro:bundling:progress","_t":1792326567196,"id":"1","progress":0.8563154377366897,"total":737,"current":682}
+{"_e":"metro:bundling:progress","_t":1792326567333,"id":"1","progress":0.916704391127207,"total":752,"current":720}
+{"_e":"metro:bundling:progress","_t":1792326567484,"id":"1","progress":0.940389542936288,"total":760,"current":737}
+{"_e":"metro:bundling:progress","_t":1792326582836,"id":"1","progress":0.942943213296399,"total":760,"current":738}
+{"_e":"metro:bundling:progress","_t":1792326582956,"id":"1","progress":0.9508166872506093,"total":763,"current":744}
+{"_e":"metro:bundling:progress","_t":1792326583341,"id":"1","progress":0.9791672377401935,"total":764,"current":756}
+{"_e":"metro:bundling:progress","_t":1792326585248,"id":"1","progress":0.9817593404786054,"total":764,"current":757}
+{"_e":"metro:bundling:progress","_t":1792326585374,"id":"1","progress":0.9947712507880815,"total":764,"current":762}
+{"_e":"metro:bundling:progress","_t":1792326585505,"id":"1","progress":0.999,"total":764,"current":764}
+{"_e":"metro:bundling:done","_t":1792326586319,"id":"1","total":764,"ms":137092.0372}
+{"_e":"metro:client_log","_t":1792326589651,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1792326589651,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1792326589651,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1792326613027,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1792326614853,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1792326614853,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478628/loadbalbin_profiles/w3kdjgfqxfvtm3pbmnhm.png"]}
+{"_e":"metro:client_log","_t":1792326614853,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478218/loadbalbin_profiles/pgmea8yxwaevwoh5uxgr.jpg"]}
+{"_e":"metro:bundling:started","_t":1792327511302,"id":"9","platform":"web","environment":null,"entry":"src\\screens\\booking\\VehicleSelectionScreen.jsx"}
+{"_e":"metro:bundling:failed","_t":1792327530978,"id":null,"message":"SyntaxError: E:\\LoadBalbin\\customer-app\\src\\screens\\booking\\GoodsDetailsScreen.jsx: Unexpected token (78:6)\n\n  76 |       customerNote: customerNote.trim()\n  77 |     });\n> 78 |       ...route.params,\n     |       ^\n  79 |       bookingMode,\n  80 |       goods: goods.trim(),\n  81 |       weight: { value: weight, unit: weightUnit },","importStack":null,"filename":"src\\screens\\booking\\GoodsDetailsScreen.jsx","targetModuleName":null,"originModulePath":null}
+{"_e":"metro:client_log","_t":1792327531043,"level":"error","data":["[TransformError: SyntaxError: E:\\LoadBalbin\\customer-app\\src\\screens\\booking\\GoodsDetailsScreen.jsx: Unexpected token (78:6)\n\n  76 |       customerNote: customerNote.trim()\n  77 |     });\n> 78 |       ...route.params,\n     |       ^\n  79 |       bookingMode,\n  80 |       goods: goods.trim(),\n  81 |       weight: { value: weight, unit: weightUnit },]"]}
+{"_e":"metro:bundling:failed","_t":1792327531451,"id":null,"message":"SyntaxError: E:\\LoadBalbin\\customer-app\\src\\screens\\booking\\GoodsDetailsScreen.jsx: Unexpected token (78:6)\n\n  76 |       customerNote: customerNote.trim()\n  77 |     });\n> 78 |       ...route.params,\n     |       ^\n  79 |       bookingMode,\n  80 |       goods: goods.trim(),\n  81 |       weight: { value: weight, unit: weightUnit },","importStack":null,"filename":"src\\screens\\booking\\GoodsDetailsScreen.jsx","targetModuleName":null,"originModulePath":null}
+{"_e":"metro:client_log","_t":1792327531534,"level":"error","data":["[TransformError: SyntaxError: E:\\LoadBalbin\\customer-app\\src\\screens\\booking\\GoodsDetailsScreen.jsx: Unexpected token (78:6)\n\n  76 |       customerNote: customerNote.trim()\n  77 |     });\n> 78 |       ...route.params,\n     |       ^\n  79 |       bookingMode,\n  80 |       goods: goods.trim(),\n  81 |       weight: { value: weight, unit: weightUnit },]"]}
+{"_e":"metro:bundling:started","_t":1792327540334,"id":"a","platform":"web","environment":null,"entry":"src\\screens\\booking\\GoodsDetailsScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1792327549824,"id":"b","platform":"web","environment":null,"entry":"src\\screens\\booking\\GoodsDetailsScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1792327569754,"id":"c","platform":"web","environment":null,"entry":"src\\screens\\booking\\BookingConfirmScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1792327580799,"id":"d","platform":"web","environment":null,"entry":"src\\screens\\booking\\BookingConfirmScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1792327810798,"id":"e","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1792327810798,"id":"e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1792327810822,"id":"e","total":1,"ms":23.649}
+{"_e":"metro:client_log","_t":1792327819189,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1792327819189,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1792327819189,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1792327819681,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.onreadystatechange (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1792327819681,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1792327820143,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.onreadystatechange (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1792327820143,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.onreadystatechange (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1792327820143,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.onreadystatechange (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1792327820721,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.onreadystatechange (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:client_log","_t":1792327821214,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1792327821214,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478628/loadbalbin_profiles/w3kdjgfqxfvtm3pbmnhm.png"]}
+{"_e":"metro:client_log","_t":1792327821214,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478218/loadbalbin_profiles/pgmea8yxwaevwoh5uxgr.jpg"]}
+{"_e":"metro:client_log","_t":1792327821214,"level":"error","data":["[TypeError: Cannot read properties of undefined (reading 'M_ID')]","TypeError: Cannot read properties of undefined (reading 'M_ID')\n    at Y (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:761)\n    at XMLHttpRequest.onreadystatechange (chrome-extension://eppiocemhmnlbhjplcgkofciiegomcon/executors/200.js:1:2598)"]}
+{"_e":"metro:bundling:started","_t":1792327862254,"id":"l","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1792327862254,"id":"l","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1792327862276,"id":"l","total":1,"ms":21.8826}
+{"_e":"metro:client_log","_t":1792327871837,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1792327871837,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1792327871837,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1792327872501,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1792327874846,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1792327874846,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478628/loadbalbin_profiles/w3kdjgfqxfvtm3pbmnhm.png"]}
+{"_e":"metro:client_log","_t":1792327874846,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478218/loadbalbin_profiles/pgmea8yxwaevwoh5uxgr.jpg"]}
+{"_e":"metro:bundling:started","_t":1792327882173,"id":"r","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:started","_t":1792327890870,"id":"u","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1792327890870,"id":"u","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1792327890893,"id":"u","total":1,"ms":22.6953}
+{"_e":"metro:client_log","_t":1792327900260,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1792327900260,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1792327900260,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1792327900776,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1792327902009,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1792327902009,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478628/loadbalbin_profiles/w3kdjgfqxfvtm3pbmnhm.png"]}
+{"_e":"metro:client_log","_t":1792327902009,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478218/loadbalbin_profiles/pgmea8yxwaevwoh5uxgr.jpg"]}

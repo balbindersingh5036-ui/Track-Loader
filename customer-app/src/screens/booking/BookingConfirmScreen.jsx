@@ -29,18 +29,33 @@ export default function BookingConfirmScreen({ route, navigation }) {
     setError("");
     setBusy(true);
     try {
-      const config = await configService.getPublicConfig();
-      if (config["booking.enabled"] !== true || config["system.maintenanceMode"] === true) {
-        setError("Booking is currently unavailable. Please try again later.");
-        return;
+      try {
+        const config = await configService.getPublicConfig();
+        if (config["booking.enabled"] === false || config["system.maintenanceMode"] === true) {
+          setError(
+            config["system.maintenanceMode"] === true
+              ? "System is currently undergoing maintenance. Please try again later."
+              : "Booking service is currently disabled. Please try again later."
+          );
+          setBusy(false);
+          return;
+        }
+      } catch (cfgErr) {
+        // Non-blocking: let backend server enforce authoritative availability
       }
+
+      const isInstant = bookingMode === "instant";
+      const now = new Date();
+      const todayDate = now.toISOString().split("T")[0];
+      const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
       const payload = {
         pickup: details.pickup,
         drop: details.drop,
         goods: details.goods,
         weight: details.weight,
-        preferredPickupDate: details.preferredPickupDate,
-        preferredPickupTime: details.preferredPickupTime,
+        preferredPickupDate: isInstant ? todayDate : details.preferredPickupDate,
+        preferredPickupTime: isInstant ? currentTime : details.preferredPickupTime,
         vehicleType: details.vehicleType,
         bookingMode
       };
@@ -115,16 +130,25 @@ export default function BookingConfirmScreen({ route, navigation }) {
           </View>
         </View>
 
-        <View style={styles.grid2}>
-          <View style={styles.gridItem}>
-            <Text style={styles.gridLabel}>Pickup Date</Text>
-            <Text style={styles.gridValue}>{details.preferredPickupDate}</Text>
+        {bookingMode === "instant" ? (
+          <View style={styles.grid2}>
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>Pickup Schedule</Text>
+              <Text style={[styles.gridValue, { color: colors.primary }]}>Immediate Dispatch (Now)</Text>
+            </View>
           </View>
-          <View style={styles.gridItem}>
-            <Text style={styles.gridLabel}>Pickup Time</Text>
-            <Text style={styles.gridValue}>{details.preferredPickupTime}</Text>
+        ) : (
+          <View style={styles.grid2}>
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>Pickup Date</Text>
+              <Text style={styles.gridValue}>{details.preferredPickupDate}</Text>
+            </View>
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>Pickup Time</Text>
+              <Text style={styles.gridValue}>{details.preferredPickupTime}</Text>
+            </View>
           </View>
-        </View>
+        )}
 
         {details.customerNote ? (
           <View style={styles.noteBox}>

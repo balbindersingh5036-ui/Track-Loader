@@ -45,18 +45,22 @@ export default function GoodsDetailsScreen({ route, navigation }) {
     if (!["kg", "ton"].includes(weightUnit)) {
       return setError("Please select either kilograms (kg) or tons (ton).");
     }
-    if (
-      !/^\d{4}-\d{2}-\d{2}$/.test(preferredPickupDate) ||
-      Number.isNaN(Date.parse(preferredPickupDate))
-    ) {
-      return setError("Please enter the pickup date in YYYY-MM-DD format (e.g. 2026-10-15).");
-    }
-    if (!/^\d{2}:\d{2}$/.test(preferredPickupTime)) {
-      return setError("Please enter the pickup time in HH:MM 24-hr format (e.g. 14:30).");
-    }
+    const isInstant = bookingMode === "instant";
+    const pickupDateToUse = isInstant ? getTodayDateString() : preferredPickupDate;
+    const pickupTimeToUse = isInstant ? getCurrentTimeString() : preferredPickupTime;
 
-    if (bookingMode === "scheduled") {
-      const scheduledDateTime = new Date(`${preferredPickupDate}T${preferredPickupTime}`);
+    if (!isInstant) {
+      if (
+        !/^\d{4}-\d{2}-\d{2}$/.test(pickupDateToUse) ||
+        Number.isNaN(Date.parse(pickupDateToUse))
+      ) {
+        return setError("Please enter the pickup date in YYYY-MM-DD format (e.g. 2026-10-15).");
+      }
+      if (!/^\d{2}:\d{2}$/.test(pickupTimeToUse)) {
+        return setError("Please enter the pickup time in HH:MM 24-hr format (e.g. 14:30).");
+      }
+
+      const scheduledDateTime = new Date(`${pickupDateToUse}T${pickupTimeToUse}`);
       if (isNaN(scheduledDateTime.getTime()) || scheduledDateTime.getTime() <= Date.now()) {
         return setError("Scheduled pickup date and time must be set to a future date and time.");
       }
@@ -67,8 +71,8 @@ export default function GoodsDetailsScreen({ route, navigation }) {
       bookingMode,
       goods: goods.trim(),
       weight: { value: weight, unit: weightUnit },
-      preferredPickupDate,
-      preferredPickupTime,
+      preferredPickupDate: pickupDateToUse,
+      preferredPickupTime: pickupTimeToUse,
       customerNote: customerNote.trim()
     });
   };
@@ -164,27 +168,37 @@ export default function GoodsDetailsScreen({ route, navigation }) {
       </Card>
 
       <Card>
-        <Text style={styles.cardSectionTitle}>Pickup Schedule</Text>
+        <Text style={styles.cardSectionTitle}>
+          {bookingMode === "instant" ? "Pickup Schedule (Immediate Dispatch)" : "Pickup Schedule (Future Slot)"}
+        </Text>
 
-        <View style={styles.scheduleRow}>
-          <Field
-            style={{ flex: 1 }}
-            label="Pickup Date"
-            value={preferredPickupDate}
-            onChangeText={setPreferredPickupDate}
-            placeholder="YYYY-MM-DD"
-            icon={<Ionicons name="calendar-outline" size={18} color={colors.textMuted} />}
-          />
+        {bookingMode === "instant" ? (
+          <View style={{ backgroundColor: colors.surfaceAlt, borderRadius: 8, padding: 12, marginBottom: 12 }}>
+            <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>
+              ⚡ Instant Booking: Nearest available vehicle will be dispatched immediately.
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.scheduleRow}>
+            <Field
+              style={{ flex: 1 }}
+              label="Pickup Date"
+              value={preferredPickupDate}
+              onChangeText={setPreferredPickupDate}
+              placeholder="YYYY-MM-DD"
+              icon={<Ionicons name="calendar-outline" size={18} color={colors.textMuted} />}
+            />
 
-          <Field
-            style={{ flex: 1 }}
-            label="Pickup Time"
-            value={preferredPickupTime}
-            onChangeText={setPreferredPickupTime}
-            placeholder="HH:MM (24h)"
-            icon={<Ionicons name="time-outline" size={18} color={colors.textMuted} />}
-          />
-        </View>
+            <Field
+              style={{ flex: 1 }}
+              label="Pickup Time"
+              value={preferredPickupTime}
+              onChangeText={setPreferredPickupTime}
+              placeholder="HH:MM (24h)"
+              icon={<Ionicons name="time-outline" size={18} color={colors.textMuted} />}
+            />
+          </View>
+        )}
 
         <Field
           label="Special Instructions / Notes (Optional)"

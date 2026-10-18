@@ -22,15 +22,11 @@ export default function VehicleSelectionScreen({ route, navigation }) {
 
   const continueToConfirm = () => {
     const selected = vehicles.find((vehicle) => vehicle._id === selectedId);
-    if (selectedId && !selected) {
-      setError("That vehicle is no longer available. Please choose another vehicle.");
-      return;
-    }
     navigation.navigate("BookingConfirm", {
       ...route.params,
       vehicleType: selected?.vehicleType || route.params?.vehicleType || "mini-truck",
-      vehicleId: selected?._id || null,
-      vehicle: selected || null
+      vehicleId: selectedId || null,
+      vehicle: selected || (selectedId ? { vehicleModel: route.params?.vehicle?.vehicleModel || "Requested Vehicle" } : null)
     });
   };
 
