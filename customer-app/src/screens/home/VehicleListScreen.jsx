@@ -21,6 +21,7 @@ import {
 } from "../../components/Phase12UI";
 import { colors, shadows } from "../../theme/theme";
 import { getErrorMessage } from "../../utils/errorMessage";
+import { getOptimizedImageUrl } from "../../utils/imageOptimizer";
 
 const types = [
   { key: "all", label: "All" },
@@ -204,7 +205,7 @@ export default function VehicleListScreen({ navigation, route }) {
             >
               {vehicle.vehicleImage ? (
                 <Image
-                  source={{ uri: vehicle.vehicleImage }}
+                  source={{ uri: getOptimizedImageUrl(vehicle.vehicleImage, { width: 600 }) }}
                   style={styles.cardImg}
                   resizeMode="cover"
                 />

@@ -6,6 +6,7 @@ import fareService from "../../services/fareService";
 import { Button, Card, Empty, Heading, Loading, Notice, Screen } from "../../components/Phase12UI";
 import { colors, shadows } from "../../theme/theme";
 import { getErrorMessage } from "../../utils/errorMessage";
+import { getOptimizedImageUrl } from "../../utils/imageOptimizer";
 
 export default function VehicleDetailsScreen({ route, navigation }) {
   const vehicleId = route.params?.vehicleId;
@@ -54,7 +55,7 @@ export default function VehicleDetailsScreen({ route, navigation }) {
           {/* MAIN HERO IMAGE */}
           {vehicle.vehicleImage ? (
             <Image
-              source={{ uri: vehicle.vehicleImage }}
+              source={{ uri: getOptimizedImageUrl(vehicle.vehicleImage, { width: 800 }) }}
               style={styles.heroImage}
               resizeMode="cover"
             />
@@ -74,7 +75,7 @@ export default function VehicleDetailsScreen({ route, navigation }) {
               {vehicle.vehicleImages.map((uri, index) => (
                 <Image
                   key={`${uri}-${index}`}
-                  source={{ uri }}
+                  source={{ uri: getOptimizedImageUrl(uri, { width: 400 }) }}
                   style={styles.galleryThumb}
                   resizeMode="cover"
                 />

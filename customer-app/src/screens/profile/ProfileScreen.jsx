@@ -7,6 +7,7 @@ import { useAuth } from "../../store/AuthContext";
 import { getErrorMessage } from "../../utils/errorMessage";
 import { Button, Card, Heading, Loading, Notice, Screen } from "../../components/Phase12UI";
 import { colors, shadows } from "../../theme/theme";
+import { getOptimizedImageUrl } from "../../utils/imageOptimizer";
 
 export default function ProfileScreen({ navigation }) {
   const { signOut } = useAuth();
@@ -63,7 +64,7 @@ export default function ProfileScreen({ navigation }) {
         <Card style={styles.userCard}>
           <View style={styles.userRow}>
             {profile.profileImage ? (
-              <Image source={{ uri: profile.profileImage }} style={styles.avatarImg} />
+              <Image source={{ uri: getOptimizedImageUrl(profile.profileImage, { width: 200, height: 200, crop: "fill" }) }} style={styles.avatarImg} />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Ionicons name="person" size={32} color={colors.primary} />

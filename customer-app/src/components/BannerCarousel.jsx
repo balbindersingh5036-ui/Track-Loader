@@ -12,6 +12,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import api from "../services/api";
 import colors from "../constants/colors";
+import { getOptimizedImageUrl } from "../utils/imageOptimizer";
 
 export default function BannerCarousel({ audience = "customer" }) {
   const navigation = useNavigation();
@@ -230,7 +231,7 @@ export default function BannerCarousel({ audience = "customer" }) {
                 onPress={() => handlePress(item.ctaAction)}
               >
                 <Image
-                  source={{ uri: item.imageUrl }}
+                  source={{ uri: getOptimizedImageUrl(item.imageUrl, { width: 800 }) }}
                   style={styles.bannerImage}
                   resizeMode="contain"
                 />
@@ -261,7 +262,7 @@ export default function BannerCarousel({ audience = "customer" }) {
               onPress={() => handlePress(item.ctaAction)}
             >
               <Image
-                source={{ uri: item.imageUrl }}
+                source={{ uri: getOptimizedImageUrl(item.imageUrl, { width: 800 }) }}
                 style={styles.bannerImage}
                 resizeMode="contain"
               />
