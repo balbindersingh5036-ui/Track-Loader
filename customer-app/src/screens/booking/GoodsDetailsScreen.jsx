@@ -85,9 +85,9 @@ export default function GoodsDetailsScreen({ route, navigation }) {
           subtitle="Provide cargo specifications and pickup schedule."
         />
         <View style={{
-          backgroundColor: bookingMode === "instant" ? colors.surfaceAlt : colors.primary,
+          backgroundColor: bookingMode === "instant" ? colors.surfaceAlt : (colors.primaryDark || "#0071AB"),
           borderWidth: 1,
-          borderColor: colors.primary,
+          borderColor: bookingMode === "instant" ? colors.primary : (colors.primaryDark || "#0071AB"),
           paddingHorizontal: 10,
           paddingVertical: 4,
           borderRadius: 8

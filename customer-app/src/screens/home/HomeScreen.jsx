@@ -199,8 +199,9 @@ export default function HomeScreen({ navigation }) {
 
           <View style={styles.heroButtonRow}>
             <Pressable
-              style={[
+              style={({ pressed }) => [
                 styles.primaryCta,
+                pressed && !isBookingDisabled && styles.primaryCtaPressed,
                 isBookingDisabled && styles.btnDisabled
               ]}
               disabled={isBookingDisabled}
@@ -533,12 +534,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#08A9F5",
+    backgroundColor: colors.primaryDark || "#0071AB",
     paddingVertical: 14,
     paddingHorizontal: 10,
     borderRadius: 10,
     gap: 8,
     minHeight: 50
+  },
+  primaryCtaPressed: {
+    backgroundColor: colors.primaryHover || "#005F91"
   },
   primaryCtaText: {
     color: "#FFFFFF",

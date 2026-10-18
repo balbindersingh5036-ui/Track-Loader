@@ -362,7 +362,7 @@ export const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: 12,
     paddingHorizontal: 18,
-    backgroundColor: colors.primary
+    backgroundColor: colors.primaryDark || "#0071AB"
   },
   buttonInner: {
     flexDirection: "row",

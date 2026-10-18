@@ -1,6 +1,8 @@
 export const colors = {
   // Brand Colors
   primary: "#08A9F5",     // Primary Blue
+  primaryDark: "#0071AB", // Accessible Blue (WCAG AA > 4.5:1 with white text)
+  primaryHover: "#005F91", // Accessible Hover/Pressed Blue
   primaryBright: "#19B5FF", // Bright Blue
   secondary: "#14B8A6",   // Teal
   accent: "#FF7A00",      // Primary Orange
@@ -101,28 +103,45 @@ export const radius = {
   pill: 9999
 };
 
+import { Platform } from "react-native";
+
 export const shadows = {
-  soft: {
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 2
-  },
-  card: {
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4
-  },
-  elevated: {
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    elevation: 6
-  }
+  soft: Platform.select({
+    web: {
+      boxShadow: "0 2px 6px rgba(0, 0, 0, 0.15)"
+    },
+    default: {
+      shadowColor: "#000000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.15,
+      shadowRadius: 6,
+      elevation: 2
+    }
+  }),
+  card: Platform.select({
+    web: {
+      boxShadow: "0 4px 8px rgba(0, 0, 0, 0.25)"
+    },
+    default: {
+      shadowColor: "#000000",
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 8,
+      elevation: 4
+    }
+  }),
+  elevated: Platform.select({
+    web: {
+      boxShadow: "0 8px 14px rgba(0, 0, 0, 0.35)"
+    },
+    default: {
+      shadowColor: "#000000",
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.35,
+      shadowRadius: 14,
+      elevation: 6
+    }
+  })
 };
 
 export const theme = {
