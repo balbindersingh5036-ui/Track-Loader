@@ -33,6 +33,29 @@ export default function GoodsDetailsScreen({ route, navigation }) {
   const [customerNote, setCustomerNote] = useState(route.params?.customerNote || "");
   const [error, setError] = useState("");
 
+  const parseAndNormalizeTime = (timeStr) => {
+    if (!timeStr || typeof timeStr !== "string") return null;
+    const clean = timeStr.trim();
+    // 24-hour format: HH:mm or H:mm
+    const match24 = clean.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
+    if (match24) {
+      const hh = match24[1].padStart(2, "0");
+      const mm = match24[2];
+      return `${hh}:${mm}`;
+    }
+    // 12-hour format: h:mm AM/PM or hh:mm AM/PM or h AM/PM
+    const match12 = clean.match(/^(0?[1-9]|1[0-2])(?::([0-5]\d))?\s*([aApP][mM])$/i);
+    if (match12) {
+      let hours = parseInt(match12[1], 10);
+      const minutes = match12[2] ? match12[2] : "00";
+      const meridian = match12[3].toUpperCase();
+      if (meridian === "PM" && hours < 12) hours += 12;
+      if (meridian === "AM" && hours === 12) hours = 0;
+      return `${String(hours).padStart(2, "0")}:${minutes}`;
+    }
+    return null;
+  };
+
   const continueToVehicle = () => {
     setError("");
     const weight = Number(weightValue);
@@ -46,8 +69,8 @@ export default function GoodsDetailsScreen({ route, navigation }) {
       return setError("Please select either kilograms (kg) or tons (ton).");
     }
     const isInstant = bookingMode === "instant";
-    const pickupDateToUse = isInstant ? getTodayDateString() : preferredPickupDate;
-    const pickupTimeToUse = isInstant ? getCurrentTimeString() : preferredPickupTime;
+    const pickupDateToUse = isInstant ? getTodayDateString() : preferredPickupDate.trim();
+    let pickupTimeToUse = isInstant ? getCurrentTimeString() : preferredPickupTime.trim();
 
     if (!isInstant) {
       if (
@@ -56,9 +79,12 @@ export default function GoodsDetailsScreen({ route, navigation }) {
       ) {
         return setError("Please enter the pickup date in YYYY-MM-DD format (e.g. 2026-10-15).");
       }
-      if (!/^\d{2}:\d{2}$/.test(pickupTimeToUse)) {
-        return setError("Please enter the pickup time in HH:MM 24-hr format (e.g. 14:30).");
+
+      const normalizedTime = parseAndNormalizeTime(pickupTimeToUse);
+      if (!normalizedTime) {
+        return setError("Please enter a valid pickup time (e.g. 14:30 or 2:30 PM).");
       }
+      pickupTimeToUse = normalizedTime;
 
       const scheduledDateTime = new Date(`${pickupDateToUse}T${pickupTimeToUse}`);
       if (isNaN(scheduledDateTime.getTime()) || scheduledDateTime.getTime() <= Date.now()) {
