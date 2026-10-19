@@ -145,6 +145,20 @@ export default function Banners() {
     setIsPreviewOpen(true);
   };
 
+  const getBannerStatus = (banner) => {
+    if (!banner.isActive) {
+      return { label: 'Inactive', color: 'var(--text-secondary, #8c8c8c)' };
+    }
+    const now = new Date();
+    if (banner.endDate && new Date(banner.endDate) < now) {
+      return { label: 'Expired', color: 'var(--danger, #ff4d4f)' };
+    }
+    if (banner.startDate && new Date(banner.startDate) > now) {
+      return { label: 'Scheduled', color: 'var(--warning, #faad14)' };
+    }
+    return { label: 'Active', color: 'var(--success, #52c41a)' };
+  };
+
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -169,21 +183,23 @@ export default function Banners() {
               </tr>
             </thead>
             <tbody>
-              {banners.map(banner => (
-                <tr key={banner._id}>
-                  <td>
-                    <img src={banner.imageUrl} alt="banner" style={{ width: 80, height: 40, objectFit: 'cover', borderRadius: 4 }} />
-                  </td>
-                  <td>{banner.title}</td>
-                  <td style={{ textTransform: 'capitalize' }}>{banner.targetAudience}</td>
+              {banners.map(banner => {
+                const status = getBannerStatus(banner);
+                return (
+                  <tr key={banner._id}>
+                    <td>
+                      <img src={banner.imageUrl} alt="banner" style={{ width: 80, height: 40, objectFit: 'cover', borderRadius: 4 }} />
+                    </td>
+                    <td>{banner.title}</td>
+                    <td style={{ textTransform: 'capitalize' }}>{banner.targetAudience}</td>
 
-                  <td>
-                    <span style={{ color: banner.isActive ? 'var(--success)' : 'var(--danger)' }}>
-                      {banner.isActive ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td>{banner.sortOrder}</td>
-                  <td>
+                    <td>
+                      <span style={{ color: status.color, fontWeight: 500 }}>
+                        {status.label}
+                      </span>
+                    </td>
+                    <td>{banner.sortOrder}</td>
+                    <td>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <button className="btn" onClick={() => openPreview(banner)}>Preview</button>
                       <button className="btn" onClick={() => openModal(banner)}>Edit</button>
@@ -193,8 +209,9 @@ export default function Banners() {
                       <button className="btn" style={{ background: 'var(--danger)' }} onClick={() => deleteBanner(banner._id)}>Delete</button>
                     </div>
                   </td>
-                </tr>
-              ))}
+                  </tr>
+                );
+              })}
               {banners.length === 0 && (
                 <tr><td colSpan="7" style={{ textAlign: 'center' }}>No banners found.</td></tr>
               )}
