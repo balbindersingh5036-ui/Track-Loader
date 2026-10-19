@@ -15,5 +15,8 @@ export const colors = {
   text: '#FFFFFF',
   secondary: '#B8C4D1',
   muted: '#8A98A8',
+  primary: '#08A9F5',
+  line: '#25364A',
+  textMuted: '#8A98A8',
 };
 export default colors;

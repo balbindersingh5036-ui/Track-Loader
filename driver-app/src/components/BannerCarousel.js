@@ -272,7 +272,7 @@ export default function BannerCarousel({ audience = "driver", fallback = null })
         />
       )}
 
-      {banners.length > 0 && (
+      {banners.length > 1 && (
         <View style={styles.pagination}>
           {banners.map((_, index) => (
             <Pressable

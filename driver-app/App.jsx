@@ -8,11 +8,11 @@ import {
   Text,
   TextInput,
   View,
-  ImageBackground,
   Dimensions,
   Platform,
   Image,
-  StyleSheet
+  StyleSheet,
+  Modal
 } from 'react-native';
 import api, { setAuthenticationExpiredHandler } from './src/services/api';
 import authService from './src/services/authService';
@@ -84,50 +84,85 @@ function ActionButton({ label, onPress, secondary = false, disabled = false, dan
 }
 
 function Login({ onLogin, onRetry, initialError }) {
-  const [phone, setPhone] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(initialError || '');
+
   const submit = async () => {
     if (loading) return;
+    const cleanId = identifier.trim();
+    if (!cleanId) {
+      setError('Please enter your registered phone number or email.');
+      return;
+    }
+    if (!password) {
+      setError('Please enter your password.');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
-      await onLogin({ phone: phone.trim(), password });
+      await onLogin({ identifier: cleanId, password });
     } catch (loginError) {
       setError(messageFor(loginError));
     } finally {
       setLoading(false);
     }
   };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', padding: 24 }}>
       <View style={{ backgroundColor: colors.surface, padding: 24, borderRadius: 16, gap: 16, borderColor: colors.border, borderWidth: 1 }}>
         <LoadBalbinLogo width={180} height={50} style={{ alignSelf: 'center', marginBottom: 16 }} />
         <Text style={{ fontSize: 24, fontWeight: '800', color: colors.ink }}>Driver sign in</Text>
-        <Text style={{ color: colors.muted, fontSize: 13 }}>Use the phone number registered with your driver account.</Text>
+        <Text style={{ color: colors.muted, fontSize: 13 }}>Use the phone number or email registered with your driver account.</Text>
+        
         <TextInput
-          accessibilityLabel="Phone number"
-          value={phone}
-          onChangeText={setPhone}
-          placeholder="Phone number"
+          accessibilityLabel="Phone number or email"
+          value={identifier}
+          onChangeText={(val) => { setIdentifier(val); setError(''); }}
+          placeholder="Phone number or email"
           placeholderTextColor={colors.muted}
-          keyboardType="phone-pad"
+          keyboardType="default"
           autoCapitalize="none"
+          autoCorrect={false}
           style={inputStyle}
         />
-        <TextInput
-          accessibilityLabel="Password"
-          value={password}
-          onChangeText={setPassword}
-          placeholder="Password"
-          placeholderTextColor={colors.muted}
-          secureTextEntry
-          style={inputStyle}
+        
+        <View style={{ position: 'relative', justifyContent: 'center' }}>
+          <TextInput
+            accessibilityLabel="Password"
+            value={password}
+            onChangeText={(val) => { setPassword(val); setError(''); }}
+            placeholder="Password"
+            placeholderTextColor={colors.muted}
+            secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            style={[inputStyle, { paddingRight: 48 }]}
+          />
+          <Pressable
+            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+            onPress={() => setShowPassword(!showPassword)}
+            style={{ position: 'absolute', right: 14, height: 40, justifyContent: 'center' }}
+          >
+            <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={colors.muted} />
+          </Pressable>
+        </View>
+
+        {error ? <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
+        
+        <ActionButton 
+          label={loading ? 'Signing in…' : 'Sign in'} 
+          onPress={submit} 
+          disabled={loading || !identifier.trim() || !password} 
+          style={{ backgroundColor: colors.primary, borderColor: colors.primary }} 
         />
-        {error ? <Text accessibilityRole="alert" style={{ color: colors.danger }}>{error}</Text> : null}
-        <ActionButton label={loading ? 'Signing in…' : 'Sign in'} onPress={submit} disabled={loading || !phone || !password} style={{ backgroundColor: colors.primary, borderColor: colors.primary }} />
-        {initialError && onRetry ? <ActionButton label="Retry previous session" secondary onPress={onRetry} disabled={loading} /> : null}
+        
+        {initialError && onRetry ? (
+          <ActionButton label="Retry previous session" secondary onPress={onRetry} disabled={loading} />
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -156,8 +191,11 @@ export default function App() {
   const [earningsSummary, setEarningsSummary] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [onlineLoading, setOnlineLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
@@ -169,6 +207,14 @@ export default function App() {
     setUser(null);
     setDriver(null);
     setProfile(null);
+    setRequests([]);
+    setTrips([]);
+    setEarnings([]);
+    setEarningsSummary(null);
+    setNotifications([]);
+    setUnreadCount(0);
+    setError('');
+    setNotice('');
   }, []);
 
   const establish = useCallback(async (newToken) => {
@@ -216,11 +262,24 @@ export default function App() {
     await establish(newToken);
   };
 
+  const fetchUnreadNotificationsCount = useCallback(async () => {
+    try {
+      const countRes = await notificationService.getUnreadCount();
+      if (typeof countRes.data?.data?.count === 'number') {
+        setUnreadCount(countRes.data.data.count);
+      }
+    } catch (e) {
+      // Non-blocking
+    }
+  }, []);
+
   const loadData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     setError('');
     try {
+      fetchUnreadNotificationsCount();
+
       if (activeTab === 'Home') {
         const [sumResponse, reqResponse, driverResp] = await Promise.all([
           earningsService.getSummary().catch(() => ({ data: { data: null } })),
@@ -233,8 +292,14 @@ export default function App() {
           setDriver(driverResp.data.data.driver);
         }
       } else if (activeTab === 'Requests') {
-        const response = await bookingService.getRequests({ page: 1, limit: 30 });
-        setRequests(response.data?.data?.bookings || []);
+        const [reqResponse, driverResp] = await Promise.all([
+          bookingService.getRequests({ page: 1, limit: 30 }),
+          driverService.getProfile().catch(() => ({ data: { data: { driver: null } } }))
+        ]);
+        setRequests(reqResponse.data?.data?.bookings || []);
+        if (driverResp.data?.data?.driver) {
+          setDriver(driverResp.data.data.driver);
+        }
       } else if (activeTab === 'Trips') {
         const response = await bookingService.getMyBookings({ page: 1, limit: 30 });
         setTrips(response.data?.data?.bookings || []);
@@ -262,7 +327,7 @@ export default function App() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activeTab, refreshKey, user]);
+  }, [activeTab, refreshKey, user, fetchUnreadNotificationsCount]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -274,13 +339,16 @@ export default function App() {
     const socket = connectSocket(token);
     const unsubscribe = subscribeToSocketEvents((event, payload) => {
       if (event === 'socket:error') setError('Realtime connection is unavailable. Pull to refresh for updates.');
-      if (payload?.bookingId || event === 'notification:new') setRefreshKey((key) => key + 1);
+      if (payload?.bookingId || event === 'notification:new') {
+        setRefreshKey((key) => key + 1);
+        fetchUnreadNotificationsCount();
+      }
     });
     return () => {
       unsubscribe();
       disconnectSocket();
     };
-  }, [token]);
+  }, [token, fetchUnreadNotificationsCount]);
 
   useEffect(() => {
     if (activeTab !== 'Trips' || !trips.length) return;
@@ -290,8 +358,10 @@ export default function App() {
   }, [activeTab, trips]);
 
   const runAction = async (action, booking) => {
+    if (actionLoadingId) return;
     setError('');
     setNotice('');
+    setActionLoadingId(booking._id);
     try {
       const id = booking._id;
       if (action === 'accept') await bookingService.acceptBooking(id);
@@ -303,16 +373,37 @@ export default function App() {
       setRefreshKey((key) => key + 1);
     } catch (actionError) {
       setError(messageFor(actionError));
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
   const toggleOnline = async () => {
+    if (onlineLoading) return;
     setError('');
+    setNotice('');
+    const nextState = !driver?.isOnline;
+    setOnlineLoading(true);
     try {
-      const response = await driverService.updateStatus(!driver?.isOnline);
+      const response = await driverService.updateStatus(nextState);
       setDriver((current) => ({ ...current, isOnline: response.data?.data?.isOnline }));
+      setNotice(`You are now ${response.data?.data?.isOnline ? 'Online' : 'Offline'}.`);
     } catch (statusError) {
       setError(messageFor(statusError));
+    } finally {
+      setOnlineLoading(false);
+    }
+  };
+
+  const openNotifications = async () => {
+    setShowNotificationsModal(true);
+    try {
+      const res = await notificationService.getNotifications({ page: 1, limit: 30 });
+      setNotifications(res.data?.data?.notifications || []);
+      await notificationService.markAllAsRead();
+      setUnreadCount(0);
+    } catch (err) {
+      // Non-blocking
     }
   };
 
@@ -322,11 +413,19 @@ export default function App() {
   };
 
   if (!ready) {
-    return <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color={colors.primary} /></SafeAreaView>;
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </SafeAreaView>
+    );
   }
-  if (!user) return <Login onLogin={signIn} onRetry={restoreSession} initialError={error} />;
+  
+  if (!user) {
+    return <Login onLogin={signIn} onRetry={restoreSession} initialError={error} />;
+  }
 
   const driverNameDisplay = (driver?.fullName || user?.name || "DRIVER").toUpperCase();
+  const hasVehicle = profile?.vehicles && profile.vehicles.length > 0;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -338,9 +437,18 @@ export default function App() {
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: driver?.isOnline ? colors.green : colors.muted }} />
             <Text style={{ color: driver?.isOnline ? colors.green : colors.muted, fontWeight: '700', fontSize: 10 }}>{driver?.isOnline ? 'ONLINE' : 'OFFLINE'}</Text>
           </View>
-          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
+          <Pressable 
+            accessibilityLabel="Notifications"
+            onPress={openNotifications}
+            style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', position: 'relative' }}
+          >
             <Ionicons name="notifications-outline" size={20} color={colors.ink} />
-          </View>
+            {unreadCount > 0 && (
+              <View style={{ position: 'absolute', top: -2, right: -2, backgroundColor: colors.accent, borderRadius: 8, width: 16, height: 16, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: '#FFFFFF', fontSize: 9, fontWeight: '800' }}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
+          </Pressable>
         </View>
       </View>
 
@@ -349,29 +457,66 @@ export default function App() {
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100, gap: 16 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />}
       >
-        {error ? <Text accessibilityRole="alert" style={{ color: colors.danger, fontWeight: '600' }}>{error}</Text> : null}
-        {notice ? <Text style={{ color: colors.teal, fontWeight: '600' }}>{notice}</Text> : null}
+        {error ? <Text accessibilityRole="alert" style={{ color: colors.danger, fontWeight: '600', padding: 8, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 8 }}>{error}</Text> : null}
+        {notice ? <Text style={{ color: colors.teal, fontWeight: '600', padding: 8, backgroundColor: 'rgba(20, 184, 166, 0.1)', borderRadius: 8 }}>{notice}</Text> : null}
         {loading && !refreshing ? <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} /> : null}
 
         {activeTab === 'Home' && (
           <>
             <BannerCarousel audience="driver" />
 
+            {/* DRIVER WELCOME & VERIFICATION STATUS CARD */}
+            <View style={[cardStyle, { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 }]}>
+              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border }}>
+                <Ionicons name="person" size={22} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[bodyText, { fontSize: 16 }]}>{driverNameDisplay}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <View style={{
+                    width: 8, height: 8, borderRadius: 4,
+                    backgroundColor: driver?.approvalStatus === 'approved' ? colors.green : driver?.approvalStatus === 'rejected' ? colors.danger : colors.warning
+                  }} />
+                  <Text style={{ color: colors.muted, fontSize: 12, textTransform: 'capitalize' }}>
+                    Status: <Text style={{ color: colors.ink, fontWeight: '700' }}>{driver?.approvalStatus || 'pending'}</Text>
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                accessibilityLabel="Toggle online state"
+                onPress={toggleOnline}
+                disabled={driver?.approvalStatus !== 'approved' || onlineLoading}
+                style={{
+                  backgroundColor: driver?.isOnline ? colors.green : colors.surface,
+                  borderColor: driver?.isOnline ? colors.green : colors.border,
+                  borderWidth: 1,
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 20,
+                  opacity: driver?.approvalStatus !== 'approved' ? 0.5 : 1
+                }}
+              >
+                <Text style={{ color: driver?.isOnline ? '#000000' : colors.muted, fontWeight: '800', fontSize: 11 }}>
+                  {onlineLoading ? '...' : (driver?.isOnline ? 'ONLINE' : 'GO ONLINE')}
+                </Text>
+              </Pressable>
+            </View>
+
             {/* STATS (MATCHING FIGMA) */}
             <View style={{ flexDirection: 'row', gap: 12 }}>
               <View style={[cardStyle, { flex: 1, paddingVertical: 18 }]}>
-                <Text style={[labelStyle, { textTransform: 'none', fontSize: 11 }]}>Today's earnings</Text>
+                <Text style={[labelStyle, { textTransform: 'none', fontSize: 11 }]}>Total earnings</Text>
                 <Text style={{ color: colors.ink, fontSize: 28, fontWeight: '800', marginTop: 8, marginBottom: 8 }}>
-                  ₹{earningsSummary?.currentPeriodEarnings || 0}
+                  ₹{earningsSummary?.totalEarnings || 0}
                 </Text>
-                <Text style={{ color: colors.teal, fontSize: 11, fontWeight: '600' }}>↗ 18% this week</Text>
+                <Text style={{ color: colors.teal, fontSize: 11, fontWeight: '600' }}>₹{earningsSummary?.currentPeriodEarnings || 0} this month</Text>
               </View>
               <View style={[cardStyle, { flex: 1, paddingVertical: 18 }]}>
-                <Text style={[labelStyle, { textTransform: 'none', fontSize: 11 }]}>Completed</Text>
+                <Text style={[labelStyle, { textTransform: 'none', fontSize: 11 }]}>Completed trips</Text>
                 <Text style={{ color: colors.ink, fontSize: 28, fontWeight: '800', marginTop: 8, marginBottom: 8 }}>
                   {(earningsSummary?.completedTrips || 0).toString().padStart(2, '0')}
                 </Text>
-                <Text style={{ color: colors.teal, fontSize: 11, fontWeight: '600' }}>1 trip active</Text>
+                <Text style={{ color: colors.teal, fontSize: 11, fontWeight: '600' }}>Rating: {driver?.rating ? `${driver.rating} ★` : '5.0 ★'}</Text>
               </View>
             </View>
 
@@ -390,7 +535,13 @@ export default function App() {
                   </View>
                 </View>
                 {requests.slice(0, 3).map((booking) => (
-                  <BookingCard key={booking._id} booking={booking} onAction={runAction} actions={['accept', 'reject']} />
+                  <BookingCard 
+                    key={booking._id} 
+                    booking={booking} 
+                    onAction={runAction} 
+                    actions={['accept', 'reject']} 
+                    actionLoading={actionLoadingId === booking._id}
+                  />
                 ))}
               </>
             )}
@@ -405,9 +556,36 @@ export default function App() {
               </Text>
               <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Loads near you</Text>
             </View>
-            {!loading && requests.length === 0 ? <View style={[cardStyle, { alignItems: 'center', padding: 32 }]}><Text style={mutedText}>No available requests.</Text></View> : null}
+
+            {driver?.approvalStatus !== 'approved' && (
+              <View style={[cardStyle, { backgroundColor: 'rgba(245, 158, 11, 0.1)', borderColor: colors.warning, borderWidth: 1, padding: 14 }]}>
+                <Text style={{ color: colors.warning, fontSize: 13, fontWeight: '700' }}>
+                  Account Pending Approval
+                </Text>
+                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>
+                  New load requests will become visible once your account is verified by the administrator.
+                </Text>
+              </View>
+            )}
+
+            {!loading && requests.length === 0 ? (
+              <View style={[cardStyle, { alignItems: 'center', padding: 32 }]}>
+                <Ionicons name="cube-outline" size={36} color={colors.muted} style={{ marginBottom: 10 }} />
+                <Text style={bodyText}>No available requests.</Text>
+                <Text style={[mutedText, { marginTop: 4, textAlign: 'center' }]}>
+                  {driver?.isOnline ? 'Checking for new customer bookings in your vehicle category...' : 'Go online to receive real-time load requests.'}
+                </Text>
+              </View>
+            ) : null}
+
             {requests.map((booking) => (
-              <BookingCard key={booking._id} booking={booking} onAction={runAction} actions={['accept', 'reject']} />
+              <BookingCard 
+                key={booking._id} 
+                booking={booking} 
+                onAction={runAction} 
+                actions={['accept', 'reject']} 
+                actionLoading={actionLoadingId === booking._id}
+              />
             ))}
           </>
         )}
@@ -420,13 +598,22 @@ export default function App() {
               </Text>
               <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Your trips</Text>
             </View>
-            {!loading && trips.length === 0 ? <View style={[cardStyle, { alignItems: 'center', padding: 32 }]}><Text style={mutedText}>No active trips.</Text></View> : null}
+
+            {!loading && trips.length === 0 ? (
+              <View style={[cardStyle, { alignItems: 'center', padding: 32 }]}>
+                <Ionicons name="truck-outline" size={36} color={colors.muted} style={{ marginBottom: 10 }} />
+                <Text style={bodyText}>No active or completed trips.</Text>
+                <Text style={[mutedText, { marginTop: 4 }]}>Accepted trips will appear here.</Text>
+              </View>
+            ) : null}
+
             {trips.map((booking) => (
               <BookingCard
                 key={booking._id}
                 booking={booking}
                 onAction={runAction}
                 actions={booking.bookingStatus === 'accepted' ? ['start'] : booking.bookingStatus === 'in-progress' ? ['complete'] : []}
+                actionLoading={actionLoadingId === booking._id}
               />
             ))}
           </>
@@ -440,6 +627,7 @@ export default function App() {
               </Text>
               <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Your revenue</Text>
             </View>
+
             {earningsSummary ? (
               <View style={cardStyle}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 16, marginBottom: 16 }}>
@@ -451,18 +639,25 @@ export default function App() {
                    <Text style={bodyText}>₹{earningsSummary.totalEarnings ?? 0}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                   <Text style={[labelStyle, { textTransform: 'none' }]}>This period</Text>
+                   <Text style={[labelStyle, { textTransform: 'none' }]}>This month's period</Text>
                    <Text style={[bodyText, { color: colors.teal }]}>₹{earningsSummary.currentPeriodEarnings ?? 0}</Text>
                 </View>
               </View>
             ) : !loading ? <Text style={mutedText}>No earnings data available.</Text> : null}
-            <Text style={[sectionTitle, { marginTop: 12 }]}>COMPLETED TRIPS</Text>
-            {earnings.length === 0 && !loading && <Text style={mutedText}>No history.</Text>}
+
+            <Text style={[sectionTitle, { marginTop: 12, marginBottom: 4 }]}>COMPLETED TRIPS HISTORY</Text>
+            {earnings.length === 0 && !loading && (
+              <View style={[cardStyle, { alignItems: 'center', padding: 24 }]}>
+                <Text style={mutedText}>No trip history recorded yet.</Text>
+              </View>
+            )}
+
             {earnings.map((item) => (
               <View key={item._id || item.bookingId} style={[cardStyle, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-                <View>
-                  <Text style={bodyText}>{item.bookingId}</Text>
+                <View style={{ gap: 4 }}>
+                  <Text style={bodyText}>#{item.bookingId}</Text>
                   <Text style={mutedText}>{item.completedAt ? new Date(item.completedAt).toLocaleDateString() : '—'}</Text>
+                  <Text style={[labelStyle, { fontSize: 11, textTransform: 'capitalize' }]}>{item.vehicleType || 'Truck'} · {item.paymentStatus || 'paid'}</Text>
                 </View>
                 <Text style={[bodyText, { color: colors.accent, fontSize: 18 }]}>₹{item.finalFare ?? item.estimatedFare ?? 0}</Text>
               </View>
@@ -532,8 +727,8 @@ export default function App() {
                   backgroundColor: driver?.isOnline ? 'transparent' : (driver?.approvalStatus === 'approved' ? colors.primary : colors.surface),
                   borderColor: driver?.isOnline ? colors.border : (driver?.approvalStatus === 'approved' ? colors.primary : colors.border)
                 }}
-                disabled={driver?.approvalStatus !== 'approved'}
-                label={driver?.isOnline ? 'Go Offline' : 'Go Online'} 
+                disabled={driver?.approvalStatus !== 'approved' || onlineLoading}
+                label={onlineLoading ? 'Updating…' : (driver?.isOnline ? 'Go Offline' : 'Go Online')} 
                 secondary={driver?.isOnline || driver?.approvalStatus !== 'approved'}
                 onPress={toggleOnline} 
               />
@@ -574,8 +769,42 @@ export default function App() {
                   </View>
                 )}
                 
-                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 24, marginBottom: 4 }}>ASSIGNED VEHICLE & KYC</Text>
-                {(!profile.vehicles || profile.vehicles.length === 0) && <Text style={mutedText}>No vehicle assigned by agency yet.</Text>}
+                {/* KYC & Identity Verification */}
+                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 24, marginBottom: 8 }}>
+                  VERIFIED KYC DOCUMENTS
+                </Text>
+                <View style={{ gap: 8 }}>
+                  {[
+                    { label: 'Driving Licence', key: 'drivingLicense', doc: profile.documents?.drivingLicense },
+                    { label: 'Identity Proof (Aadhaar)', key: 'idProof', doc: profile.documents?.idProof },
+                    { label: 'Vehicle Registration (RC)', key: 'vehicleRegistration', doc: profile.documents?.vehicleRegistration },
+                    { label: 'Insurance Policy', key: 'insurance', doc: profile.documents?.insurance }
+                  ].map((item) => {
+                    const status = item.doc?.status || (item.doc?.url ? 'submitted' : 'not_uploaded');
+                    const statusColor = status === 'approved' ? colors.green : status === 'rejected' ? colors.danger : colors.warning;
+                    return (
+                      <View key={item.key} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, backgroundColor: colors.card2, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <Ionicons name="document-text-outline" size={18} color={colors.muted} />
+                          <Text style={[bodyText, { fontSize: 13 }]}>{item.label}</Text>
+                        </View>
+                        <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                          <Text style={{ color: statusColor, fontSize: 11, fontWeight: '700', textTransform: 'capitalize' }}>
+                            {status.replace('_', ' ')}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+
+                {/* Assigned Vehicle */}
+                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 24, marginBottom: 4 }}>
+                  ASSIGNED FLEET VEHICLE
+                </Text>
+                {(!profile.vehicles || profile.vehicles.length === 0) && (
+                  <Text style={mutedText}>No vehicle assigned by agency yet.</Text>
+                )}
                 {(profile.vehicles || []).map((item) => (
                   <View key={item._id} style={{ marginTop: 8, padding: 16, backgroundColor: colors.card2, borderRadius: 12, borderWidth: 1, borderColor: colors.border }}>
                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -600,6 +829,47 @@ export default function App() {
         )}
       </ScrollView>
 
+      {/* NOTIFICATIONS MODAL */}
+      <Modal
+        visible={showNotificationsModal}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setShowNotificationsModal(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
+          <View style={{ paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={{ color: colors.ink, fontSize: 18, fontWeight: '800' }}>Notifications</Text>
+            <Pressable 
+              accessibilityLabel="Close notifications"
+              onPress={() => setShowNotificationsModal(false)}
+              style={{ padding: 6 }}
+            >
+              <Ionicons name="close" size={24} color={colors.ink} />
+            </Pressable>
+          </View>
+          
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+            {notifications.length === 0 ? (
+              <View style={[cardStyle, { alignItems: 'center', padding: 32 }]}>
+                <Ionicons name="notifications-off-outline" size={36} color={colors.muted} style={{ marginBottom: 10 }} />
+                <Text style={bodyText}>No notifications</Text>
+                <Text style={[mutedText, { marginTop: 4 }]}>You're all caught up!</Text>
+              </View>
+            ) : null}
+
+            {notifications.map((item) => (
+              <View key={item._id} style={[cardStyle, { padding: 16, borderLeftWidth: 3, borderLeftColor: colors.primary }]}>
+                <Text style={[bodyText, { fontSize: 15 }]}>{item.title}</Text>
+                <Text style={[mutedText, { marginTop: 6, lineHeight: 18 }]}>{item.message}</Text>
+                <Text style={[labelStyle, { fontSize: 10, marginTop: 10 }]}>
+                  {item.createdAt ? new Date(item.createdAt).toLocaleString() : ''}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
       {/* BOTTOM NAVIGATION FIXED TO BOTTOM */}
       <View style={{ 
         position: 'absolute', 
@@ -618,7 +888,7 @@ export default function App() {
           return (
             <Pressable 
               key={tab.id} 
-              onPress={() => { setActiveTab(tab.id); setError(''); }} 
+              onPress={() => { setActiveTab(tab.id); setError(''); setNotice(''); }} 
               style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
             >
               {tab.family === 'MaterialCommunityIcons' ? (
@@ -645,38 +915,80 @@ export default function App() {
   );
 }
 
-function BookingCard({ booking, actions, onAction }) {
+function BookingCard({ booking, actions, onAction, actionLoading }) {
+  const pickupDateFormatted = booking.preferredPickupDate 
+    ? new Date(booking.preferredPickupDate).toLocaleDateString()
+    : null;
+  const isScheduled = booking.bookingMode === 'scheduled';
+
   return (
     <View style={cardStyle}>
       {/* HEADER ROW */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Text style={[bodyText, { fontSize: 14, color: colors.teal, fontWeight: '700' }]}>#{booking.bookingId || 'LR-REQUEST'}</Text>
-          <Text style={{ color: colors.accent, fontSize: 16, fontWeight: '800' }}>₹{booking.estimatedFare ?? 0}</Text>
+          <Text style={{ color: colors.accent, fontSize: 16, fontWeight: '800' }}>₹{booking.finalFare || booking.estimatedFare || 0}</Text>
         </View>
-        <Text style={{ color: colors.muted, fontSize: 11, fontWeight: '600' }}>2 min ago</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          {isScheduled && (
+            <View style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+              <Text style={{ color: colors.warning, fontSize: 10, fontWeight: '700' }}>SCHEDULED</Text>
+            </View>
+          )}
+          <Text style={{ color: colors.muted, fontSize: 11, fontWeight: '600', textTransform: 'capitalize' }}>
+            {booking.bookingStatus}
+          </Text>
+        </View>
       </View>
+
+      {/* SCHEDULED TIME DETAILS */}
+      {isScheduled && pickupDateFormatted && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
+          <Ionicons name="calendar-outline" size={14} color={colors.warning} />
+          <Text style={{ color: colors.warning, fontSize: 12, fontWeight: '600' }}>
+            Pickup: {pickupDateFormatted} {booking.preferredPickupTime ? `at ${booking.preferredPickupTime}` : ''}
+          </Text>
+        </View>
+      )}
       
       {/* LOCATIONS */}
-      <View style={{ gap: 4, marginTop: 16 }}>
-        <Text style={bodyText} numberOfLines={1}>{booking.pickup?.address || '—'}</Text>
-        <View style={{ width: 1, height: 12, backgroundColor: colors.border, marginLeft: 0, marginTop: 2, marginBottom: 2 }} />
-        <Text style={bodyText} numberOfLines={1}>{booking.drop?.address || '—'}</Text>
+      <View style={{ gap: 4, marginTop: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.green, marginTop: 5 }} />
+          <Text style={[bodyText, { flex: 1 }]} numberOfLines={2}>{booking.pickup?.address || 'Pickup location'}</Text>
+        </View>
+        <View style={{ width: 1, height: 10, backgroundColor: colors.border, marginLeft: 3 }} />
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent, marginTop: 5 }} />
+          <Text style={[bodyText, { flex: 1 }]} numberOfLines={2}>{booking.drop?.address || 'Drop location'}</Text>
+        </View>
       </View>
       
-      <Text style={[mutedText, { fontSize: 12, marginTop: 16 }]}>{booking.distance || '18.6 km'} · {booking.goods || 'Packaged goods'} · {booking.weight?.value || '1.2'} {booking.weight?.unit || 't'}</Text>
+      {/* SPECIFICATIONS */}
+      <Text style={[mutedText, { fontSize: 12, marginTop: 14 }]}>
+        {booking.vehicleType || 'Truck'} · {booking.goods || 'General Cargo'} · {booking.weight?.value || 0} {booking.weight?.unit || 'kg'}
+        {booking.distanceKm ? ` · ${booking.distanceKm} km` : ''}
+      </Text>
+
+      {/* CUSTOMER NOTE */}
+      {booking.customerNote ? (
+        <View style={{ marginTop: 8, padding: 8, backgroundColor: colors.card2, borderRadius: 6 }}>
+          <Text style={[mutedText, { fontSize: 11 }]}>Note: {booking.customerNote}</Text>
+        </View>
+      ) : null}
 
       {/* ACTIONS */}
       {actions.length > 0 && (
-        <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 18 }}>
           {actions.map((action) => {
             const isReject = action === 'reject';
             const label = action === 'accept' ? 'Accept load' : action === 'start' ? 'Start Trip' : action === 'complete' ? 'Complete Trip' : 'Reject';
             return (
               <View key={action} style={!isReject ? { flex: 2 } : { flex: 1 }}>
                 <ActionButton
-                  label={label}
+                  label={actionLoading ? 'Processing…' : label}
                   secondary={isReject}
+                  disabled={actionLoading}
                   onPress={() => onAction(action, booking)}
                   textStyle={!isReject ? { color: '#000000', fontWeight: '800' } : {}}
                 />
