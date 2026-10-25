@@ -105,7 +105,7 @@ export default function DriverDetails() {
                   ) : (
                     <p>This document has no authorized private preview available.</p>
                   )}
-                  {status === 'pending' && (
+                  {status === 'pending' && driver.canReviewDocuments && (
                     <div style={{ display: 'grid', gap: 8, marginTop: 14 }}>
                       <label>
                         Rejection reason
@@ -126,6 +126,9 @@ export default function DriverDetails() {
                         </button>
                       </div>
                     </div>
+                  )}
+                  {status === 'pending' && !driver.canReviewDocuments && (
+                    <p>Only the designated Super Admin can approve or reject this document.</p>
                   )}
                 </article>
               );

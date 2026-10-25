@@ -143,7 +143,7 @@ export default function VehicleDetails() {
                   ) : (
                     <p>This document has no authorized private preview available.</p>
                   )}
-                  {status === 'pending' && (
+                  {status === 'pending' && vehicle?.canReviewDocuments && (
                     <div style={{ display: 'grid', gap: 8, marginTop: 14 }}>
                       <label>
                         Rejection reason
@@ -164,6 +164,9 @@ export default function VehicleDetails() {
                         </button>
                       </div>
                     </div>
+                  )}
+                  {status === 'pending' && !vehicle?.canReviewDocuments && (
+                    <p>Only the designated Super Admin can approve or reject this document.</p>
                   )}
                 </article>
               );

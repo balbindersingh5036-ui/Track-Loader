@@ -6,6 +6,7 @@ import { errorResponse, successResponse } from "../utils/response.js";
 import { parsePagination } from "../utils/pagination.js";
 import { hasApprovedDriverIdentityDocuments } from "../utils/driverEligibility.js";
 import { extractCloudinaryAssetInfo } from "../utils/documentSigner.js";
+import { isDesignatedSuperAdmin } from "../utils/superAdmin.js";
 
 const safeDriver = (driver, vehicles = []) => ({
   id: driver._id,
@@ -154,6 +155,7 @@ export const getAdminDriverById = async (req, res) => {
 
     driverData.documents = docs;
     driverData.agency = driver.agency || null;
+    driverData.canReviewDocuments = isDesignatedSuperAdmin(req.user);
 
     return successResponse(res, {
       driver: driverData

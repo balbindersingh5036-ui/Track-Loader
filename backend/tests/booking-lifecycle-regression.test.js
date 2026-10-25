@@ -33,11 +33,12 @@ const query = (value) => ({
   then(resolve, reject) { return Promise.resolve(value).then(resolve, reject); }
 });
 
-test("approved driver with approvalStatus can fetch eligible booking requests", async (t) => {
+test("approved independent driver with approved identity and vehicle documents can fetch requests", async (t) => {
   t.mock.method(Driver, "findOne", async () => ({
     _id: driverId,
     approvalStatus: "approved",
     isActive: true,
+    agency: null,
     documents: {
       idProof: { status: "approved" },
       drivingLicense: { status: "approved" }
@@ -47,6 +48,7 @@ test("approved driver with approvalStatus can fetch eligible booking requests", 
     vehicleType: "mini-truck",
     isActive: true,
     isAvailable: true,
+    agency: null,
     documents: {
       registration: { status: "approved" },
       insurance: { status: "approved" }
@@ -61,6 +63,60 @@ test("approved driver with approvalStatus can fetch eligible booking requests", 
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.success, true);
   assert.deepEqual(res.body.data.bookings, []);
+});
+
+test("booking requests reject drivers with pending or rejected identity documents", async (t) => {
+  const driver = {
+    _id: driverId,
+    approvalStatus: "approved",
+    isActive: true,
+    agency: null,
+    documents: {
+      idProof: { status: "pending" },
+      drivingLicense: { status: "approved" }
+    }
+  };
+  t.mock.method(Driver, "findOne", async () => driver);
+
+  for (const [field, status] of [
+    ["idProof", "pending"],
+    ["drivingLicense", "rejected"]
+  ]) {
+    driver.documents[field].status = status;
+    const res = response();
+    await getDriverRequests({ user: { _id: userId }, query: { page: "1", limit: "10" } }, res);
+
+    assert.equal(res.statusCode, 403);
+    assert.equal(res.body.message, "Not active, approved, or identity-verified");
+  }
+});
+
+test("booking request eligibility also requires approved active driver account", async (t) => {
+  const driver = {
+    _id: driverId,
+    approvalStatus: "approved",
+    isActive: true,
+    agency: null,
+    documents: {
+      idProof: { status: "approved" },
+      drivingLicense: { status: "approved" }
+    }
+  };
+  t.mock.method(Driver, "findOne", async () => driver);
+
+  for (const update of [
+    { approvalStatus: "pending" },
+    { approvalStatus: "suspended" },
+    { isActive: false }
+  ]) {
+    Object.assign(driver, update);
+    const res = response();
+    await getDriverRequests({ user: { _id: userId }, query: {} }, res);
+    assert.equal(res.statusCode, 403);
+    assert.equal(res.body.message, "Not active, approved, or identity-verified");
+    driver.approvalStatus = "approved";
+    driver.isActive = true;
+  }
 });
 
 test("trip completion copies estimated fare without an invalid update expression", async (t) => {

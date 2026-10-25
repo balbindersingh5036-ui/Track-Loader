@@ -24,6 +24,7 @@ import earningsService from './src/services/earningsService';
 import notificationService from './src/services/notificationService';
 import { connectSocket, disconnectSocket, joinBookingRoom, subscribeToSocketEvents } from './src/services/socketService';
 import { getToken, removeToken, saveToken } from './src/utils/authStorage';
+import { getDriverBookingEligibility } from './src/utils/driverBookingEligibility.mjs';
 import LoadBalbinLogo from './src/components/LoadBalbinLogo';
 import BannerCarousel from './src/components/BannerCarousel';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -194,6 +195,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('Home');
   const [driver, setDriver] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [bookingEligibility, setBookingEligibility] = useState(null);
   const [requests, setRequests] = useState([]);
   const [trips, setTrips] = useState([]);
   const [earnings, setEarnings] = useState([]);
@@ -220,6 +222,7 @@ export default function App() {
     setUser(null);
     setDriver(null);
     setProfile(null);
+    setBookingEligibility(null);
     setRequests([]);
     setTrips([]);
     setEarnings([]);
@@ -293,26 +296,31 @@ export default function App() {
     try {
       fetchUnreadNotificationsCount();
 
-      if (activeTab === 'Home') {
-        const [sumResponse, reqResponse, driverResp] = await Promise.all([
-          earningsService.getSummary().catch(() => ({ data: { data: null } })),
-          bookingService.getRequests({ page: 1, limit: 10 }).catch(() => ({ data: { data: { bookings: [] } } })),
-          driverService.getProfile().catch(() => ({ data: { data: { driver: null } } }))
-        ]);
-        setEarningsSummary(sumResponse.data?.data || null);
-        setRequests(reqResponse.data?.data?.bookings || []);
-        if (driverResp.data?.data?.driver) {
-          setDriver(driverResp.data.data.driver);
+      if (activeTab === 'Home' || activeTab === 'Requests') {
+        setRequests([]);
+        setBookingEligibility(null);
+        const driverResponse = await driverService.getProfile();
+        const freshDriver = driverResponse.data?.data?.driver || null;
+        const eligibility = getDriverBookingEligibility(freshDriver);
+        setDriver(freshDriver);
+        setBookingEligibility(eligibility);
+        setProfile((current) => current && freshDriver
+          ? { ...current, ...freshDriver }
+          : current);
+
+        if (activeTab === 'Home') {
+          const summaryResponse = await earningsService.getSummary()
+            .catch(() => ({ data: { data: null } }));
+          setEarningsSummary(summaryResponse.data?.data || null);
         }
-      } else if (activeTab === 'Requests') {
-        const [reqResponse, driverResp] = await Promise.all([
-          bookingService.getRequests({ page: 1, limit: 30 }),
-          driverService.getProfile().catch(() => ({ data: { data: { driver: null } } }))
-        ]);
+
+        if (!eligibility.eligible) return;
+
+        const reqResponse = await bookingService.getRequests({
+          page: 1,
+          limit: activeTab === 'Home' ? 10 : 30
+        });
         setRequests(reqResponse.data?.data?.bookings || []);
-        if (driverResp.data?.data?.driver) {
-          setDriver(driverResp.data.data.driver);
-        }
       } else if (activeTab === 'Trips') {
         const response = await bookingService.getMyBookings({ page: 1, limit: 30 });
         setTrips(response.data?.data?.bookings || []);
@@ -330,6 +338,7 @@ export default function App() {
         ]);
         const driverProfile = driverResponse.data?.data?.driver || null;
         setDriver(driverProfile);
+        setBookingEligibility(getDriverBookingEligibility(driverProfile));
         setProfile(driverProfile
           ? { ...driverProfile, vehicles: vehicleResponse.data?.data?.vehicles || [] }
           : null);
@@ -561,6 +570,48 @@ export default function App() {
 
   const driverNameDisplay = (driver?.fullName || user?.name || "DRIVER").toUpperCase();
   const hasVehicle = profile?.vehicles && profile.vehicles.length > 0;
+  const renderBookingEligibility = () => {
+    if (!bookingEligibility || bookingEligibility.eligible) return null;
+    return (
+      <View style={[cardStyle, { borderColor: colors.warning, borderWidth: 1, gap: 8 }]}>
+        <Text style={{ color: colors.warning, fontSize: 15, fontWeight: '800' }}>
+          {bookingEligibility.title}
+        </Text>
+        <Text style={[mutedText, { fontSize: 12, lineHeight: 18 }]}>
+          {bookingEligibility.message}
+        </Text>
+        <Text style={[mutedText, { fontSize: 11 }]}>
+          Account: {driver?.approvalStatus || 'Profile unavailable'}{driver?.isActive === false ? ' · Inactive' : ''}
+        </Text>
+        {[
+          { label: 'Identity Proof (Aadhaar)', key: 'idProof' },
+          { label: 'Driving Licence', key: 'drivingLicense' }
+        ].map(({ label, key }) => {
+          const document = driver?.documents?.[key];
+          const status = document?.status || 'not_uploaded';
+          return (
+            <View key={key} style={{ gap: 2 }}>
+              <Text style={[mutedText, { fontSize: 11 }]}>
+                {label}: {documentStatusLabel(status)}
+              </Text>
+              {status === 'rejected' && document?.rejectionReason ? (
+                <Text style={{ color: colors.danger, fontSize: 11 }}>
+                  Reason: {document.rejectionReason}
+                </Text>
+              ) : null}
+            </View>
+          );
+        })}
+        <ActionButton
+          label="Open Profile"
+          secondary
+          onPress={() => setActiveTab('Profile')}
+          style={{ alignSelf: 'flex-start', paddingVertical: 9 }}
+          textStyle={{ fontSize: 12 }}
+        />
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -655,6 +706,8 @@ export default function App() {
               </View>
             </View>
 
+            {renderBookingEligibility()}
+
             {requests.length > 0 && (
               <>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 12, marginBottom: 8 }}>
@@ -692,18 +745,9 @@ export default function App() {
               <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Loads near you</Text>
             </View>
 
-            {driver?.approvalStatus !== 'approved' && (
-              <View style={[cardStyle, { backgroundColor: 'rgba(245, 158, 11, 0.1)', borderColor: colors.warning, borderWidth: 1, padding: 14 }]}>
-                <Text style={{ color: colors.warning, fontSize: 13, fontWeight: '700' }}>
-                  Account Pending Approval
-                </Text>
-                <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>
-                  New load requests will become visible once your account is verified by the administrator.
-                </Text>
-              </View>
-            )}
+            {renderBookingEligibility()}
 
-            {!loading && requests.length === 0 ? (
+            {!loading && bookingEligibility?.eligible && requests.length === 0 ? (
               <View style={[cardStyle, { alignItems: 'center', padding: 32 }]}>
                 <Ionicons name="cube-outline" size={36} color={colors.muted} style={{ marginBottom: 10 }} />
                 <Text style={bodyText}>No available requests.</Text>
@@ -1178,7 +1222,13 @@ export default function App() {
           return (
             <Pressable 
               key={tab.id} 
-              onPress={() => { setActiveTab(tab.id); setError(''); setNotice(''); }} 
+              onPress={() => {
+                const returningFromProfile = activeTab === 'Profile' && tab.id !== 'Profile';
+                setActiveTab(tab.id);
+                if (returningFromProfile) setRefreshKey((key) => key + 1);
+                setError('');
+                setNotice('');
+              }}
               style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
             >
               {tab.family === 'MaterialCommunityIcons' ? (

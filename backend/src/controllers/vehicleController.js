@@ -5,6 +5,7 @@ import Vehicle from "../models/Vehicle.js";
 import { errorResponse, successResponse } from "../utils/response.js";
 import { sanitizeVehicleDocumentResponse } from "../utils/vehicleDocumentResponse.js";
 import { extractCloudinaryAssetInfo } from "../utils/documentSigner.js";
+import { isDesignatedSuperAdmin } from "../utils/superAdmin.js";
 
 const vehicleTypes = Vehicle.schema.path("vehicleType").enumValues;
 const bodyTypes = Vehicle.schema.path("bodyType").enumValues;
@@ -459,7 +460,10 @@ export const getAdminVehicleById = async (req, res) => {
       return errorResponse(res, "Vehicle not found", 404);
     }
     return successResponse(res, {
-      vehicle: sanitizeVehicleDocumentResponse(vehicle, { includeSignedUrls: true })
+      vehicle: {
+        ...sanitizeVehicleDocumentResponse(vehicle, { includeSignedUrls: true }),
+        canReviewDocuments: isDesignatedSuperAdmin(req.user)
+      }
     }, "Vehicle fetched successfully");
   } catch (error) {
     return handleError(res, error, "Fetch admin vehicle");

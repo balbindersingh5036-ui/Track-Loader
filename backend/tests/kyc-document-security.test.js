@@ -9,11 +9,13 @@ import Driver from "../src/models/Driver.js";
 import cloudinary from "../src/config/cloudinary.js";
 import { generateToken } from "../src/utils/generateToken.js";
 import { generateSignedDocumentUrl } from "../src/utils/documentSigner.js";
+import { env } from "../src/config/env.js";
 
 describe("KYC Document Security & Real Cloudinary Delivery Verification", () => {
   const timestamp = Date.now();
 
   let adminUser, adminToken;
+  let regularAdminUser, regularAdminToken;
   let customerUser, customerToken;
   let agencyAOwner, agencyAToken, agencyA;
   let agencyBOwner, agencyBToken, agencyB;
@@ -23,6 +25,7 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
   // Real Cloudinary test asset created for live CDN verification
   let liveCloudinaryAsset = null;
   const workflowUploadAssets = [];
+  const originalSuperAdminUserId = env.superAdminUserId;
 
   before(async () => {
     if (mongoose.connection.readyState === 0) {
@@ -54,6 +57,15 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
       password: "password123"
     });
     adminToken = generateToken({ userId: adminUser._id, role: "admin" });
+    env.superAdminUserId = adminUser._id.toString();
+
+    regularAdminUser = await User.create({
+      name: "Regular Admin",
+      phone: `+9199010${timestamp.toString().slice(-5)}`,
+      role: "admin",
+      password: "password123"
+    });
+    regularAdminToken = generateToken({ userId: regularAdminUser._id, role: "admin" });
 
     // 2. Create Customer
     customerUser = await User.create({
@@ -194,7 +206,8 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
     }
     await Agency.deleteMany({ _id: { $in: [agencyA?._id, agencyB?._id] } });
     await Driver.deleteMany({ _id: { $in: [driverA?._id, driverB?._id] } });
-    await User.deleteMany({ _id: { $in: [adminUser?._id, customerUser?._id, agencyAOwner?._id, agencyBOwner?._id, driverAUser?._id, driverBUser?._id] } });
+    await User.deleteMany({ _id: { $in: [adminUser?._id, regularAdminUser?._id, customerUser?._id, agencyAOwner?._id, agencyBOwner?._id, driverAUser?._id, driverBUser?._id] } });
+    env.superAdminUserId = originalSuperAdminUserId;
     if (mongoose.connection.readyState !== 0) {
       await mongoose.connection.close();
     }
@@ -332,6 +345,37 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
     driverA = await Driver.findById(driverA._id);
     workflowUploadAssets.push({ public_id: driverA.documents.idProof.publicId, resource_type: "image" });
 
+    for (const token of [customerToken, agencyAToken, driverBToken, regularAdminToken]) {
+      const unauthorizedReview = await request(app)
+        .patch(`/api/admin/drivers/${driverA._id}/documents/idProof/approve`)
+        .set("Authorization", `Bearer ${token}`)
+        .send({});
+      assert.equal(unauthorizedReview.status, 403);
+    }
+    driverA = await Driver.findById(driverA._id);
+    assert.equal(driverA.documents.idProof.status, "pending");
+
+    const superAdminDetails = await request(app)
+      .get(`/api/admin/drivers/${driverA._id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    assert.equal(superAdminDetails.status, 200);
+    assert.equal(superAdminDetails.body.data.driver.canReviewDocuments, true);
+    assert.ok(superAdminDetails.body.data.driver.documents.idProof.viewUrl);
+
+    const regularAdminDetails = await request(app)
+      .get(`/api/admin/drivers/${driverA._id}`)
+      .set("Authorization", `Bearer ${regularAdminToken}`);
+    assert.equal(regularAdminDetails.status, 200);
+    assert.equal(regularAdminDetails.body.data.driver.canReviewDocuments, false);
+
+    env.superAdminUserId = "";
+    const notConfigured = await request(app)
+      .patch(`/api/admin/drivers/${driverA._id}/documents/idProof/approve`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({});
+    assert.equal(notConfigured.status, 503);
+    env.superAdminUserId = adminUser._id.toString();
+
     const rejected = await request(app)
       .patch(`/api/admin/drivers/${driverA._id}/documents/idProof/reject`)
       .set("Authorization", `Bearer ${adminToken}`)
@@ -351,5 +395,14 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
       .send({});
     assert.equal(approved.status, 200);
     assert.equal(approved.body.data.document.status, "approved");
+
+    driverA = await Driver.findById(driverA._id);
+    assert.equal(driverA.documents.idProof.status, "approved");
+    const profile = await request(app)
+      .get("/api/driver/profile")
+      .set("Authorization", `Bearer ${driverAToken}`);
+    assert.equal(profile.status, 200);
+    assert.equal(profile.body.data.driver.documents.idProof.status, "approved");
+    assert.equal("url" in profile.body.data.driver.documents.idProof, false);
   });
 });
