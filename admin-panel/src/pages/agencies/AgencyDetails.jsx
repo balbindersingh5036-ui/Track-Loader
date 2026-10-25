@@ -181,10 +181,10 @@ export default function AgencyDetails() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <div>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>Owner Aadhaar Document:</div>
-              {(docs.ownerAadhaar?.viewUrl || docs.ownerAadhaar?.url) ? (
+              {docs.ownerAadhaar?.viewUrl ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <a
-                    href={docs.ownerAadhaar.viewUrl || docs.ownerAadhaar.url}
+                    href={docs.ownerAadhaar.viewUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-primary"
@@ -201,10 +201,10 @@ export default function AgencyDetails() {
 
             <div>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>Business Registration / Trade Licence:</div>
-              {(docs.businessRegistration?.viewUrl || docs.businessRegistration?.url) ? (
+              {docs.businessRegistration?.viewUrl ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <a
-                    href={docs.businessRegistration.viewUrl || docs.businessRegistration.url}
+                    href={docs.businessRegistration.viewUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn"
@@ -221,10 +221,10 @@ export default function AgencyDetails() {
 
             <div>
               <div style={{ fontWeight: 600, marginBottom: 4 }}>Tax ID / GST Document:</div>
-              {(docs.taxId?.viewUrl || docs.taxId?.url) ? (
+              {docs.taxId?.viewUrl ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <a
-                    href={docs.taxId.viewUrl || docs.taxId.url}
+                    href={docs.taxId.viewUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn"
@@ -281,8 +281,8 @@ export default function AgencyDetails() {
                       </span>
                     </td>
                     <td>
-                      {(d.documents?.idProof?.viewUrl || d.documents?.idProof?.url) ? (
-                        <a href={d.documents.idProof.viewUrl || d.documents.idProof.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                      {d.documents?.idProof?.viewUrl ? (
+                        <a href={d.documents.idProof.viewUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>
                           View Aadhaar
                         </a>
                       ) : (
@@ -290,8 +290,8 @@ export default function AgencyDetails() {
                       )}
                     </td>
                     <td>
-                      {(d.documents?.drivingLicense?.viewUrl || d.documents?.drivingLicense?.url) ? (
-                        <a href={d.documents.drivingLicense.viewUrl || d.documents.drivingLicense.url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                      {d.documents?.drivingLicense?.viewUrl ? (
+                        <a href={d.documents.drivingLicense.viewUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', fontWeight: 600 }}>
                           View Licence
                         </a>
                       ) : (

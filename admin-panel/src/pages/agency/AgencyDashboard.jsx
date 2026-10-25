@@ -103,6 +103,37 @@ export default function AgencyDashboard() {
       return;
     }
 
+    if (purpose === 'aadhaar' || purpose === 'drivingLicense') {
+      if (setter === setDocModal && docModal.driverId) {
+        try {
+          setUploadingDoc(targetField);
+          const docType = purpose === 'aadhaar' ? 'idProof' : 'drivingLicense';
+          await agencyService.uploadDriverDocument(docModal.driverId, docType, file);
+          setter(prev => ({
+            ...prev,
+            [targetField]: 'uploaded',
+            [`${targetField}_fileName`]: file.name,
+            error: ''
+          }));
+        } catch (uploadErr) {
+          setter(prev => ({
+            ...prev,
+            error: uploadErr.response?.data?.message || uploadErr.message || 'Secure document upload failed'
+          }));
+        } finally {
+          setUploadingDoc('');
+        }
+      } else {
+        setter(prev => ({
+          ...prev,
+          [targetField]: file.name,
+          [`${targetField}_file`]: file,
+          [`${targetField}_fileName`]: file.name
+        }));
+      }
+      return;
+    }
+
     try {
       setUploadingDoc(targetField);
       const res = await agencyService.uploadFile(file, purpose);
@@ -125,6 +156,33 @@ export default function AgencyDashboard() {
       alert(uploadErr.response?.data?.message || uploadErr.message || 'File upload failed');
     } finally {
       setUploadingDoc('');
+    }
+  };
+
+  const handleVehicleDocumentUpload = async (event, vehicleId, docType) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size exceeds 5MB limit. Please choose a smaller file.');
+      event.target.value = '';
+      return;
+    }
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowedMimeTypes.includes(file.type.toLowerCase())) {
+      alert('Choose a JPEG, PNG, WebP, or PDF document.');
+      event.target.value = '';
+      return;
+    }
+    const key = `vehicle-${vehicleId}-${docType}`;
+    try {
+      setUploadingDoc(key);
+      await agencyService.uploadVehicleDocument(vehicleId, docType, file);
+      await loadData();
+    } catch (uploadErr) {
+      alert(uploadErr.response?.data?.message || uploadErr.message || 'Secure vehicle document upload failed');
+    } finally {
+      setUploadingDoc('');
+      event.target.value = '';
     }
   };
 
@@ -278,30 +336,18 @@ export default function AgencyDashboard() {
         phone: newDriver.phone,
         email: newDriver.email,
         password: newDriver.password,
-        address: newDriver.address || '',
-        documents: {}
+        address: newDriver.address || ''
       };
 
-      if (newDriver.aadhaarUrl) {
-        payload.documents.idProof = {
-          url: newDriver.aadhaarUrl,
-          publicId: newDriver.aadhaarUrl_publicId || '',
-          resourceType: newDriver.aadhaarUrl_resourceType || 'image',
-          format: newDriver.aadhaarUrl_format || 'pdf',
-          status: 'pending'
-        };
+      const response = await agencyService.createAgencyDriver(payload);
+      const createdDriverId = response.data?.data?.driver?._id;
+      if (!createdDriverId) throw new Error('Driver was created, but the API did not return its identifier.');
+      if (newDriver.aadhaarUrl_file) {
+        await agencyService.uploadDriverDocument(createdDriverId, 'idProof', newDriver.aadhaarUrl_file);
       }
-      if (newDriver.dlUrl) {
-        payload.documents.drivingLicense = {
-          url: newDriver.dlUrl,
-          publicId: newDriver.dlUrl_publicId || '',
-          resourceType: newDriver.dlUrl_resourceType || 'image',
-          format: newDriver.dlUrl_format || 'pdf',
-          status: 'pending'
-        };
+      if (newDriver.dlUrl_file) {
+        await agencyService.uploadDriverDocument(createdDriverId, 'drivingLicense', newDriver.dlUrl_file);
       }
-
-      await agencyService.createAgencyDriver(payload);
       setNewDriver({
         fullName: '',
         phone: '',
@@ -314,7 +360,7 @@ export default function AgencyDashboard() {
       setNewDriverModal(false);
       await loadData();
     } catch (err) {
-      alert(err.response?.data?.message || err.message || 'Failed to register driver');
+      alert(err.response?.data?.message || err.message || 'Driver registration or secure document upload failed');
     } finally {
       setCreatingDriver(false);
     }
@@ -332,22 +378,6 @@ export default function AgencyDashboard() {
 
     try {
       setDocModal(prev => ({ ...prev, updating: true, error: '', success: '' }));
-      await agencyService.updateDriverDocuments(docModal.driverId, {
-        idProof: {
-          url: docModal.aadhaarUrl,
-          publicId: docModal.aadhaarUrl_publicId || '',
-          resourceType: docModal.aadhaarUrl_resourceType || 'image',
-          format: docModal.aadhaarUrl_format || 'pdf',
-          status: 'pending'
-        },
-        drivingLicense: {
-          url: docModal.dlUrl,
-          publicId: docModal.dlUrl_publicId || '',
-          resourceType: docModal.dlUrl_resourceType || 'image',
-          format: docModal.dlUrl_format || 'pdf',
-          status: 'pending'
-        }
-      });
       setDocModal(prev => ({ ...prev, updating: false, success: 'Driver documents successfully saved and queued for Super Admin review!' }));
       await loadData();
       setTimeout(() => {
@@ -1147,6 +1177,7 @@ export default function AgencyDashboard() {
                     <th>Body</th>
                     <th>Assigned Driver</th>
                     <th>Status</th>
+                    <th>RC &amp; Insurance</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -1195,6 +1226,30 @@ export default function AgencyDashboard() {
                         )}
                       </td>
                       <td>
+                        {[
+                          { key: 'registration', label: 'RC' },
+                          { key: 'insurance', label: 'Insurance' }
+                        ].map((document) => (
+                          <div key={document.key} style={{ marginBottom: 6 }}>
+                            <div style={{ fontSize: 11, marginBottom: 3 }}>
+                              {document.label}: {v.documents?.[document.key]?.status || 'not uploaded'}
+                              {v.documents?.[document.key]?.rejectionReason ? ` — ${v.documents[document.key].rejectionReason}` : ''}
+                            </div>
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,application/pdf"
+                              aria-label={`Upload or replace ${document.label} for ${v.vehicleNumber}`}
+                              disabled={uploadingDoc === `vehicle-${v._id}-${document.key}`}
+                              onChange={(event) => handleVehicleDocumentUpload(event, v._id, document.key)}
+                              style={{ maxWidth: 190, fontSize: 11 }}
+                            />
+                            {uploadingDoc === `vehicle-${v._id}-${document.key}` ? (
+                              <div style={{ fontSize: 10, color: 'var(--primary)' }}>Uploading privately…</div>
+                            ) : null}
+                          </div>
+                        ))}
+                      </td>
+                      <td>
                         <div style={{ display: 'flex', gap: 6 }}>
                           <button
                             type="button"
@@ -1217,11 +1272,18 @@ export default function AgencyDashboard() {
                           <button
                             type="button"
                             className="btn btn-outline btn-sm"
+                            disabled={v.documents?.registration?.status !== 'approved' || v.documents?.insurance?.status !== 'approved'}
+                            title="Both vehicle documents must be approved before assignment."
                             onClick={() => setAssignModal({ open: true, vehicleId: v._id, driverId: v.driver?._id || '', assigning: false })}
                           >
                             Assign Driver
                           </button>
                         </div>
+                        {(v.documents?.registration?.status !== 'approved' || v.documents?.insurance?.status !== 'approved') ? (
+                          <div style={{ marginTop: 5, fontSize: 10, color: 'var(--text-secondary)' }}>
+                            Assignment unlocks after RC and insurance approval.
+                          </div>
+                        ) : null}
                       </td>
                     </tr>
                   ))}
@@ -1543,13 +1605,9 @@ export default function AgencyDashboard() {
                     />
                     {uploadingDoc === 'aadhaarUrl' && <span style={{ fontSize: 11, color: 'var(--primary)' }}>Uploading to vault…</span>}
                   </div>
-                  <input
-                    type="url"
-                    value={newDriver.aadhaarUrl}
-                    onChange={(e) => setNewDriver({ ...newDriver, aadhaarUrl: e.target.value })}
-                    placeholder="Or enter secure URL: https://.../driver-aadhaar.pdf"
-                    style={{ fontSize: 12 }}
-                  />
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                    {newDriver.aadhaarUrl ? `Selected: ${newDriver.aadhaarUrl}` : 'Select a local file. The document uploads after the driver account is created.'}
+                  </span>
                 </div>
                 <div className="form-group">
                   <label style={{ fontSize: 12 }}>Driver Driving Licence (PDF / Image)</label>
@@ -1561,13 +1619,9 @@ export default function AgencyDashboard() {
                     />
                     {uploadingDoc === 'dlUrl' && <span style={{ fontSize: 11, color: 'var(--primary)' }}>Uploading to vault…</span>}
                   </div>
-                  <input
-                    type="url"
-                    value={newDriver.dlUrl}
-                    onChange={(e) => setNewDriver({ ...newDriver, dlUrl: e.target.value })}
-                    placeholder="Or enter secure URL: https://.../driver-dl.pdf"
-                    style={{ fontSize: 12 }}
-                  />
+                  <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                    {newDriver.dlUrl ? `Selected: ${newDriver.dlUrl}` : 'Select a local file. The document uploads after the driver account is created.'}
+                  </span>
                 </div>
               </div>
 
@@ -1720,22 +1774,9 @@ export default function AgencyDashboard() {
               <button type="button" onClick={() => setNewVehicleModal(false)} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6b7280' }}>&times;</button>
             </div>
             <form onSubmit={handleCreateVehicle} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <div className="form-group">
-                <label>Assign Driver *</label>
-                <select
-                  required
-                  value={newVehicle.driverId}
-                  onChange={(e) => setNewVehicle({ ...newVehicle, driverId: e.target.value })}
-                  style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
-                >
-                  <option value="">Select an agency driver...</option>
-                  {drivers.map(d => (
-                    <option key={d._id} value={d._id}>
-                      {d.fullName || d.user?.name} ({d.approvalStatus})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: 13 }}>
+                Upload the RC and insurance after creating this vehicle. A driver can be assigned after both documents and the driver's identity records are approved.
+              </p>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div className="form-group">
@@ -1987,7 +2028,11 @@ export default function AgencyDashboard() {
                 >
                   <option value="">Choose driver...</option>
                   {drivers.map(d => (
-                    <option key={d._id} value={d._id}>
+                    <option
+                      key={d._id}
+                      value={d._id}
+                      disabled={d.approvalStatus !== 'approved' || d.documents?.idProof?.status !== 'approved' || d.documents?.drivingLicense?.status !== 'approved'}
+                    >
                       {d.fullName || d.user?.name} ({d.approvalStatus})
                     </option>
                   ))}

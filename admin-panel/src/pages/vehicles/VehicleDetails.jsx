@@ -14,6 +14,8 @@ export default function VehicleDetails() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [reviewReasons, setReviewReasons] = useState({});
+  const [reviewing, setReviewing] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -68,6 +70,31 @@ export default function VehicleDetails() {
     }
   };
 
+  const reviewDocument = async (docType, action) => {
+    if (reviewing) return;
+    const reason = (reviewReasons[docType] || '').trim();
+    if (action === 'reject' && !reason) {
+      setError('Enter a reason before rejecting this document.');
+      return;
+    }
+    setReviewing(docType);
+    setError('');
+    setNotice('');
+    try {
+      await api.patch(
+        `/admin/vehicles/${encodeURIComponent(id)}/documents/${docType}/${action}`,
+        action === 'reject' ? { reason } : {}
+      );
+      const response = await api.get(`/admin/vehicles/${encodeURIComponent(id)}`);
+      setVehicle(response.data?.data?.vehicle || vehicle);
+      setNotice(`Vehicle ${docType} document ${action === 'approve' ? 'approved' : 'rejected'}.`);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || requestError.message || 'Unable to update vehicle document verification.');
+    } finally {
+      setReviewing('');
+    }
+  };
+
   return (
     <section className="card">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -89,6 +116,59 @@ export default function VehicleDetails() {
             <label>Body type<select value={form.bodyType} onChange={(event) => update('bodyType', event.target.value)}>{bodies.map((body) => <option key={body}>{body}</option>)}</select></label>
             <button type="submit" className="btn" disabled={saving}>{saving ? 'Saving…' : 'Save vehicle details'}</button>
           </form>
+          <h3 style={{ marginTop: 28 }}>Vehicle documents</h3>
+          <p>Vehicle registration and insurance must both be approved before a driver can be assigned to this vehicle.</p>
+          <div style={{ display: 'grid', gap: 14 }}>
+            {[
+              { key: 'registration', label: 'Vehicle Registration Certificate (RC)' },
+              { key: 'insurance', label: 'Insurance Policy' }
+            ].map(({ key, label }) => {
+              const document = vehicle?.documents?.[key] || { status: 'not_uploaded' };
+              const status = document.status || 'not_uploaded';
+              const busy = reviewing === key;
+              return (
+                <article key={key} style={{ border: '1px solid var(--border, #d1d5db)', borderRadius: 8, padding: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                    <strong>{label}</strong>
+                    <strong style={{ textTransform: 'capitalize' }}>{status.replace('_', ' ')}</strong>
+                  </div>
+                  <dl style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 180px) 1fr', gap: 8, margin: '12px 0' }}>
+                    <dt>Uploaded by</dt><dd style={{ margin: 0 }}>{document.uploadedBy || '—'}</dd>
+                    <dt>Submitted</dt><dd style={{ margin: 0 }}>{document.submittedAt ? new Date(document.submittedAt).toLocaleString() : '—'}</dd>
+                    {document.reviewedAt ? <><dt>Reviewed</dt><dd style={{ margin: 0 }}>{new Date(document.reviewedAt).toLocaleString()}</dd></> : null}
+                    {document.rejectionReason ? <><dt>Rejection reason</dt><dd style={{ margin: 0 }}>{document.rejectionReason}</dd></> : null}
+                  </dl>
+                  {document.viewUrl ? (
+                    <a href={document.viewUrl} target="_blank" rel="noreferrer">Open secure document (expires shortly)</a>
+                  ) : (
+                    <p>This document has no authorized private preview available.</p>
+                  )}
+                  {status === 'pending' && (
+                    <div style={{ display: 'grid', gap: 8, marginTop: 14 }}>
+                      <label>
+                        Rejection reason
+                        <textarea
+                          rows={3}
+                          maxLength={500}
+                          value={reviewReasons[key] || ''}
+                          onChange={(event) => setReviewReasons((current) => ({ ...current, [key]: event.target.value }))}
+                          placeholder="Explain what is invalid or unreadable."
+                        />
+                      </label>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button type="button" className="btn" disabled={Boolean(reviewing)} onClick={() => reviewDocument(key, 'approve')}>
+                          {busy ? 'Saving…' : 'Approve document'}
+                        </button>
+                        <button type="button" className="btn btn-secondary" disabled={Boolean(reviewing)} onClick={() => reviewDocument(key, 'reject')}>
+                          Reject &amp; request re-upload
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
         </>
       )}
     </section>

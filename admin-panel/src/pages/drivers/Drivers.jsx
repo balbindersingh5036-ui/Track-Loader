@@ -16,6 +16,8 @@ export default function Drivers() {
         { label: 'Phone', path: 'phone' },
         { label: 'Online', render: (item) => item.isOnline ? 'Online' : 'Offline' },
         { label: 'Approval', path: 'approvalStatus' },
+        { label: 'Driving Licence', render: (item) => item.documents?.drivingLicense?.status || 'not uploaded' },
+        { label: 'Identity Proof', render: (item) => item.documents?.idProof?.status || 'not uploaded' },
         { label: 'Account', render: (item) => item.isActive ? 'Active' : 'Inactive' }
       ]}
       actions={[

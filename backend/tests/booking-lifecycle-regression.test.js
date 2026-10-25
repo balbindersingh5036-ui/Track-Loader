@@ -37,9 +37,21 @@ test("approved driver with approvalStatus can fetch eligible booking requests", 
   t.mock.method(Driver, "findOne", async () => ({
     _id: driverId,
     approvalStatus: "approved",
-    isActive: true
+    isActive: true,
+    documents: {
+      idProof: { status: "approved" },
+      drivingLicense: { status: "approved" }
+    }
   }));
-  t.mock.method(Vehicle, "find", async () => [{ vehicleType: "mini-truck" }]);
+  t.mock.method(Vehicle, "find", async () => [{
+    vehicleType: "mini-truck",
+    isActive: true,
+    isAvailable: true,
+    documents: {
+      registration: { status: "approved" },
+      insurance: { status: "approved" }
+    }
+  }]);
   t.mock.method(Booking, "find", () => query([]));
   t.mock.method(Booking, "countDocuments", async () => 0);
 

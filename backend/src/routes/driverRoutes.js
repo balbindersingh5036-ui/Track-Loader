@@ -25,6 +25,7 @@ import {
   startTrip,
   completeTrip
 } from "../controllers/bookingController.js";
+import { sanitizeDriverDocumentResponse } from "../utils/driverDocumentResponse.js";
 
 const router = express.Router();
 
@@ -104,26 +105,7 @@ router.get("/profile", protect, driverOnly, async (req, res) => {
     }
 
     const driverObj = driver.toObject();
-    const { generateSignedDocumentUrl, extractCloudinaryAssetInfo } = await import("../utils/documentSigner.js");
-
-    if (driverObj.documents) {
-      for (const [key, doc] of Object.entries(driverObj.documents)) {
-        if (doc && (doc.publicId || doc.url)) {
-          let pubId = doc.publicId;
-          let fmt = doc.format || "pdf";
-          let resType = doc.resourceType || "image";
-          if (!pubId && doc.url) {
-            const ext = extractCloudinaryAssetInfo(doc.url);
-            if (ext) { pubId = ext.publicId; fmt = ext.format; }
-          }
-          if (pubId) {
-            driverObj.documents[key].viewUrl = generateSignedDocumentUrl(pubId, fmt, 300, resType);
-          } else {
-            driverObj.documents[key].viewUrl = doc.url;
-          }
-        }
-      }
-    }
+    sanitizeDriverDocumentResponse(driverObj, { includeSignedUrls: true });
 
     return res.status(200).json({
       success: true,

@@ -42,6 +42,14 @@ const fareConfig = {
   loadingCharge: 10,
   unloadingCharge: 5
 };
+const approvedDriverDocuments = {
+  idProof: { status: "approved" },
+  drivingLicense: { status: "approved" }
+};
+const approvedVehicleDocuments = {
+  registration: { status: "approved" },
+  insurance: { status: "approved" }
+};
 
 const customerId = new mongoose.Types.ObjectId();
 const selectedVehicleId = new mongoose.Types.ObjectId();
@@ -70,6 +78,7 @@ test("Instant booking assigns eligible same-type alternative vehicle and notifie
       populate: async () => ({
         _id: alternativeVehicleId,
         vehicleType: "mini-truck",
+        documents: approvedVehicleDocuments,
         driver: { _id: approvedDriverId, user: approvedDriverUserId }
       }),
       then(resolve, reject) {
@@ -84,6 +93,7 @@ test("Instant booking assigns eligible same-type alternative vehicle and notifie
         return Promise.resolve({
           _id: alternativeVehicleId,
           vehicleType: "mini-truck",
+          documents: approvedVehicleDocuments,
           driver: { _id: approvedDriverId, user: approvedDriverUserId }
         }).then(resolve, reject);
       }
@@ -99,12 +109,14 @@ test("Instant booking assigns eligible same-type alternative vehicle and notifie
       isActive: true,
       isAvailable: true,
       loadCapacity: { value: 500, unit: "kg" },
+      documents: approvedVehicleDocuments,
       driver: {
         _id: approvedDriverId,
         user: approvedDriverUserId,
         approvalStatus: "approved",
         isActive: true,
-        isOnline: true
+        isOnline: true,
+        documents: approvedDriverDocuments
       }
     }
   ]));
@@ -219,11 +231,13 @@ test("Instant booking excludes alternative vehicles with insufficient load capac
       isActive: true,
       isAvailable: true,
       loadCapacity: { value: 50, unit: "kg" }, // Insufficient!
+      documents: approvedVehicleDocuments,
       driver: {
         _id: approvedDriverId,
         user: approvedDriverUserId,
         approvalStatus: "approved",
-        isActive: true
+        isActive: true,
+        documents: approvedDriverDocuments
       }
     }
   ]));
@@ -261,7 +275,8 @@ test("Concurrent driver acceptance protection returns 409 when already accepted"
     _id: approvedDriverId,
     user: approvedDriverUserId,
     approvalStatus: "approved",
-    isActive: true
+    isActive: true,
+    documents: approvedDriverDocuments
   }));
 
   t.mock.method(Booking, "findById", async () => ({
@@ -274,7 +289,8 @@ test("Concurrent driver acceptance protection returns 409 when already accepted"
     _id: alternativeVehicleId,
     driver: approvedDriverId,
     isAvailable: true,
-    isActive: true
+    isActive: true,
+    documents: approvedVehicleDocuments
   }));
 
   // Atomic findOneAndUpdate fails because another concurrent request already accepted the booking

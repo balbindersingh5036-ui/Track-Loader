@@ -4,6 +4,9 @@ import Driver from "../models/Driver.js";
 import Vehicle from "../models/Vehicle.js";
 import { errorResponse, successResponse } from "../utils/response.js";
 import { parsePagination } from "../utils/pagination.js";
+import { sanitizeDriverDocumentResponse } from "../utils/driverDocumentResponse.js";
+import { sanitizeVehicleDocumentResponse } from "../utils/vehicleDocumentResponse.js";
+import { extractCloudinaryAssetInfo, generateSignedDocumentUrl } from "../utils/documentSigner.js";
 
 export const getAdminAgencies = async (req, res) => {
   try {
@@ -72,60 +75,52 @@ export const getAdminAgencyById = async (req, res) => {
     }
 
     const [drivers, vehicles] = await Promise.all([
-      Driver.find({ agency: agency._id }).populate("user", "name phone email"),
-      Vehicle.find({ agency: agency._id }).populate("driver", "fullName phone")
+      Driver.find({ agency: agency._id })
+        .populate("user", "name phone email")
+        .populate("documents.idProof.uploadedBy", "name")
+        .populate("documents.drivingLicense.uploadedBy", "name"),
+      Vehicle.find({ agency: agency._id })
+        .populate("driver", "fullName phone")
+        .populate("documents.registration.uploadedBy", "name")
+        .populate("documents.registration.reviewedBy", "name")
+        .populate("documents.insurance.uploadedBy", "name")
+        .populate("documents.insurance.reviewedBy", "name")
     ]);
 
     const agencyObj = agency.toObject();
-    const { generateSignedDocumentUrl, extractCloudinaryAssetInfo } = await import("../utils/documentSigner.js");
 
-    // Augment agency KYC docs with signed delivery URLs
     if (agencyObj.documents) {
       for (const [key, doc] of Object.entries(agencyObj.documents)) {
-        if (doc && (doc.publicId || doc.url)) {
-          let pubId = doc.publicId;
-          let fmt = doc.format || "pdf";
-          let resType = doc.resourceType || "image";
-          if (!pubId && doc.url) {
-            const ext = extractCloudinaryAssetInfo(doc.url);
-            if (ext) { pubId = ext.publicId; fmt = ext.format; }
-          }
-          if (pubId) {
-            agencyObj.documents[key].viewUrl = generateSignedDocumentUrl(pubId, fmt, 300, resType);
-          } else {
-            agencyObj.documents[key].viewUrl = doc.url;
+        if (!doc) continue;
+        let publicId = doc.publicId;
+        let format = doc.format || "pdf";
+        if (!publicId && doc.url) {
+          const asset = extractCloudinaryAssetInfo(doc.url);
+          if (asset) {
+            publicId = asset.publicId;
+            format = asset.format;
           }
         }
+        doc.viewUrl = publicId?.startsWith("loadbalbin_kyc/")
+          ? generateSignedDocumentUrl(publicId, format, 300, doc.resourceType || "image")
+          : null;
+        delete doc.url;
+        delete doc.publicId;
       }
     }
 
-    // Augment driver KYC docs with signed delivery URLs
     const enhancedDrivers = drivers.map((d) => {
       const dObj = d.toObject();
-      if (dObj.documents) {
-        for (const [key, doc] of Object.entries(dObj.documents)) {
-          if (doc && (doc.publicId || doc.url)) {
-            let pubId = doc.publicId;
-            let fmt = doc.format || "pdf";
-            let resType = doc.resourceType || "image";
-            if (!pubId && doc.url) {
-              const ext = extractCloudinaryAssetInfo(doc.url);
-              if (ext) { pubId = ext.publicId; fmt = ext.format; }
-            }
-            if (pubId) {
-              dObj.documents[key].viewUrl = generateSignedDocumentUrl(pubId, fmt, 300, resType);
-            } else {
-              dObj.documents[key].viewUrl = doc.url;
-            }
-          }
-        }
-      }
-      return dObj;
+      return sanitizeDriverDocumentResponse(dObj, { includeSignedUrls: true });
     });
 
-    return successResponse(res, { agency: agencyObj, drivers: enhancedDrivers, vehicles }, "Agency details fetched");
+    return successResponse(res, {
+      agency: agencyObj,
+      drivers: enhancedDrivers,
+      vehicles: vehicles.map((vehicle) => sanitizeVehicleDocumentResponse(vehicle.toObject(), { includeSignedUrls: true }))
+    }, "Agency details fetched");
   } catch (error) {
-    console.error("getAdminAgencyById error:", error);
+    console.error("getAdminAgencyById failed:", error.code || error.name || "unknown error");
     return errorResponse(res, "Failed to fetch agency details", 500);
   }
 };

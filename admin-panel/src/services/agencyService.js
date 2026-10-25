@@ -21,10 +21,26 @@ export const agencyService = {
   getAgencyDrivers: () => api.get('/agency/drivers'),
   createAgencyDriver: (data) => api.post('/agency/drivers', data),
   updateDriverDocuments: (id, documents) => api.patch(`/agency/drivers/${id}/documents`, { documents }),
+  uploadDriverDocument: (driverId, docType, file) => {
+    const formData = new FormData();
+    formData.append('document', file);
+    return api.post(`/documents/driver/${driverId}/${docType}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000
+    });
+  },
   getAgencyVehicles: () => api.get('/agency/vehicles'),
   createAgencyVehicle: (data) => api.post('/agency/vehicles', data),
   updateAgencyVehicle: (id, data) => api.put(`/agency/vehicles/${id}`, data),
   assignVehicleDriver: (id, driverId) => api.patch(`/agency/vehicles/${id}/driver`, { driverId }),
+  uploadVehicleDocument: (vehicleId, docType, file) => {
+    const formData = new FormData();
+    formData.append('document', file);
+    return api.post(`/documents/vehicle/${vehicleId}/${docType}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000
+    });
+  },
   getAgencyBookings: () => api.get('/agency/bookings'),
   uploadFile: (file, purpose = 'document') => {
     const formData = new FormData();

@@ -4,6 +4,8 @@ import User from "../models/User.js";
 import Vehicle from "../models/Vehicle.js";
 import { errorResponse, successResponse } from "../utils/response.js";
 import { parsePagination } from "../utils/pagination.js";
+import { hasApprovedDriverIdentityDocuments } from "../utils/driverEligibility.js";
+import { extractCloudinaryAssetInfo } from "../utils/documentSigner.js";
 
 const safeDriver = (driver, vehicles = []) => ({
   id: driver._id,
@@ -18,6 +20,18 @@ const safeDriver = (driver, vehicles = []) => ({
   isOnline: driver.isOnline,
   isActive: driver.isActive,
   createdAt: driver.createdAt,
+  documents: {
+    idProof: {
+      status: driver.documents?.idProof?.url || driver.documents?.idProof?.publicId
+        ? driver.documents.idProof.status || "pending"
+        : "not_uploaded"
+    },
+    drivingLicense: {
+      status: driver.documents?.drivingLicense?.url || driver.documents?.drivingLicense?.publicId
+        ? driver.documents.drivingLicense.status || "pending"
+        : "not_uploaded"
+    }
+  },
   vehicles: vehicles.map((vehicle) => ({
     id: vehicle._id,
     vehicleNumber: vehicle.vehicleNumber,
@@ -105,6 +119,10 @@ export const getAdminDriverById = async (req, res) => {
     const driver = await Driver.findById(req.params.id)
       .populate("user", "name phone email profileImage")
       .populate("agency", "agencyName phone email address city")
+      .populate("documents.idProof.uploadedBy", "name role")
+      .populate("documents.idProof.reviewedBy", "name role")
+      .populate("documents.drivingLicense.uploadedBy", "name role")
+      .populate("documents.drivingLicense.reviewedBy", "name role")
       .lean();
     if (!driver) return errorResponse(res, "Driver not found", 404);
     const vehiclesByDriver = await loadVehiclesByDriver([driver]);
@@ -114,21 +132,24 @@ export const getAdminDriverById = async (req, res) => {
     const docs = driver.documents ? JSON.parse(JSON.stringify(driver.documents)) : {};
     const { generateSignedDocumentUrl, extractCloudinaryAssetInfo } = await import("../utils/documentSigner.js");
 
-    for (const [key, doc] of Object.entries(docs)) {
-      if (doc && (doc.publicId || doc.url)) {
-        let pubId = doc.publicId;
-        let fmt = doc.format || "pdf";
-        let resType = doc.resourceType || "image";
-        if (!pubId && doc.url) {
-          const ext = extractCloudinaryAssetInfo(doc.url);
-          if (ext) { pubId = ext.publicId; fmt = ext.format; }
-        }
-        if (pubId) {
-          docs[key].viewUrl = generateSignedDocumentUrl(pubId, fmt, 300, resType);
-        } else {
-          docs[key].viewUrl = doc.url;
-        }
+    for (const key of ["idProof", "drivingLicense"]) {
+      const doc = docs[key];
+      if (!doc) continue;
+      doc.status = doc.url || doc.publicId ? doc.status || "pending" : "not_uploaded";
+      let pubId = doc.publicId;
+      let fmt = doc.format || "pdf";
+      const resType = doc.resourceType || "image";
+      if (!pubId && doc.url) {
+        const ext = extractCloudinaryAssetInfo(doc.url);
+        if (ext) { pubId = ext.publicId; fmt = ext.format; }
       }
+      docs[key].viewUrl = pubId?.startsWith("loadbalbin_kyc/")
+        ? generateSignedDocumentUrl(pubId, fmt, 300, resType)
+        : null;
+      docs[key].uploadedBy = doc.uploadedBy?.name || null;
+      docs[key].reviewedBy = doc.reviewedBy?.name || null;
+      delete docs[key].url;
+      delete docs[key].publicId;
     }
 
     driverData.documents = docs;
@@ -157,6 +178,12 @@ const updateApproval = (approvalStatus) => async (req, res) => {
     }
 
     const updateDoc = { approvalStatus };
+    if (
+      approvalStatus === "approved" &&
+      !hasApprovedDriverIdentityDocuments(await Driver.findById(req.params.id).select("documents").lean())
+    ) {
+      return errorResponse(res, "Both identity documents must be approved before approving this driver", 400);
+    }
     if (approvalStatus === "rejected" && (req.body?.reason || req.body?.rejectionReason)) {
       updateDoc.rejectionReason = req.body?.reason || req.body?.rejectionReason;
     }
@@ -174,6 +201,60 @@ const updateApproval = (approvalStatus) => async (req, res) => {
   } catch (error) {
     console.error(`Admin driver ${approvalStatus} error:`, error);
     return errorResponse(res, `Failed to ${approvalStatus} driver`, 500);
+  }
+};
+
+export const reviewAdminDriverDocument = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return errorResponse(res, "Invalid driver ID", 400);
+    if (!["idProof", "drivingLicense"].includes(req.params.docType)) {
+      return errorResponse(res, "Invalid driver document type", 400);
+    }
+    if (!["approve", "reject"].includes(req.params.action)) {
+      return errorResponse(res, "Invalid document review action", 400);
+    }
+
+    const bodyKeys = Object.keys(req.body || {});
+    const allowedKeys = req.params.action === "reject" ? ["reason"] : [];
+    if (bodyKeys.some((key) => !allowedKeys.includes(key))) {
+      return errorResponse(res, "Invalid document review request", 400);
+    }
+    const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+    if (req.params.action === "reject" && (!reason || reason.length > 500)) {
+      return errorResponse(res, "A rejection reason of 1 to 500 characters is required", 400);
+    }
+
+    const driver = await Driver.findById(req.params.id);
+    if (!driver) return errorResponse(res, "Driver not found", 404);
+    const document = driver.documents?.[req.params.docType];
+    if (!document || (!document.publicId && !document.url)) {
+      return errorResponse(res, "This document has not been submitted", 404);
+    }
+    const assetInfo = document.publicId
+      ? { publicId: document.publicId }
+      : extractCloudinaryAssetInfo(document.url);
+    if (!assetInfo?.publicId?.startsWith("loadbalbin_kyc/")) {
+      return errorResponse(res, "This document must be resubmitted to the private KYC vault before review", 409);
+    }
+
+    document.status = req.params.action === "approve" ? "approved" : "rejected";
+    document.reviewedAt = new Date();
+    document.reviewedBy = req.user._id;
+    document.rejectionReason = req.params.action === "reject" ? reason : "";
+    driver.markModified(`documents.${req.params.docType}`);
+    await driver.save();
+
+    return successResponse(res, {
+      document: {
+        status: document.status,
+        submittedAt: document.submittedAt,
+        reviewedAt: document.reviewedAt,
+        rejectionReason: document.rejectionReason
+      }
+    }, `Driver document ${document.status}`);
+  } catch (error) {
+    console.error("Admin driver document review failed:", error.code || error.name || "unknown error");
+    return errorResponse(res, "Failed to review driver document", 500);
   }
 };
 

@@ -193,16 +193,12 @@ test("Agency Lifecycle: 3 & 4. Agency registers driver & submits Aadhaar and DL 
   assert.equal(createdDriverRecord.agency.toString(), agencyId.toString());
   assert.equal(createdDriverRecord.approvalStatus, "pending"); // Preserves authority
 
-  // Step 4: Submit documents
-  let savedDocuments;
+  // Direct metadata URLs are rejected; uploads must go through the authenticated private upload route.
   const mockDriverInstance = {
     _id: driverId,
     agency: agencyId,
     documents: {},
-    async save() {
-      savedDocuments = this.documents;
-      return this;
-    }
+    async save() { return this; }
   };
   t.mock.method(Driver, "findOne", async () => mockDriverInstance);
 
@@ -219,9 +215,9 @@ test("Agency Lifecycle: 3 & 4. Agency registers driver & submits Aadhaar and DL 
   const resDoc = createResponse();
   await updateAgencyDriverDocuments(reqDoc, resDoc);
 
-  assert.equal(resDoc.statusCode, 200);
-  assert.equal(savedDocuments.idProof.url, "https://docs.com/ramesh-aadhaar.pdf");
-  assert.equal(savedDocuments.drivingLicense.url, "https://docs.com/ramesh-dl.pdf");
+  assert.equal(resDoc.statusCode, 400);
+  assert.equal(mockDriverInstance.documents.idProof, undefined);
+  assert.equal(mockDriverInstance.documents.drivingLicense, undefined);
 });
 
 test("Agency Lifecycle: 5. Super Admin approves driver (enforces authority)", async (t) => {
@@ -241,6 +237,18 @@ test("Agency Lifecycle: 5. Super Admin approves driver (enforces authority)", as
       })
     };
   });
+  t.mock.method(Driver, "findById", () => ({
+    select() {
+      return {
+        lean: async () => ({
+          documents: {
+            idProof: { status: "approved" },
+            drivingLicense: { status: "approved" }
+          }
+        })
+      };
+    }
+  }));
   t.mock.method(Vehicle, "find", () => mockQuery([]));
 
   const req = {
@@ -257,7 +265,7 @@ test("Agency Lifecycle: 5. Super Admin approves driver (enforces authority)", as
   assert.equal(res.body.data.driver.approvalStatus, "approved");
 });
 
-test("Agency Lifecycle: 6. Agency creates vehicle linked to the approved driver and agency", async (t) => {
+test("Agency Lifecycle: 6. Agency adds a vehicle without assigning it before KYC approval", async (t) => {
   const agencyId = new mongoose.Types.ObjectId();
   const ownerId = new mongoose.Types.ObjectId();
   const driverId = new mongoose.Types.ObjectId();
@@ -265,14 +273,9 @@ test("Agency Lifecycle: 6. Agency creates vehicle linked to the approved driver 
   t.mock.method(Agency, "findOne", async () => ({
     _id: agencyId,
     owner: ownerId,
-    approvalStatus: "approved"
+    approvalStatus: "approved",
+    isActive: true
   }));
-  t.mock.method(Driver, "findOne", async () => ({
-    _id: driverId,
-    agency: agencyId,
-    approvalStatus: "approved"
-  }));
-
   let createdVehicleData;
   t.mock.method(Vehicle, "create", async (data) => {
     createdVehicleData = data;
@@ -287,7 +290,6 @@ test("Agency Lifecycle: 6. Agency creates vehicle linked to the approved driver 
   const req = {
     user: { _id: ownerId, role: "agency" },
     body: {
-      driverId: driverId.toString(),
       vehicleNumber: "PB10AB1234",
       vehicleModel: "Tata 407",
       vehicleType: "mini-truck",
@@ -301,7 +303,7 @@ test("Agency Lifecycle: 6. Agency creates vehicle linked to the approved driver 
   assert.equal(res.statusCode, 201);
   assert.equal(createdVehicleData.vehicleNumber, "PB10AB1234");
   assert.equal(createdVehicleData.agency.toString(), agencyId.toString());
-  assert.equal(createdVehicleData.driver.toString(), driverId.toString());
+  assert.equal(createdVehicleData.driver, undefined);
 });
 
 test("Agency Lifecycle: 7 & 8. Customer instant booking finds approved agency alternative vehicle when selected vehicle is busy", async (t) => {
@@ -356,6 +358,10 @@ test("Agency Lifecycle: 7 & 8. Customer instant booking finds approved agency al
       isActive: true,
       isAvailable: true,
       loadCapacity: { value: 1500, unit: "kg" },
+      documents: {
+        registration: { status: "approved" },
+        insurance: { status: "approved" }
+      },
       agency: {
         _id: agencyId,
         approvalStatus: "approved",
@@ -366,6 +372,10 @@ test("Agency Lifecycle: 7 & 8. Customer instant booking finds approved agency al
         user: approvedDriverUserId,
         isActive: true,
         approvalStatus: "approved",
+        documents: {
+          idProof: { status: "approved" },
+          drivingLicense: { status: "approved" }
+        },
         agency: {
           _id: agencyId,
           approvalStatus: "approved",
@@ -422,7 +432,11 @@ test("Agency Lifecycle: 9. Driver accepts, starts trip, completes delivery, and 
     _id: driverId,
     user: driverUserId,
     approvalStatus: "approved",
-    isActive: true
+    isActive: true,
+    documents: {
+      idProof: { status: "approved" },
+      drivingLicense: { status: "approved" }
+    }
   }));
 
   t.mock.method(Booking, "findById", async () => ({
@@ -436,7 +450,11 @@ test("Agency Lifecycle: 9. Driver accepts, starts trip, completes delivery, and 
     _id: vehicleId,
     driver: driverId,
     isAvailable: true,
-    isActive: true
+    isActive: true,
+    documents: {
+      registration: { status: "approved" },
+      insurance: { status: "approved" }
+    }
   }));
 
   t.mock.method(Booking, "findOneAndUpdate", async (filter, update) => {
@@ -603,5 +621,3 @@ test("Security Audit: Rejects insecure non-HTTPS or plain text URLs in KYC docum
   assert.equal(resInsecure.statusCode, 400);
   assert.equal(resInsecure.body.success, false);
 });
-
-

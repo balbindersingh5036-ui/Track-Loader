@@ -22,6 +22,7 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
 
   // Real Cloudinary test asset created for live CDN verification
   let liveCloudinaryAsset = null;
+  const workflowUploadAssets = [];
 
   before(async () => {
     if (mongoose.connection.readyState === 0) {
@@ -34,7 +35,7 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
         const uploadRes = await cloudinary.uploader.upload(
           "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
           {
-            folder: "loadbalbin_kyc_security_test",
+            folder: "loadbalbin_kyc",
             type: "authenticated",
             resource_type: "image"
           }
@@ -180,13 +181,16 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
   });
 
   after(async () => {
-    if (liveCloudinaryAsset?.public_id) {
+    for (const asset of [liveCloudinaryAsset, ...workflowUploadAssets]) {
+      if (!asset?.public_id) continue;
       try {
-        await cloudinary.uploader.destroy(liveCloudinaryAsset.public_id, {
+        await cloudinary.uploader.destroy(asset.public_id, {
           type: "authenticated",
-          resource_type: "image"
+          resource_type: asset.resource_type || "image"
         });
-      } catch (_) {}
+      } catch (error) {
+        console.warn("Notice: Cloudinary test asset cleanup failed:", error.code || error.name || "unknown error");
+      }
     }
     await Agency.deleteMany({ _id: { $in: [agencyA?._id, agencyB?._id] } });
     await Driver.deleteMany({ _id: { $in: [driverA?._id, driverB?._id] } });
@@ -309,5 +313,43 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
     const publicPhotoUrl = "https://res.cloudinary.com/kj4rhwyt/image/upload/v1791705459/loadbalbin_vehicles/tata_ace_mini_truck.jpg";
     const res = await fetch(publicPhotoUrl);
     assert.equal(res.status, 200, "Public vehicle photo must resolve with 200 OK without authentication");
+  });
+
+  it("12. Driver upload, admin rejection, resubmission, and approval use the private KYC API", async () => {
+    if (!liveCloudinaryAsset) return;
+    const syntheticPng = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "base64"
+    );
+    const upload = () => request(app)
+      .post(`/api/documents/driver/${driverA._id}/idProof`)
+      .set("Authorization", `Bearer ${driverAToken}`)
+      .attach("document", syntheticPng, { filename: "synthetic-test.png", contentType: "image/png" });
+
+    const firstSubmission = await upload();
+    assert.equal(firstSubmission.status, 201);
+    assert.equal(firstSubmission.body.data.document.status, "pending");
+    driverA = await Driver.findById(driverA._id);
+    workflowUploadAssets.push({ public_id: driverA.documents.idProof.publicId, resource_type: "image" });
+
+    const rejected = await request(app)
+      .patch(`/api/admin/drivers/${driverA._id}/documents/idProof/reject`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ reason: "Synthetic verification test rejection" });
+    assert.equal(rejected.status, 200);
+    assert.equal(rejected.body.data.document.status, "rejected");
+
+    const resubmission = await upload();
+    assert.equal(resubmission.status, 201);
+    assert.equal(resubmission.body.data.document.status, "pending");
+
+    driverA = await Driver.findById(driverA._id);
+    workflowUploadAssets.push({ public_id: driverA.documents.idProof.publicId, resource_type: "image" });
+    const approved = await request(app)
+      .patch(`/api/admin/drivers/${driverA._id}/documents/idProof/approve`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({});
+    assert.equal(approved.status, 200);
+    assert.equal(approved.body.data.document.status, "approved");
   });
 });

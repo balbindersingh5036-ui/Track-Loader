@@ -4,6 +4,7 @@ import {
   getAdminDriverById,
   getAdminDrivers,
   rejectAdminDriver,
+  reviewAdminDriverDocument,
   suspendAdminDriver,
   updateAdminDriverStatus
 } from "../controllers/adminDriverController.js";
@@ -15,6 +16,7 @@ const router = express.Router();
 router.use(protect, adminOnly);
 router.get("/", getAdminDrivers);
 router.get("/:id", getAdminDriverById);
+router.patch("/:id/documents/:docType/:action", reviewAdminDriverDocument);
 router.patch("/:id/approve", approveAdminDriver);
 router.patch("/:id/reject", rejectAdminDriver);
 router.patch("/:id/suspend", suspendAdminDriver);

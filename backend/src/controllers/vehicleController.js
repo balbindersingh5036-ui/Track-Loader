@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import Driver from "../models/Driver.js";
 import Vehicle from "../models/Vehicle.js";
 import { errorResponse, successResponse } from "../utils/response.js";
+import { sanitizeVehicleDocumentResponse } from "../utils/vehicleDocumentResponse.js";
+import { extractCloudinaryAssetInfo } from "../utils/documentSigner.js";
 
 const vehicleTypes = Vehicle.schema.path("vehicleType").enumValues;
 const bodyTypes = Vehicle.schema.path("bodyType").enumValues;
@@ -16,8 +18,6 @@ const vehicleFields = [
   "bodyType",
   "vehicleImage",
   "vehicleImages",
-  "registrationDocument",
-  "insuranceDocument",
   "isAvailable"
 ];
 const driverEditableFields = vehicleFields.filter(
@@ -43,6 +43,8 @@ const handleError = (res, error, action) => {
 };
 
 const validObjectId = (id) => mongoose.isValidObjectId(id);
+const toVehicleObject = (vehicle) =>
+  typeof vehicle?.toObject === "function" ? vehicle.toObject() : vehicle;
 
 const parseVehicleUpdates = (body, { creating = false, allowedFields }) => {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
@@ -127,11 +129,7 @@ const parseVehicleUpdates = (body, { creating = false, allowedFields }) => {
     updates.bodyType = body.bodyType;
   }
 
-  for (const field of [
-    "vehicleImage",
-    "registrationDocument",
-    "insuranceDocument"
-  ]) {
+  for (const field of ["vehicleImage"]) {
     if (Object.hasOwn(body, field)) {
       if (typeof body[field] !== "string") {
         return { error: `${field} must be a string` };
@@ -217,7 +215,9 @@ export const getVehicles = async (req, res) => {
       .populate("driver", driverProjection)
       .sort({ createdAt: -1 })
       .lean();
-    return successResponse(res, { vehicles }, "Vehicles fetched successfully");
+    return successResponse(res, {
+      vehicles: vehicles.map((vehicle) => sanitizeVehicleDocumentResponse(vehicle))
+    }, "Vehicles fetched successfully");
   } catch (error) {
     return handleError(res, error, "Fetch vehicles");
   }
@@ -238,7 +238,9 @@ export const getVehicleById = async (req, res) => {
     if (!vehicle) {
       return errorResponse(res, "Vehicle not found", 404);
     }
-    return successResponse(res, { vehicle }, "Vehicle fetched successfully");
+    return successResponse(res, {
+      vehicle: sanitizeVehicleDocumentResponse(vehicle)
+    }, "Vehicle fetched successfully");
   } catch (error) {
     return handleError(res, error, "Fetch vehicle");
   }
@@ -259,7 +261,9 @@ export const getVehiclesByType = async (req, res) => {
       .populate("driver", driverProjection)
       .sort({ createdAt: -1 })
       .lean();
-    return successResponse(res, { vehicles }, "Vehicles fetched successfully");
+    return successResponse(res, {
+      vehicles: vehicles.map((vehicle) => sanitizeVehicleDocumentResponse(vehicle))
+    }, "Vehicles fetched successfully");
   } catch (error) {
     return handleError(res, error, "Fetch vehicles by type");
   }
@@ -278,7 +282,7 @@ export const getDriverVehicles = async (req, res) => {
       .lean();
     return successResponse(
       res,
-      { vehicles },
+      { vehicles: vehicles.map((vehicle) => sanitizeVehicleDocumentResponse(vehicle)) },
       "Driver vehicles fetched successfully"
     );
   } catch (error) {
@@ -307,7 +311,7 @@ export const createDriverVehicle = async (req, res) => {
     });
     return successResponse(
       res,
-      { vehicle },
+      { vehicle: sanitizeVehicleDocumentResponse(toVehicleObject(vehicle)) },
       "Vehicle added successfully",
       201
     );
@@ -341,7 +345,9 @@ export const updateDriverVehicle = async (req, res) => {
     if (!vehicle) {
       return errorResponse(res, "Vehicle not found", 404);
     }
-    return successResponse(res, { vehicle }, "Vehicle updated successfully");
+    return successResponse(res, {
+      vehicle: sanitizeVehicleDocumentResponse(toVehicleObject(vehicle))
+    }, "Vehicle updated successfully");
   } catch (error) {
     return handleError(res, error, "Update driver vehicle");
   }
@@ -410,6 +416,8 @@ export const getAdminVehicles = async (req, res) => {
     const [vehicles, total] = await Promise.all([
       Vehicle.find(filter)
         .populate("driver", driverProjection)
+        .populate("documents.registration.uploadedBy", "name")
+        .populate("documents.insurance.uploadedBy", "name")
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
@@ -420,7 +428,7 @@ export const getAdminVehicles = async (req, res) => {
     return successResponse(
       res,
       {
-        vehicles,
+        vehicles: vehicles.map((vehicle) => sanitizeVehicleDocumentResponse(vehicle)),
         pagination: {
           page,
           limit,
@@ -442,11 +450,17 @@ export const getAdminVehicleById = async (req, res) => {
     }
     const vehicle = await Vehicle.findById(req.params.id)
       .populate("driver", driverProjection)
+      .populate("documents.registration.uploadedBy", "name")
+      .populate("documents.registration.reviewedBy", "name")
+      .populate("documents.insurance.uploadedBy", "name")
+      .populate("documents.insurance.reviewedBy", "name")
       .lean();
     if (!vehicle) {
       return errorResponse(res, "Vehicle not found", 404);
     }
-    return successResponse(res, { vehicle }, "Vehicle fetched successfully");
+    return successResponse(res, {
+      vehicle: sanitizeVehicleDocumentResponse(vehicle, { includeSignedUrls: true })
+    }, "Vehicle fetched successfully");
   } catch (error) {
     return handleError(res, error, "Fetch admin vehicle");
   }
@@ -472,9 +486,65 @@ export const updateAdminVehicle = async (req, res) => {
     if (!vehicle) {
       return errorResponse(res, "Vehicle not found", 404);
     }
-    return successResponse(res, { vehicle }, "Vehicle updated successfully");
+    return successResponse(res, {
+      vehicle: sanitizeVehicleDocumentResponse(toVehicleObject(vehicle))
+    }, "Vehicle updated successfully");
   } catch (error) {
     return handleError(res, error, "Update admin vehicle");
+  }
+};
+
+export const reviewAdminVehicleDocument = async (req, res) => {
+  try {
+    if (!validObjectId(req.params.id)) return errorResponse(res, "Invalid vehicle ID", 400);
+    if (!["registration", "insurance"].includes(req.params.docType)) {
+      return errorResponse(res, "Invalid vehicle document type", 400);
+    }
+    if (!["approve", "reject"].includes(req.params.action)) {
+      return errorResponse(res, "Invalid document review action", 400);
+    }
+
+    const bodyKeys = Object.keys(req.body || {});
+    const allowedKeys = req.params.action === "reject" ? ["reason"] : [];
+    if (bodyKeys.some((key) => !allowedKeys.includes(key))) {
+      return errorResponse(res, "Invalid document review request", 400);
+    }
+    const reason = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+    if (req.params.action === "reject" && (!reason || reason.length > 500)) {
+      return errorResponse(res, "A rejection reason of 1 to 500 characters is required", 400);
+    }
+
+    const vehicle = await Vehicle.findById(req.params.id);
+    if (!vehicle) return errorResponse(res, "Vehicle not found", 404);
+    const document = vehicle.documents?.[req.params.docType];
+    if (!document || (!document.publicId && !document.url)) {
+      return errorResponse(res, "This document has not been submitted", 404);
+    }
+    const assetInfo = document.publicId
+      ? { publicId: document.publicId }
+      : extractCloudinaryAssetInfo(document.url);
+    if (!assetInfo?.publicId?.startsWith("loadbalbin_kyc/")) {
+      return errorResponse(res, "This document must be resubmitted to the private KYC vault before review", 409);
+    }
+
+    document.status = req.params.action === "approve" ? "approved" : "rejected";
+    document.reviewedAt = new Date();
+    document.reviewedBy = req.user._id;
+    document.rejectionReason = req.params.action === "reject" ? reason : "";
+    vehicle.markModified(`documents.${req.params.docType}`);
+    await vehicle.save();
+
+    return successResponse(res, {
+      document: {
+        status: document.status,
+        submittedAt: document.submittedAt,
+        reviewedAt: document.reviewedAt,
+        rejectionReason: document.rejectionReason
+      }
+    }, `Vehicle document ${document.status}`);
+  } catch (error) {
+    console.error("Admin vehicle document review failed:", error.code || error.name || "unknown error");
+    return errorResponse(res, "Failed to review vehicle document", 500);
   }
 };
 
@@ -497,7 +567,7 @@ export const updateAdminVehicleStatus = async (req, res) => {
     }
     return successResponse(
       res,
-      { vehicle },
+      { vehicle: sanitizeVehicleDocumentResponse(toVehicleObject(vehicle)) },
       "Vehicle status updated successfully"
     );
   } catch (error) {

@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Booking from "../models/Booking.js";
 import Vehicle from "../models/Vehicle.js";
 import Driver from "../models/Driver.js";
+import Agency from "../models/Agency.js";
 import Fare from "../models/Fare.js";
 import * as fareService from "../services/fareService.js";
 import generateBookingId from "../utils/generateBookingId.js";
@@ -10,6 +11,10 @@ import { notifyCustomer, notifyDriver, notifyAdmins } from "../services/notifica
 import { emitToBooking, emitToUser } from "../sockets/socket.js";
 import { isSettingEnabled } from "../services/systemSettingService.js";
 import { parsePagination } from "../utils/pagination.js";
+import {
+  isDriverEligibleForAssignment,
+  isVehicleEligibleForBookings
+} from "../utils/driverEligibility.js";
 
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const p = 0.017453292519943295;
@@ -23,6 +28,25 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
 const isFiniteNumericInput = (value) =>
   (typeof value === "number" || (typeof value === "string" && value.trim() !== "")) &&
   Number.isFinite(Number(value));
+
+const hasMatchingVehicleOwner = (driver, vehicle) =>
+  String(driver?.agency?._id || driver?.agency || "") ===
+  String(vehicle?.agency?._id || vehicle?.agency || "");
+
+const isEligibleDriverVehicle = (driver, vehicle) =>
+  isDriverEligibleForAssignment(driver) &&
+  isVehicleEligibleForBookings(vehicle) &&
+  hasMatchingVehicleOwner(driver, vehicle) &&
+  (!vehicle.agency || vehicle.agency.approvalStatus === undefined ||
+    (vehicle.agency.approvalStatus === "approved" && vehicle.agency.isActive)) &&
+  (!driver.agency || driver.agency.approvalStatus === undefined ||
+    (driver.agency.approvalStatus === "approved" && driver.agency.isActive));
+
+const getActiveApprovedAgency = async (agency) => {
+  if (!agency) return null;
+  if (agency.approvalStatus !== undefined) return agency;
+  return Agency.findById(agency);
+};
 
 const emitBookingEvent = (booking, eventName, userId = null) => {
   const payload = {
@@ -108,7 +132,13 @@ export const createBooking = async (req, res) => {
 
     if (vehicleId) {
       if (!mongoose.Types.ObjectId.isValid(vehicleId)) return errorResponse(res, "Invalid vehicle ID", 400);
-      const vehicleDoc = await Vehicle.findById(vehicleId);
+      const selectedVehicleQuery = Vehicle.findById(vehicleId);
+      const vehicleDoc = selectedVehicleQuery.populate
+        ? await selectedVehicleQuery.populate([
+          { path: "driver", populate: { path: "agency" } },
+          { path: "agency" }
+        ])
+        : await selectedVehicleQuery;
       if (!vehicleDoc) return errorResponse(res, "Vehicle not found", 404);
       
       const isSelectedAvailable = vehicleDoc.isActive && vehicleDoc.isAvailable && vehicleDoc.vehicleType === vehicleType;
@@ -139,14 +169,7 @@ export const createBooking = async (req, res) => {
 
             // Verify driver is assigned, active, and approved by Super Admin
             const d = v.driver;
-            if (!d || !d.isActive || d.approvalStatus !== "approved") {
-              return false;
-            }
-
-            // If driver belongs to an agency, agency must be approved and active
-            if (d.agency && typeof d.agency === "object" && (d.agency.approvalStatus !== "approved" || !d.agency.isActive)) {
-              return false;
-            }
+            if (!isEligibleDriverVehicle(d, v)) return false;
 
             // Verify vehicle load capacity satisfies required cargo weight
             const vehicleCapacityKg =
@@ -174,6 +197,8 @@ export const createBooking = async (req, res) => {
         } else {
           return errorResponse(res, "Vehicle not available or type mismatch", 400);
         }
+      } else if (!isEligibleDriverVehicle(vehicleDoc.driver, vehicleDoc)) {
+        return errorResponse(res, "Selected vehicle and driver must have approved documents and approvals", 403);
       }
     }
 
@@ -347,10 +372,15 @@ export const getDriverRequests = async (req, res) => {
 
     const { page, limit, skip } = pagination;
     const driver = await Driver.findOne({ user: req.user._id });
-    if (!driver || driver.approvalStatus !== "approved" || !driver.isActive) return errorResponse(res, "Not active/approved", 403);
+    if (!isDriverEligibleForAssignment(driver)) return errorResponse(res, "Not active, approved, or identity-verified", 403);
+    const agency = await getActiveApprovedAgency(driver.agency);
+    if (agency && (agency.approvalStatus !== "approved" || !agency.isActive)) {
+      return errorResponse(res, "Your agency is not active or approved", 403);
+    }
 
     const driverVehicles = await Vehicle.find({ driver: driver._id, isActive: true, isAvailable: true });
-    const vehicleTypes = driverVehicles.map(v => v.vehicleType);
+    const eligibleVehicles = driverVehicles.filter((vehicle) => isEligibleDriverVehicle(driver, vehicle));
+    const vehicleTypes = eligibleVehicles.map((vehicle) => vehicle.vehicleType);
 
     const query = {
       bookingStatus: "pending",
@@ -397,17 +427,23 @@ export const acceptBooking = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) return errorResponse(res, "Invalid ID", 400);
 
     const driver = await Driver.findOne({ user: req.user._id });
-    if (!driver || driver.approvalStatus !== "approved" || !driver.isActive) return errorResponse(res, "Not approved", 403);
+    if (!isDriverEligibleForAssignment(driver)) return errorResponse(res, "Not approved or identity-verified", 403);
+    const agency = await getActiveApprovedAgency(driver.agency);
+    if (agency && (agency.approvalStatus !== "approved" || !agency.isActive)) {
+      return errorResponse(res, "Your agency is not active or approved", 403);
+    }
 
     const booking = await Booking.findById(id);
     if (!booking) return errorResponse(res, "Not found", 404);
     if (booking.bookingStatus !== "pending") return errorResponse(res, "Not pending", 400);
 
-    let vehicle = booking.vehicle 
+    const vehicle = booking.vehicle
       ? await Vehicle.findOne({ _id: booking.vehicle, driver: driver._id, isAvailable: true, isActive: true })
       : await Vehicle.findOne({ driver: driver._id, vehicleType: booking.vehicleType, isAvailable: true, isActive: true });
 
-    if (!vehicle) return errorResponse(res, "No vehicle available", 400);
+    if (!vehicle || !isEligibleDriverVehicle(driver, vehicle)) {
+      return errorResponse(res, "No eligible vehicle with approved registration and insurance documents", 400);
+    }
 
     const updatedBooking = await Booking.findOneAndUpdate(
       { _id: id, bookingStatus: "pending" },
@@ -594,13 +630,19 @@ export const adminAssignDriver = async (req, res) => {
     if (booking.bookingStatus === "completed" || booking.bookingStatus === "cancelled") return errorResponse(res, "Cannot assign", 400);
 
     const driver = await Driver.findById(driverId);
-    if (!driver || driver.approvalStatus !== "approved" || !driver.isActive) return errorResponse(res, "Driver unavailable", 400);
+    if (!isDriverEligibleForAssignment(driver)) return errorResponse(res, "Driver unavailable or identity documents are not approved", 400);
+    const agency = await getActiveApprovedAgency(driver.agency);
+    if (agency && (agency.approvalStatus !== "approved" || !agency.isActive)) {
+      return errorResponse(res, "Driver's agency is not active or approved", 400);
+    }
 
-    let vehicle = booking.vehicle 
+    const vehicle = booking.vehicle
       ? await Vehicle.findOne({ _id: booking.vehicle, driver: driver._id, isAvailable: true, isActive: true })
       : await Vehicle.findOne({ driver: driver._id, vehicleType: booking.vehicleType, isAvailable: true, isActive: true });
 
-    if (!vehicle) return errorResponse(res, "Driver has no vehicle", 400);
+    if (!vehicle || !isEligibleDriverVehicle(driver, vehicle)) {
+      return errorResponse(res, "Driver has no eligible vehicle with approved documents", 400);
+    }
 
     booking.driver = driver._id;
     booking.vehicle = vehicle._id;

@@ -15,5 +15,6 @@ test("vehicle schema defines supported types and capacity units", () => {
     "kg",
     "ton"
   ]);
-  assert.equal(Vehicle.schema.path("driver").options.required, true);
+  assert.notEqual(Vehicle.schema.path("driver").options.required, true);
+  assert.equal(Vehicle.schema.path("driver").defaultValue, null);
 });

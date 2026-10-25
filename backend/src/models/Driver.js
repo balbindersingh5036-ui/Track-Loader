@@ -1,5 +1,27 @@
 import mongoose from "mongoose";
 
+const documentSchema = new mongoose.Schema(
+  {
+    url: { type: String, default: "" },
+    publicId: { type: String, default: "" },
+    resourceType: { type: String, default: "image" },
+    format: { type: String, default: "" },
+    maskedNumber: { type: String, default: "" },
+    expiryDate: { type: Date, default: null },
+    status: {
+      type: String,
+      enum: ["not_uploaded", "pending", "approved", "rejected"],
+      default: "not_uploaded"
+    },
+    submittedAt: { type: Date, default: null },
+    uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    reviewedAt: { type: Date, default: null },
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    rejectionReason: { type: String, default: "", trim: true }
+  },
+  { _id: false }
+);
+
 const driverSchema = new mongoose.Schema(
   {
     user: {
@@ -58,113 +80,10 @@ const driverSchema = new mongoose.Schema(
     },
 
     documents: {
-      idProof: {
-        url: {
-          type: String,
-          default: ""
-        },
-        publicId: {
-          type: String,
-          default: ""
-        },
-        resourceType: {
-          type: String,
-          default: "image"
-        },
-        format: {
-          type: String,
-          default: ""
-        },
-        maskedNumber: {
-          type: String,
-          default: ""
-        },
-        status: {
-          type: String,
-          enum: ["pending", "approved", "rejected"],
-          default: "pending"
-        }
-      },
-
-      drivingLicense: {
-        url: {
-          type: String,
-          default: ""
-        },
-        publicId: {
-          type: String,
-          default: ""
-        },
-        resourceType: {
-          type: String,
-          default: "image"
-        },
-        format: {
-          type: String,
-          default: ""
-        },
-        expiryDate: {
-          type: Date,
-          default: null
-        },
-        status: {
-          type: String,
-          enum: ["pending", "approved", "rejected"],
-          default: "pending"
-        }
-      },
-
-      vehicleRegistration: {
-        url: {
-          type: String,
-          default: ""
-        },
-        publicId: {
-          type: String,
-          default: ""
-        },
-        resourceType: {
-          type: String,
-          default: "image"
-        },
-        format: {
-          type: String,
-          default: ""
-        },
-        status: {
-          type: String,
-          enum: ["pending", "approved", "rejected"],
-          default: "pending"
-        }
-      },
-
-      insurance: {
-        url: {
-          type: String,
-          default: ""
-        },
-        publicId: {
-          type: String,
-          default: ""
-        },
-        resourceType: {
-          type: String,
-          default: "image"
-        },
-        format: {
-          type: String,
-          default: ""
-        },
-        expiryDate: {
-          type: Date,
-          default: null
-        },
-        status: {
-          type: String,
-          enum: ["pending", "approved", "rejected"],
-          default: "pending"
-        }
-      }
+      idProof: { type: documentSchema, default: () => ({}) },
+      drivingLicense: { type: documentSchema, default: () => ({}) },
+      vehicleRegistration: { type: documentSchema, default: () => ({}) },
+      insurance: { type: documentSchema, default: () => ({}) }
     },
 
     approvalStatus: {

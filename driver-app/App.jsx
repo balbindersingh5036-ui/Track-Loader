@@ -12,8 +12,10 @@ import {
   Platform,
   Image,
   StyleSheet,
-  Modal
+  Modal,
+  Linking
 } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import api, { setAuthenticationExpiredHandler } from './src/services/api';
 import authService from './src/services/authService';
 import bookingService from './src/services/bookingService';
@@ -57,6 +59,13 @@ const messageFor = (error) => {
   if (!error?.response) return 'Unable to connect to the service. Check your network and try again.';
   return error.response.data?.message || error.message || 'The request could not be completed.';
 };
+
+const documentStatusLabel = (status) => ({
+  not_uploaded: 'Upload Required',
+  pending: 'Pending Admin Verification',
+  approved: 'Verified',
+  rejected: 'Rejected'
+}[status] || 'Upload Required');
 
 function ActionButton({ label, onPress, secondary = false, disabled = false, danger = false, style, textStyle }) {
   const bgColor = danger ? colors.danger : (secondary ? colors.surface : colors.accent);
@@ -199,6 +208,10 @@ export default function App() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [documentUploadProgress, setDocumentUploadProgress] = useState(0);
+  const [documentUploadLoading, setDocumentUploadLoading] = useState(false);
+  const [documentUploadError, setDocumentUploadError] = useState('');
 
   const logout = useCallback(async () => {
     disconnectSocket();
@@ -410,6 +423,128 @@ export default function App() {
   const refresh = () => {
     setRefreshing(true);
     setRefreshKey((key) => key + 1);
+  };
+
+  const chooseDocument = async (document) => {
+    setError('');
+    setDocumentUploadError('');
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
+        copyToCacheDirectory: true,
+        multiple: false
+      });
+      if (result.canceled) return;
+      const file = result.assets?.[0];
+      if (!file) {
+        setError('The file picker did not return a document. Please try again.');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setError('The selected file is larger than the 5 MB limit.');
+        return;
+      }
+      const extension = file.name?.split('.').pop()?.toLowerCase();
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+      const allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+      const pickerMimeType = file.mimeType?.toLowerCase() === 'image/jpg'
+        ? 'image/jpeg'
+        : file.mimeType?.toLowerCase();
+      if (
+        (pickerMimeType && !allowedTypes.includes(pickerMimeType)) ||
+        (extension && !allowedExtensions.includes(extension))
+      ) {
+        setError('Choose a JPEG, PNG, WebP, or PDF document.');
+        return;
+      }
+      setSelectedDocument({ ...document, file });
+      setDocumentUploadProgress(0);
+      setDocumentUploadError('');
+    } catch (pickerError) {
+      setDocumentUploadError(messageFor(pickerError));
+    }
+  };
+
+  const submitDocument = async () => {
+    if (!selectedDocument || documentUploadLoading) return;
+    const { file } = selectedDocument;
+    const formData = new FormData();
+    const extension = file.name?.split('.').pop()?.toLowerCase();
+    const extensionMimeType = {
+      jpg: 'image/jpeg',
+      jpeg: 'image/jpeg',
+      png: 'image/png',
+      webp: 'image/webp',
+      pdf: 'application/pdf'
+    }[extension];
+    const selectedMimeType = file.mimeType?.toLowerCase();
+    const mimeType = selectedMimeType === 'image/jpg' ? 'image/jpeg' : (selectedMimeType || extensionMimeType);
+    if (!mimeType) {
+      setDocumentUploadError('The selected file type could not be identified. Choose a JPEG, PNG, WebP, or PDF document.');
+      return;
+    }
+    if (Platform.OS === 'web' && file.file) {
+      formData.append('document', file.file, file.name);
+    } else {
+      formData.append('document', {
+        uri: file.uri,
+        name: file.name || 'document',
+        type: mimeType
+      });
+    }
+
+    setError('');
+    setNotice('');
+    setDocumentUploadLoading(true);
+    setDocumentUploadProgress(0);
+    try {
+      const progress = (event) => {
+        if (event.total) {
+          setDocumentUploadProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+        }
+      };
+      if (selectedDocument.vehicleId) {
+        await driverService.uploadVehicleDocument(
+          selectedDocument.vehicleId,
+          selectedDocument.docType,
+          formData,
+          progress
+        );
+      } else {
+        await driverService.uploadDocument(
+          profile?._id,
+          selectedDocument.docType,
+          formData,
+          progress
+        );
+      }
+      setSelectedDocument(null);
+      setNotice('Document submitted securely for administrator review.');
+      setRefreshKey((key) => key + 1);
+    } catch (uploadError) {
+      setDocumentUploadError(messageFor(uploadError));
+    } finally {
+      setDocumentUploadLoading(false);
+      setDocumentUploadProgress(0);
+    }
+  };
+
+  const viewDocument = async (document, vehicleId = null) => {
+    try {
+      const docType = document.docType || document.key;
+      const response = vehicleId
+        ? await driverService.getVehicleDocument(vehicleId, docType)
+        : await driverService.getDocument(profile?._id, docType);
+      const url = response.data?.data?.document?.viewUrl;
+      if (!url) {
+        setError('This submission is not available through secure document viewing.');
+        return;
+      }
+      if (Platform.OS === 'web' && typeof window !== 'undefined') window.open(url, '_blank', 'noopener,noreferrer');
+      else await Linking.openURL(url);
+    } catch (viewError) {
+      setError(messageFor(viewError));
+    }
   };
 
   if (!ready) {
@@ -771,50 +906,139 @@ export default function App() {
                 
                 {/* KYC & Identity Verification */}
                 <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 24, marginBottom: 8 }}>
-                  VERIFIED KYC DOCUMENTS
+                  KYC DOCUMENTS
+                </Text>
+                <Text style={[mutedText, { fontSize: 12, lineHeight: 18, marginBottom: 4 }]}>
+                  Your documents must be approved by the administrator before you can be assigned to an agency, subject to all other eligibility requirements.
                 </Text>
                 <View style={{ gap: 8 }}>
                   {[
                     { label: 'Driving Licence', key: 'drivingLicense', doc: profile.documents?.drivingLicense },
-                    { label: 'Identity Proof (Aadhaar)', key: 'idProof', doc: profile.documents?.idProof },
-                    { label: 'Vehicle Registration (RC)', key: 'vehicleRegistration', doc: profile.documents?.vehicleRegistration },
-                    { label: 'Insurance Policy', key: 'insurance', doc: profile.documents?.insurance }
+                    { label: 'Identity Proof (Aadhaar)', key: 'idProof', doc: profile.documents?.idProof }
                   ].map((item) => {
-                    const status = item.doc?.status || (item.doc?.url ? 'submitted' : 'not_uploaded');
+                    const status = item.doc?.status || 'not_uploaded';
                     const statusColor = status === 'approved' ? colors.green : status === 'rejected' ? colors.danger : colors.warning;
                     return (
-                      <View key={item.key} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, backgroundColor: colors.card2, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                          <Ionicons name="document-text-outline" size={18} color={colors.muted} />
-                          <Text style={[bodyText, { fontSize: 13 }]}>{item.label}</Text>
+                      <View key={item.key} style={{ padding: 12, backgroundColor: colors.card2, borderRadius: 8, borderWidth: 1, borderColor: colors.border, gap: 8 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                            <Ionicons name="document-text-outline" size={18} color={colors.primary} />
+                            <Text style={[bodyText, { fontSize: 13, flexShrink: 1 }]}>{item.label}</Text>
+                          </View>
+                          <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                            <Text style={{ color: statusColor, fontSize: 10, fontWeight: '700' }}>
+                              {documentStatusLabel(status)}
+                            </Text>
+                          </View>
                         </View>
-                        <View style={{ paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)' }}>
-                          <Text style={{ color: statusColor, fontSize: 11, fontWeight: '700', textTransform: 'capitalize' }}>
-                            {status.replace('_', ' ')}
+                        {item.doc?.submittedAt ? (
+                          <Text style={[mutedText, { fontSize: 11 }]}>
+                            Submitted {new Date(item.doc.submittedAt).toLocaleDateString()}
                           </Text>
-                        </View>
+                        ) : null}
+                        {status === 'rejected' && item.doc?.rejectionReason ? (
+                          <Text style={{ color: colors.danger, fontSize: 12, lineHeight: 17 }}>
+                            Rejection reason: {item.doc.rejectionReason}
+                          </Text>
+                        ) : null}
+                        {status === 'pending' && item.doc?.viewUrl ? (
+                          <Pressable onPress={() => viewDocument(item)}>
+                            <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '700' }}>View Submission</Text>
+                          </Pressable>
+                        ) : null}
+                        {status !== 'pending' ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            disabled={documentUploadLoading || !profile?._id}
+                            onPress={() => chooseDocument({ docType: item.key, label: item.label })}
+                            style={{ paddingVertical: 9, paddingHorizontal: 12, borderRadius: 8, backgroundColor: colors.primary, alignSelf: 'flex-start', opacity: documentUploadLoading ? 0.55 : 1 }}
+                          >
+                            <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '800' }}>
+                              {status === 'rejected' ? 'Re-upload Document' : status === 'approved' ? 'Replace Document' : 'Upload Document'}
+                            </Text>
+                          </Pressable>
+                        ) : null}
                       </View>
                     );
                   })}
                 </View>
 
-                {/* Assigned Vehicle */}
+                {/* Vehicle-owned KYC */}
                 <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 24, marginBottom: 4 }}>
-                  ASSIGNED FLEET VEHICLE
+                  VEHICLE DOCUMENTS
                 </Text>
-                {(!profile.vehicles || profile.vehicles.length === 0) && (
-                  <Text style={mutedText}>No vehicle assigned by agency yet.</Text>
-                )}
+                {(!profile.vehicles || profile.vehicles.length === 0) ? (
+                  <Text style={mutedText}>Vehicle registration and insurance will appear here when a vehicle is assigned to your account.</Text>
+                ) : null}
                 {(profile.vehicles || []).map((item) => (
-                  <View key={item._id} style={{ marginTop: 8, padding: 16, backgroundColor: colors.card2, borderRadius: 12, borderWidth: 1, borderColor: colors.border }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Text style={[bodyText, { fontSize: 16, fontWeight: '700' }]}>{item.vehicleNumber}</Text>
-                      <Text style={{ color: item.isAvailable ? colors.green : colors.orange, fontSize: 11, fontWeight: '700' }}>
-                        {item.isAvailable ? 'AVAILABLE' : 'ON TRIP'}
-                      </Text>
+                  <View key={item._id} style={{ marginTop: 8, padding: 14, backgroundColor: colors.card2, borderRadius: 12, borderWidth: 1, borderColor: colors.border, gap: 10 }}>
+                    <View>
+                      <Text style={[bodyText, { fontSize: 15, fontWeight: '700' }]}>{item.vehicleNumber}</Text>
+                      <Text style={[mutedText, { marginTop: 3 }]}>{item.vehicleModel} · {item.vehicleType}</Text>
                     </View>
-                    <Text style={[mutedText, { marginTop: 4 }]}>{item.vehicleModel} · {item.vehicleType}</Text>
-                    <Text style={[mutedText, { fontSize: 12, marginTop: 2 }]}>Capacity: {item.loadCapacity?.value} {item.loadCapacity?.unit}</Text>
+                    {[
+                      { label: 'Vehicle Registration (RC)', key: 'registration', docType: 'registration' },
+                      { label: 'Insurance Policy', key: 'insurance', docType: 'insurance' }
+                    ].map((document) => {
+                      const submission = item.documents?.[document.key];
+                      const status = submission?.status || 'not_uploaded';
+                      const statusColor = status === 'approved' ? colors.green : status === 'rejected' ? colors.danger : colors.warning;
+                      const agencyOwned = Boolean(profile.agency || item.agency);
+                      return (
+                        <View key={`${item._id}-${document.key}`} style={{ padding: 10, borderRadius: 8, borderWidth: 1, borderColor: colors.border, gap: 7 }}>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                              <Ionicons name="document-text-outline" size={16} color={colors.primary} />
+                              <Text style={[bodyText, { fontSize: 12, flexShrink: 1 }]}>{document.label}</Text>
+                            </View>
+                            <Text style={{ color: statusColor, fontSize: 10, fontWeight: '700' }}>{documentStatusLabel(status)}</Text>
+                          </View>
+                          {submission?.submittedAt ? (
+                            <Text style={[mutedText, { fontSize: 10 }]}>
+                              Submitted {new Date(submission.submittedAt).toLocaleDateString()}
+                            </Text>
+                          ) : null}
+                          {status === 'rejected' && submission?.rejectionReason ? (
+                            <Text style={{ color: colors.danger, fontSize: 11 }}>
+                              Rejection reason: {submission.rejectionReason}
+                            </Text>
+                          ) : null}
+                          {agencyOwned ? (
+                            <>
+                              {status === 'pending' ? (
+                                <Pressable onPress={() => viewDocument({ docType: document.docType }, item._id)}>
+                                  <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '700' }}>View Submission</Text>
+                                </Pressable>
+                              ) : null}
+                              <Text style={[mutedText, { fontSize: 11 }]}>Agency must upload this document for the vehicle.</Text>
+                            </>
+                          ) : (
+                            <>
+                              {status === 'pending' ? (
+                                <Pressable onPress={() => viewDocument({ docType: document.docType }, item._id)}>
+                                  <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '700' }}>View Submission</Text>
+                                </Pressable>
+                              ) : (
+                                <Pressable
+                                  accessibilityRole="button"
+                                  disabled={documentUploadLoading}
+                                  onPress={() => chooseDocument({
+                                    docType: document.docType,
+                                    vehicleId: item._id,
+                                    label: `${item.vehicleNumber} ${document.label}`
+                                  })}
+                                  style={{ paddingVertical: 8, paddingHorizontal: 10, borderRadius: 8, backgroundColor: colors.primary, alignSelf: 'flex-start', opacity: documentUploadLoading ? 0.55 : 1 }}
+                                >
+                                  <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>
+                                    {status === 'rejected' ? 'Re-upload Document' : status === 'approved' ? 'Replace Document' : 'Upload Document'}
+                                  </Text>
+                                </Pressable>
+                              )}
+                            </>
+                          )}
+                        </View>
+                      );
+                    })}
                   </View>
                 ))}
               </View>
@@ -868,6 +1092,72 @@ export default function App() {
             ))}
           </ScrollView>
         </SafeAreaView>
+      </Modal>
+
+      <Modal
+        visible={Boolean(selectedDocument)}
+        animationType="slide"
+        transparent
+        onRequestClose={() => {
+          if (!documentUploadLoading) setSelectedDocument(null);
+        }}
+      >
+        <View style={{ flex: 1, justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.75)' }}>
+          <View style={[cardStyle, { padding: 18, gap: 12, borderColor: colors.primary, borderWidth: 1 }]}>
+            <Text style={[bodyText, { fontSize: 17, fontWeight: '800' }]}>
+              Submit {selectedDocument?.label}
+            </Text>
+            {documentUploadError ? (
+              <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: 12, lineHeight: 17 }}>
+                {documentUploadError}
+              </Text>
+            ) : null}
+            <Text style={[mutedText, { fontSize: 12, lineHeight: 18 }]}>
+              Accepted formats: JPEG, PNG, WebP, or PDF. Maximum file size: 5 MB.
+            </Text>
+            {selectedDocument?.file?.mimeType?.startsWith('image/') ? (
+              <Image
+                source={{ uri: selectedDocument.file.uri }}
+                resizeMode="contain"
+                style={{ width: '100%', height: 180, borderRadius: 8, backgroundColor: colors.surface }}
+              />
+            ) : (
+              <View style={{ padding: 16, borderRadius: 8, backgroundColor: colors.surface, alignItems: 'center', gap: 6 }}>
+                <Ionicons name="document-text-outline" size={30} color={colors.primary} />
+                <Text style={[bodyText, { fontSize: 12, textAlign: 'center' }]}>{selectedDocument?.file?.name}</Text>
+              </View>
+            )}
+            <Text style={[mutedText, { fontSize: 11 }]} numberOfLines={1}>
+              {selectedDocument?.file?.name}
+            </Text>
+            {documentUploadLoading ? (
+              <View style={{ gap: 6 }}>
+                <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.surface, overflow: 'hidden' }}>
+                  <View style={{ width: `${documentUploadProgress}%`, height: '100%', backgroundColor: colors.primary }} />
+                </View>
+                <Text style={[mutedText, { fontSize: 11 }]}>{documentUploadProgress}% uploaded</Text>
+              </View>
+            ) : null}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+              <ActionButton
+                label="Cancel"
+                secondary
+                disabled={documentUploadLoading}
+                onPress={() => {
+                  setSelectedDocument(null);
+                  setDocumentUploadError('');
+                }}
+                style={{ flex: 1 }}
+              />
+              <ActionButton
+                label={documentUploadLoading ? 'Uploading…' : 'Upload / Submit'}
+                disabled={documentUploadLoading}
+                onPress={submitDocument}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </View>
+        </View>
       </Modal>
 
       {/* BOTTOM NAVIGATION FIXED TO BOTTOM */}

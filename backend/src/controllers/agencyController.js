@@ -6,11 +6,19 @@ import User from "../models/User.js";
 import { errorResponse, successResponse } from "../utils/response.js";
 import { parsePagination } from "../utils/pagination.js";
 import { hashPassword } from "../utils/password.js";
+import {
+  isDriverEligibleForAssignment,
+  isVehicleEligibleForBookings
+} from "../utils/driverEligibility.js";
+import { sanitizeVehicleDocumentResponse } from "../utils/vehicleDocumentResponse.js";
+import { sanitizeDriverDocumentResponse } from "../utils/driverDocumentResponse.js";
 
 // Helper to retrieve current authenticated user's agency
 const getAgencyForUser = async (userId) => {
   return await Agency.findOne({ owner: userId });
 };
+const toPlainObject = (document) =>
+  typeof document?.toObject === "function" ? document.toObject() : document;
 
 // Agency Profile & Registration
 export const registerAgency = async (req, res) => {
@@ -152,31 +160,13 @@ export const getAgencyDrivers = async (req, res) => {
 
     const drivers = await Driver.find({ agency: agency._id })
       .populate("user", "name phone email profileImage isActive")
+      .populate("documents.idProof.uploadedBy", "name")
+      .populate("documents.drivingLicense.uploadedBy", "name")
       .sort({ createdAt: -1 });
-
-    const { generateSignedDocumentUrl, extractCloudinaryAssetInfo } = await import("../utils/documentSigner.js");
 
     const enhancedDrivers = drivers.map((d) => {
       const dObj = d.toObject();
-      if (dObj.documents) {
-        for (const [key, doc] of Object.entries(dObj.documents)) {
-          if (doc && (doc.publicId || doc.url)) {
-            let pubId = doc.publicId;
-            let fmt = doc.format || "pdf";
-            let resType = doc.resourceType || "image";
-            if (!pubId && doc.url) {
-              const ext = extractCloudinaryAssetInfo(doc.url);
-              if (ext) { pubId = ext.publicId; fmt = ext.format; }
-            }
-            if (pubId) {
-              dObj.documents[key].viewUrl = generateSignedDocumentUrl(pubId, fmt, 300, resType);
-            } else {
-              dObj.documents[key].viewUrl = doc.url;
-            }
-          }
-        }
-      }
-      return dObj;
+      return sanitizeDriverDocumentResponse(dObj, { includeSignedUrls: true });
     });
 
     return successResponse(res, { drivers: enhancedDrivers }, "Agency drivers fetched");
@@ -192,7 +182,10 @@ export const createAgencyDriver = async (req, res) => {
       return errorResponse(res, "Agency not found", 404);
     }
 
-    const { fullName, phone, email, password, address, emergencyContact, documents } = req.body;
+    const { fullName, phone, email, password, address, emergencyContact } = req.body;
+    if (Object.hasOwn(req.body || {}, "documents")) {
+      return errorResponse(res, "Documents must be submitted through the authenticated private upload endpoint", 400);
+    }
     if (!fullName || !phone || !password) {
       return errorResponse(res, "Driver full name, phone number, and password are required", 400);
     }
@@ -211,33 +204,6 @@ export const createAgencyDriver = async (req, res) => {
       role: "driver"
     });
 
-    const cleanDocs = {};
-    if (documents?.idProof?.url) {
-      const url = String(documents.idProof.url).trim();
-      if (url.startsWith("https://")) {
-        cleanDocs.idProof = {
-          url,
-          publicId: documents.idProof.publicId || "",
-          resourceType: documents.idProof.resourceType || "image",
-          format: documents.idProof.format || (url.endsWith(".pdf") ? "pdf" : "jpg"),
-          maskedNumber: documents.idProof.maskedNumber || "",
-          status: "pending"
-        };
-      }
-    }
-    if (documents?.drivingLicense?.url) {
-      const url = String(documents.drivingLicense.url).trim();
-      if (url.startsWith("https://")) {
-        cleanDocs.drivingLicense = {
-          url,
-          publicId: documents.drivingLicense.publicId || "",
-          resourceType: documents.drivingLicense.resourceType || "image",
-          format: documents.drivingLicense.format || (url.endsWith(".pdf") ? "pdf" : "jpg"),
-          status: "pending"
-        };
-      }
-    }
-
     const driver = await Driver.create({
       user: user._id,
       agency: agency._id,
@@ -246,7 +212,6 @@ export const createAgencyDriver = async (req, res) => {
       email: email ? email.trim().toLowerCase() : "",
       address: address ? address.trim() : "",
       emergencyContact: emergencyContact || { name: "", phone: "" },
-      documents: cleanDocs,
       approvalStatus: "pending" // Preserving Super Admin approval authority
     });
 
@@ -264,70 +229,21 @@ export const updateAgencyDriverDocuments = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { documents } = req.body;
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return errorResponse(res, "Invalid driver ID", 400);
     }
 
-    // Agency isolation: verify driver belongs to this agency
     const driver = await Driver.findOne({ _id: id, agency: agency._id });
     if (!driver) {
       return errorResponse(res, "Driver not found in your agency", 404);
     }
-
-    const { extractCloudinaryAssetInfo } = await import("../utils/documentSigner.js");
-
-    if (documents?.idProof?.url) {
-      const url = String(documents.idProof.url).trim();
-      if (!url.startsWith("https://")) return errorResponse(res, "Aadhaar URL must be a valid secure HTTPS link", 400);
-      let pubId = documents.idProof.publicId || "";
-      let fmt = documents.idProof.format || "";
-      if (!pubId) {
-        const ext = extractCloudinaryAssetInfo(url);
-        if (ext) { pubId = ext.publicId; fmt = ext.format; }
-      }
-      if (!fmt) fmt = url.endsWith(".pdf") ? "pdf" : "jpg";
-
-      if (!driver.documents) driver.documents = {};
-      driver.documents.idProof = {
-        url,
-        publicId: pubId,
-        resourceType: documents.idProof.resourceType || "image",
-        format: fmt,
-        maskedNumber: documents.idProof.maskedNumber || driver.documents?.idProof?.maskedNumber || "",
-        status: "pending"
-      };
-    }
-
-    if (documents?.drivingLicense?.url) {
-      const url = String(documents.drivingLicense.url).trim();
-      if (!url.startsWith("https://")) return errorResponse(res, "Driving Licence URL must be a valid secure HTTPS link", 400);
-      let pubId = documents.drivingLicense.publicId || "";
-      let fmt = documents.drivingLicense.format || "";
-      if (!pubId) {
-        const ext = extractCloudinaryAssetInfo(url);
-        if (ext) { pubId = ext.publicId; fmt = ext.format; }
-      }
-      if (!fmt) fmt = url.endsWith(".pdf") ? "pdf" : "jpg";
-
-      if (!driver.documents) driver.documents = {};
-      driver.documents.drivingLicense = {
-        url,
-        publicId: pubId,
-        resourceType: documents.drivingLicense.resourceType || "image",
-        format: fmt,
-        status: "pending"
-      };
-    }
-
-    if (typeof driver.markModified === "function") {
-      driver.markModified("documents");
-    }
-    await driver.save();
-
-    return successResponse(res, { driver }, "Driver documents updated successfully");
+    return errorResponse(
+      res,
+      "Direct document URLs are not accepted. Use the authenticated private document upload endpoint.",
+      400
+    );
   } catch (error) {
-    return errorResponse(res, error.message || "Failed to update driver documents", 500);
+    return errorResponse(res, "Failed to update driver documents", 500);
   }
 };
 
@@ -341,9 +257,13 @@ export const getAgencyVehicles = async (req, res) => {
 
     const vehicles = await Vehicle.find({ agency: agency._id })
       .populate("driver", "fullName phone rating approvalStatus isActive")
+      .populate("documents.registration.uploadedBy", "name")
+      .populate("documents.insurance.uploadedBy", "name")
       .sort({ createdAt: -1 });
 
-    return successResponse(res, { vehicles }, "Agency vehicles fetched");
+    return successResponse(res, {
+      vehicles: vehicles.map((vehicle) => sanitizeVehicleDocumentResponse(vehicle.toObject()))
+    }, "Agency vehicles fetched");
   } catch (error) {
     return errorResponse(res, "Failed to fetch agency vehicles", 500);
   }
@@ -355,9 +275,11 @@ export const createAgencyVehicle = async (req, res) => {
     if (!agency) {
       return errorResponse(res, "Agency not found", 404);
     }
+    if (agency.approvalStatus !== "approved" || !agency.isActive) {
+      return errorResponse(res, "Only an active, approved agency may assign drivers", 403);
+    }
 
     const {
-      driverId,
       vehicleNumber,
       vehicleModel,
       vehicleType,
@@ -367,22 +289,11 @@ export const createAgencyVehicle = async (req, res) => {
       vehicleImages
     } = req.body;
 
-    if (!driverId || !mongoose.Types.ObjectId.isValid(driverId)) {
-      return errorResponse(res, "Valid driver ID is required", 400);
-    }
-
-    // Verify driver belongs to this agency
-    const driver = await Driver.findOne({ _id: driverId, agency: agency._id });
-    if (!driver) {
-      return errorResponse(res, "Driver not found in your agency", 404);
-    }
-
     if (!vehicleNumber || !vehicleModel || !vehicleType || !loadCapacity) {
       return errorResponse(res, "Required vehicle details missing", 400);
     }
 
     const vehicle = await Vehicle.create({
-      driver: driver._id,
       agency: agency._id,
       vehicleNumber: vehicleNumber.trim().toUpperCase(),
       vehicleModel: vehicleModel.trim(),
@@ -393,7 +304,12 @@ export const createAgencyVehicle = async (req, res) => {
       vehicleImages: vehicleImages || []
     });
 
-    return successResponse(res, { vehicle }, "Agency vehicle added successfully", 201);
+    return successResponse(
+      res,
+      { vehicle: sanitizeVehicleDocumentResponse(toPlainObject(vehicle)) },
+      "Vehicle added. Upload its registration and insurance documents for administrator review before assigning a driver.",
+      201
+    );
   } catch (error) {
     if (error.code === 11000) {
       return errorResponse(res, "Vehicle number already registered", 409);
@@ -408,7 +324,6 @@ export const updateAgencyVehicle = async (req, res) => {
     if (!agency) {
       return errorResponse(res, "Agency not found", 404);
     }
-
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return errorResponse(res, "Invalid vehicle ID", 400);
@@ -438,7 +353,11 @@ export const updateAgencyVehicle = async (req, res) => {
     if (typeof isActive === "boolean") vehicle.isActive = isActive;
 
     await vehicle.save();
-    return successResponse(res, { vehicle }, "Agency vehicle updated successfully");
+    return successResponse(
+      res,
+      { vehicle: sanitizeVehicleDocumentResponse(toPlainObject(vehicle)) },
+      "Agency vehicle updated successfully"
+    );
   } catch (error) {
     return errorResponse(res, "Failed to update agency vehicle", 500);
   }
@@ -449,6 +368,9 @@ export const assignVehicleDriver = async (req, res) => {
     const agency = await getAgencyForUser(req.user._id);
     if (!agency) {
       return errorResponse(res, "Agency not found", 404);
+    }
+    if (agency.approvalStatus !== "approved" || !agency.isActive) {
+      return errorResponse(res, "Only an active, approved agency may assign drivers", 403);
     }
 
     const { id } = req.params;
@@ -469,11 +391,29 @@ export const assignVehicleDriver = async (req, res) => {
     if (!driver) {
       return errorResponse(res, "Driver not found in your agency", 404);
     }
+    if (!isDriverEligibleForAssignment(driver)) {
+      return errorResponse(
+        res,
+        "Driver must be active, approved, and have approved identity documents before assignment",
+        403
+      );
+    }
+    if (!isVehicleEligibleForBookings(vehicle)) {
+      return errorResponse(
+        res,
+        "Vehicle registration and insurance must both be approved before assigning a driver",
+        403
+      );
+    }
 
     vehicle.driver = driver._id;
     await vehicle.save();
 
-    return successResponse(res, { vehicle }, "Vehicle assigned to driver successfully");
+    return successResponse(
+      res,
+      { vehicle: sanitizeVehicleDocumentResponse(toPlainObject(vehicle)) },
+      "Vehicle assigned to driver successfully"
+    );
   } catch (error) {
     return errorResponse(res, "Failed to assign vehicle", 500);
   }
@@ -510,4 +450,3 @@ export const getAgencyBookings = async (req, res) => {
     return errorResponse(res, "Failed to fetch agency bookings", 500);
   }
 };
-

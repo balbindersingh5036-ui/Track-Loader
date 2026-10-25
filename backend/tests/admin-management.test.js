@@ -147,7 +147,7 @@ test("admin customer details and status updates are customer-scoped and safe", a
   assert.equal(detailRes.statusCode, 404);
 });
 
-test("admin driver filters, paginates, and excludes KYC fields", async (t) => {
+test("admin driver filters, paginates, and returns only driver KYC status summaries", async (t) => {
   let driverQuery;
   t.mock.method(Driver, "find", (query) => {
     driverQuery = query;
@@ -160,7 +160,7 @@ test("admin driver filters, paginates, and excludes KYC fields", async (t) => {
       isActive: true,
       rating: 4,
       totalTrips: 2,
-      documents: { idProof: { url: "private" } },
+      documents: { idProof: { url: "private", status: "pending" } },
       user: { name: "Driver", phone: "123", email: "driver@example.com" }
     }]);
   });
@@ -184,7 +184,8 @@ test("admin driver filters, paginates, and excludes KYC fields", async (t) => {
   assert.equal(driverQuery.approvalStatus, "pending");
   assert.equal(driverQuery.isOnline, false);
   assert.equal(res.body.data.drivers[0].vehicles.length, 1);
-  assert.equal("documents" in res.body.data.drivers[0], false);
+  assert.equal(res.body.data.drivers[0].documents.idProof.status, "pending");
+  assert.equal("url" in res.body.data.drivers[0].documents.idProof, false);
   assert.equal("registrationDocument" in res.body.data.drivers[0].vehicles[0], false);
 });
 
@@ -204,12 +205,24 @@ test("admin driver approval is an explicit action and arbitrary statuses are rej
       }
     };
   });
+  t.mock.method(Driver, "findById", () => ({
+    select() {
+      return {
+        lean: async () => ({
+          documents: {
+            idProof: { status: "approved" },
+            drivingLicense: { status: "approved" }
+          }
+        })
+      };
+    }
+  }));
   t.mock.method(Vehicle, "find", () => chain([]));
   const res = createResponse();
   await approveAdminDriver({ params: { id: objectId }, body: {} }, res);
   assert.equal(res.statusCode, 200);
   assert.deepEqual(update[1], { $set: { approvalStatus: "approved" } });
-  assert.equal("documents" in res.body.data.driver, false);
+  assert.equal(res.body.data.driver.documents.idProof.status, "pending");
 
   const invalid = createResponse();
   await updateAdminDriverStatus({ params: { id: objectId }, body: { approvalStatus: "admin" } }, invalid);

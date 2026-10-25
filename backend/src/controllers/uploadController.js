@@ -22,8 +22,30 @@ export const uploadImage = async (req, res, next) => {
     const b64 = Buffer.from(req.file.buffer).toString("base64");
     const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
     
-    const isSensitiveKYC = ["aadhaar", "drivingLicense", "document", "kyc"].includes(req.body?.purpose);
-    const isDocumentOrFleet = ["document", "aadhaar", "drivingLicense", "vehicle", "banner", "kyc"].includes(req.body?.purpose);
+    const isSensitiveKYC = [
+      "aadhaar",
+      "ownerAadhaar",
+      "businessRegistration",
+      "taxId",
+      "drivingLicense",
+      "vehicleRegistration",
+      "insurance",
+      "document",
+      "kyc"
+    ].includes(req.body?.purpose);
+    const isDocumentOrFleet = [
+      "document",
+      "aadhaar",
+      "ownerAadhaar",
+      "businessRegistration",
+      "taxId",
+      "drivingLicense",
+      "vehicleRegistration",
+      "insurance",
+      "vehicle",
+      "banner",
+      "kyc"
+    ].includes(req.body?.purpose);
 
     // Sensitive KYC documents use private authenticated storage in a dedicated folder
     // Public media (profile photos, fleet vehicles, banners) continue to use public upload

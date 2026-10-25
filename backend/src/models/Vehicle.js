@@ -1,11 +1,31 @@
 import mongoose from "mongoose";
 
+const vehicleDocumentSchema = new mongoose.Schema(
+  {
+    url: { type: String, default: "" },
+    publicId: { type: String, default: "" },
+    resourceType: { type: String, default: "image" },
+    format: { type: String, default: "" },
+    status: {
+      type: String,
+      enum: ["not_uploaded", "pending", "approved", "rejected"],
+      default: "not_uploaded"
+    },
+    submittedAt: { type: Date, default: null },
+    uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    reviewedAt: { type: Date, default: null },
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+    rejectionReason: { type: String, default: "", trim: true }
+  },
+  { _id: false }
+);
+
 const vehicleSchema = new mongoose.Schema(
   {
     driver: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Driver",
-      required: true,
+      default: null,
       index: true
     },
 
@@ -88,6 +108,11 @@ const vehicleSchema = new mongoose.Schema(
     insuranceDocument: {
       type: String,
       default: ""
+    },
+
+    documents: {
+      registration: { type: vehicleDocumentSchema, default: () => ({}) },
+      insurance: { type: vehicleDocumentSchema, default: () => ({}) }
     },
 
     isAvailable: {
