@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../../store/slices/authSlice';
-import { Bell, Search, User } from 'lucide-react';
+import { Bell, Menu, Search, User } from 'lucide-react';
 import api from '../../services/api';
 
 export default function Header() {
@@ -22,12 +22,22 @@ export default function Header() {
 
   return (
     <header className="header">
-      <div style={{ display: 'flex', alignItems: 'center', background: '#f5f5f5', padding: '8px 16px', borderRadius: '8px', width: '300px' }}>
+      <div className="header-left">
+        <button
+          type="button"
+          className="mobile-menu-toggle"
+          aria-label="Open navigation menu"
+          onClick={() => window.dispatchEvent(new CustomEvent('toggle-admin-sidebar'))}
+        >
+          <Menu size={22} />
+        </button>
+        <div className="header-search" style={{ display: 'flex', alignItems: 'center', background: '#f5f5f5', padding: '8px 16px', borderRadius: '8px', width: '300px' }}>
         <Search size={18} color="var(--text-secondary)" style={{ marginRight: '8px' }} />
         <input type="text" placeholder="Search..." style={{ border: 'none', background: 'transparent', outline: 'none', padding: 0 }} />
+        </div>
       </div>
       
-      <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+      <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
         <div style={{ position: 'relative', cursor: 'pointer' }}>
           <Bell size={24} color="var(--text-secondary)" />
           {unreadCount > 0 && (
@@ -37,7 +47,7 @@ export default function Header() {
           )}
         </div>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="header-user" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <User size={20} />
           </div>

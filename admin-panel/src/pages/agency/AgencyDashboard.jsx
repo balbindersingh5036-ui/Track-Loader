@@ -265,6 +265,15 @@ export default function AgencyDashboard() {
   }, []);
 
   useEffect(() => {
+    window.dispatchEvent(new CustomEvent('agency-tab-change', { detail: { tab: activeTab } }));
+    window.dispatchEvent(new CustomEvent('agency-dashboard-counts', {
+      detail: loading
+        ? { drivers: null, vehicles: null, trips: null }
+        : { drivers: drivers.length, vehicles: vehicles.length, trips: bookingCount }
+    }));
+  }, [activeTab, bookingCount, drivers.length, loading, vehicles.length]);
+
+  useEffect(() => {
     const handleCustomQuickAction = (e) => {
       const action = e.detail?.action;
       if (action === 'register-driver') {
@@ -276,16 +285,21 @@ export default function AgencyDashboard() {
         } else {
           setNewVehicleModal(true);
         }
-      } else if (action === 'agency-kyc-profile') {
-        setActiveTab('profile');
-      } else if (action === 'view-fleet-trips') {
-        setActiveTab('bookings');
+      }
+    };
+
+    const handleAgencyTabSelect = (e) => {
+      const tab = e.detail?.tab;
+      if (['overview', 'drivers', 'vehicles', 'bookings', 'profile'].includes(tab)) {
+        setActiveTab(tab);
       }
     };
 
     window.addEventListener('agency-quick-action', handleCustomQuickAction);
+    window.addEventListener('agency-tab-select', handleAgencyTabSelect);
     return () => {
       window.removeEventListener('agency-quick-action', handleCustomQuickAction);
+      window.removeEventListener('agency-tab-select', handleAgencyTabSelect);
     };
   }, [drivers.length]);
 
@@ -643,7 +657,7 @@ export default function AgencyDashboard() {
   const dispatchReadyFleetCount = vehicles.filter(v => isVehicleDispatchReady(v, agency)).length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="agency-dashboard-content" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {/* 1. Header Section */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
         <div>
@@ -788,56 +802,12 @@ export default function AgencyDashboard() {
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="agency-tabs">
-        <button
-          type="button"
-          className={`agency-tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
-          onClick={() => setActiveTab('overview')}
-        >
-          <Building2 size={16} />
-          Overview
-        </button>
-        <button
-          type="button"
-          className={`agency-tab-btn ${activeTab === 'drivers' ? 'active' : ''}`}
-          onClick={() => setActiveTab('drivers')}
-        >
-          <Users size={16} />
-          Drivers ({drivers.length})
-        </button>
-        <button
-          type="button"
-          className={`agency-tab-btn ${activeTab === 'vehicles' ? 'active' : ''}`}
-          onClick={() => setActiveTab('vehicles')}
-        >
-          <Car size={16} />
-          Fleet Vehicles ({vehicles.length})
-        </button>
-        <button
-          type="button"
-          className={`agency-tab-btn ${activeTab === 'bookings' ? 'active' : ''}`}
-          onClick={() => setActiveTab('bookings')}
-        >
-          <MapPin size={16} />
-          Fleet Trips ({bookingCount})
-        </button>
-        <button
-          type="button"
-          className={`agency-tab-btn ${activeTab === 'profile' ? 'active' : ''}`}
-          onClick={() => setActiveTab('profile')}
-        >
-          <FileText size={16} />
-          Profile & KYC
-        </button>
-      </div>
-
-      {/* 6. TAB WORKSPACE */}
+      {/* Selected dashboard section */}
 
       {/* TAB 1: OVERVIEW */}
       {activeTab === 'overview' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: 20 }}>
             {/* Recent Drivers & Status */}
             <div className="card">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>

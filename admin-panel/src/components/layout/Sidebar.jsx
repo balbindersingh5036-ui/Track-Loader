@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { 
-  LayoutDashboard, Users, Car, Map, CreditCard, 
+  LayoutDashboard, Users, Car, Truck, Map, CreditCard,
   Settings, Bell, AlertTriangle, FileText, TrendingUp, Star, Image, Building2,
   UserPlus, PlusCircle, ShieldCheck, MapPin
 } from 'lucide-react';
@@ -12,6 +12,9 @@ export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const isAgency = user?.role === 'agency';
+  const [agencyTab, setAgencyTab] = useState('overview');
+  const [agencyCounts, setAgencyCounts] = useState({ drivers: null, vehicles: null, trips: null });
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const adminMenuItems = [
     { path: '/dashboard', name: 'Dashboard', icon: <LayoutDashboard /> },
@@ -30,13 +33,42 @@ export default function Sidebar() {
     { path: '/settings', name: 'System Settings', icon: <Settings /> },
   ];
 
-  const agencyMenuItems = [
-    { path: '/agency/dashboard', name: 'Agency Fleet', icon: <LayoutDashboard /> }
-  ];
+  useEffect(() => {
+    const handleAgencyTabChange = (event) => {
+      if (event.detail?.tab) setAgencyTab(event.detail.tab);
+    };
+    const handleAgencyCountsChange = (event) => {
+      setAgencyCounts(event.detail || { drivers: null, vehicles: null, trips: null });
+    };
+    const handleSidebarToggle = () => setMobileOpen(open => !open);
 
-  const menuItems = isAgency ? agencyMenuItems : adminMenuItems;
+    window.addEventListener('agency-tab-change', handleAgencyTabChange);
+    window.addEventListener('agency-dashboard-counts', handleAgencyCountsChange);
+    window.addEventListener('toggle-admin-sidebar', handleSidebarToggle);
+    return () => {
+      window.removeEventListener('agency-tab-change', handleAgencyTabChange);
+      window.removeEventListener('agency-dashboard-counts', handleAgencyCountsChange);
+      window.removeEventListener('toggle-admin-sidebar', handleSidebarToggle);
+    };
+  }, []);
+
+  const menuItems = adminMenuItems;
+
+  const selectAgencyTab = (tab) => {
+    setAgencyTab(tab);
+    setMobileOpen(false);
+    if (location.pathname !== '/agency/dashboard') {
+      navigate('/agency/dashboard');
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('agency-tab-select', { detail: { tab } }));
+      }, 100);
+      return;
+    }
+    window.dispatchEvent(new CustomEvent('agency-tab-select', { detail: { tab } }));
+  };
 
   const handleQuickAction = (actionType) => {
+    setMobileOpen(false);
     // If not on agency dashboard, navigate there first
     if (location.pathname !== '/agency/dashboard') {
       navigate('/agency/dashboard');
@@ -48,71 +80,86 @@ export default function Sidebar() {
     }
   };
 
+  const agencyTabs = [
+    { id: 'overview', name: 'Overview', icon: <LayoutDashboard /> },
+    { id: 'drivers', name: 'Drivers', icon: <Users />, count: agencyCounts.drivers },
+    { id: 'vehicles', name: 'Fleet Vehicles', icon: <Truck />, count: agencyCounts.vehicles },
+    { id: 'bookings', name: 'Fleet Trips', icon: <MapPin />, count: agencyCounts.trips },
+    { id: 'profile', name: 'Profile & KYC', icon: <ShieldCheck /> }
+  ];
+
   return (
-    <div className="sidebar">
-      <div className="sidebar-header">
-        <span style={{ color: 'var(--primary)', marginRight: '8px' }}>LB</span> {isAgency ? 'Agency Fleet' : 'Admin'}
-      </div>
-      <div className="sidebar-nav">
-        {menuItems.map((item) => (
-          <NavLink 
-            key={item.path} 
-            to={item.path} 
-            className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
-          >
-            {item.icon}
-            <span>{item.name}</span>
-          </NavLink>
-        ))}
+    <>
+      {mobileOpen && <button type="button" className="sidebar-backdrop" aria-label="Close navigation menu" onClick={() => setMobileOpen(false)} />}
+      <div className={`sidebar${mobileOpen ? ' mobile-open' : ''}`}>
+        <div className="sidebar-header">
+          <span style={{ color: 'var(--primary)', marginRight: '8px' }}>LB</span> {isAgency ? 'Agency Fleet' : 'Admin'}
+        </div>
+        <div className="sidebar-nav">
+          {isAgency ? (
+            <>
+              <NavLink
+                to="/agency/dashboard"
+                className="nav-item agency-home-link"
+                onClick={() => selectAgencyTab('overview')}
+              >
+                <LayoutDashboard />
+                <span>Agency Fleet</span>
+              </NavLink>
+              <div className="sidebar-section-title">Main Navigation</div>
+              {agencyTabs.map((item) => (
+                <button
+                  type="button"
+                  key={item.id}
+                  className={`nav-item agency-tab-link${agencyTab === item.id ? ' active' : ''}`}
+                  aria-current={agencyTab === item.id ? 'page' : undefined}
+                  onClick={() => selectAgencyTab(item.id)}
+                >
+                  {item.icon}
+                  <span>{item.name}</span>
+                  {item.count != null && <span className="sidebar-count">{item.count}</span>}
+                </button>
+              ))}
+            </>
+          ) : menuItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              onClick={() => setMobileOpen(false)}
+              className={({ isActive }) => isActive ? 'nav-item active' : 'nav-item'}
+            >
+              {item.icon}
+              <span>{item.name}</span>
+            </NavLink>
+          ))}
 
-        {isAgency && (
-          <div style={{ marginTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '8px' }}>
-            <div className="sidebar-section-title">
-              Quick Actions
+          {isAgency && (
+            <div style={{ marginTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '8px' }}>
+              <div className="sidebar-section-title">Quick Actions</div>
+
+              <button
+                type="button"
+                className="sidebar-action-btn"
+                onClick={() => handleQuickAction('register-driver')}
+                title="Register a new commercial driver"
+              >
+                <UserPlus color="#38bdf8" />
+                <span>Register Driver</span>
+              </button>
+
+              <button
+                type="button"
+                className="sidebar-action-btn"
+                onClick={() => handleQuickAction('add-vehicle')}
+                title="Add a new commercial vehicle to fleet"
+              >
+                <PlusCircle color="#4ade80" />
+                <span>Add Fleet Vehicle</span>
+              </button>
             </div>
-
-            <button
-              type="button"
-              className="sidebar-action-btn"
-              onClick={() => handleQuickAction('register-driver')}
-              title="Register a new commercial driver"
-            >
-              <UserPlus color="#38bdf8" />
-              <span>Register Driver</span>
-            </button>
-
-            <button
-              type="button"
-              className="sidebar-action-btn"
-              onClick={() => handleQuickAction('add-vehicle')}
-              title="Add a new commercial vehicle to fleet"
-            >
-              <PlusCircle color="#4ade80" />
-              <span>Add Fleet Vehicle</span>
-            </button>
-
-            <button
-              type="button"
-              className="sidebar-action-btn"
-              onClick={() => handleQuickAction('agency-kyc-profile')}
-              title="View & update agency profile and KYC documents"
-            >
-              <ShieldCheck color="#fbbf24" />
-              <span>Agency KYC & Profile</span>
-            </button>
-
-            <button
-              type="button"
-              className="sidebar-action-btn"
-              onClick={() => handleQuickAction('view-fleet-trips')}
-              title="View commercial dispatches and bookings"
-            >
-              <MapPin color="#a78bfa" />
-              <span>View Fleet Trips</span>
-            </button>
+          )}
           </div>
-        )}
       </div>
-    </div>
+    </>
   );
 }
