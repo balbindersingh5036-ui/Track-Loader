@@ -1,6 +1,7 @@
 import express from "express";
 import {
   registerAgency,
+  getVerifiedAgencies,
   getMyAgency,
   updateMyAgency,
   getAgencyDrivers,
@@ -16,6 +17,8 @@ import { protect } from "../middleware/authMiddleware.js";
 import { agencyOnly } from "../middleware/agencyMiddleware.js";
 
 const router = express.Router();
+
+router.get("/verified", getVerifiedAgencies);
 
 // Public agency registration (authenticated user applies to become agency owner)
 router.post("/register", protect, registerAgency);

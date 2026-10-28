@@ -92,6 +92,8 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
       owner: agencyAOwner._id,
       agencyName: "Alpha Logistics",
       phone: agencyAOwner.phone,
+      approvalStatus: "approved",
+      isActive: true,
       documents: {
         ownerAadhaar: {
           url: agencyADocUrl,
@@ -218,6 +220,43 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
     const res = await request(app)
       .get(`/api/documents/agency/${agencyA._id}/ownerAadhaar`);
     assert.equal(res.status, 401);
+  });
+
+  it("Public driver registration sees only safe fields for active approved agencies", async () => {
+    const res = await request(app).get("/api/agency/verified");
+    assert.equal(res.status, 200);
+    const listedAgency = res.body.data.agencies.find((agency) => agency._id === agencyA._id.toString());
+    assert.ok(listedAgency);
+    assert.equal(res.body.data.agencies.some((agency) => agency._id === agencyB._id.toString()), false);
+    assert.equal(listedAgency.agencyName, agencyA.agencyName);
+    assert.equal(listedAgency.city, agencyA.city);
+    assert.equal("documents" in listedAgency, false);
+    assert.equal("owner" in listedAgency, false);
+  });
+
+  it("Agency driver list is isolated and the global admin list contains the same driver", async () => {
+    const agencyRes = await request(app)
+      .get("/api/agency/drivers")
+      .set("Authorization", `Bearer ${agencyAToken}`);
+    assert.equal(agencyRes.status, 200);
+    const agencyDriverIds = agencyRes.body.data.drivers.map((driver) => driver._id);
+    assert.ok(agencyDriverIds.includes(driverA._id.toString()));
+    assert.equal(agencyDriverIds.includes(driverB._id.toString()), false);
+
+    const globalRes = await request(app)
+      .get("/api/admin/drivers")
+      .query({ search: driverA.phone })
+      .set("Authorization", `Bearer ${adminToken}`);
+    assert.equal(globalRes.status, 200);
+    assert.ok(globalRes.body.data.drivers.some((driver) => driver.id === driverA._id.toString()));
+  });
+
+  it("A regular admin cannot perform final driver approval", async () => {
+    const res = await request(app)
+      .patch(`/api/admin/drivers/${driverA._id}/approve`)
+      .set("Authorization", `Bearer ${regularAdminToken}`)
+      .send({});
+    assert.equal(res.status, 403);
   });
 
   // TEST 2: Customers cannot view private KYC documents (403)

@@ -2,6 +2,7 @@ import express from "express";
 
 import {
   register,
+  registerDriver,
   login,
   driverLogin,
   adminLogin,
@@ -19,6 +20,7 @@ router.post("/register", register);
 router.post("/login", login);
 
 /* Driver */
+router.post("/driver/register", registerDriver);
 router.post("/driver/login", driverLogin);
 
 /* Admin */

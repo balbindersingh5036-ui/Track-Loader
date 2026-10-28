@@ -14,6 +14,13 @@ export default function Drivers() {
       columns={[
         { label: 'Name', path: 'name' },
         { label: 'Phone', path: 'phone' },
+        {
+          label: 'Agency',
+          render: (item) => item.agency?.agencyName
+            ? `${item.agency.agencyName} · ${item.agency.id}`
+            : 'Independent'
+        },
+        { label: 'Registered', render: (item) => item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '—' },
         { label: 'Online', render: (item) => item.isOnline ? 'Online' : 'Offline' },
         { label: 'Approval', path: 'approvalStatus' },
         { label: 'Driving Licence', render: (item) => item.documents?.drivingLicense?.status || 'not uploaded' },
@@ -23,7 +30,7 @@ export default function Drivers() {
       actions={[
         ...['approve', 'reject', 'suspend'].map((status) => ({
           label: status[0].toUpperCase() + status.slice(1),
-          disabled: (item) => item.approvalStatus === status,
+          disabled: (item) => !item.canApproveDriver || item.approvalStatus === status,
           run: (item) => api.patch(`/admin/drivers/${item.id}/${status}`)
         })),
         {

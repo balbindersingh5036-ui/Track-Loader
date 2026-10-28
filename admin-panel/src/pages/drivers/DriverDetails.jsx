@@ -75,7 +75,12 @@ export default function DriverDetails() {
             <dt style={{ fontWeight: 700 }}>Email</dt><dd style={{ margin: 0 }}>{driver.email || '—'}</dd>
             <dt style={{ fontWeight: 700 }}>Driver approval</dt><dd style={{ margin: 0, textTransform: 'capitalize' }}>{driver.approvalStatus || 'pending'}</dd>
             <dt style={{ fontWeight: 700 }}>Account status</dt><dd style={{ margin: 0 }}>{driver.isActive ? 'Active' : 'Inactive'}</dd>
-            <dt style={{ fontWeight: 700 }}>Agency</dt><dd style={{ margin: 0 }}>{driver.agency?.agencyName || 'Independent'}</dd>
+            <dt style={{ fontWeight: 700 }}>Agency</dt>
+            <dd style={{ margin: 0 }}>
+              {driver.agency?.agencyName
+                ? `${driver.agency.agencyName} · ${driver.agency._id || driver.agency.id}`
+                : 'Independent'}
+            </dd>
             <dt style={{ fontWeight: 700 }}>Rejection reason</dt><dd style={{ margin: 0 }}>{driver.rejectionReason || '—'}</dd>
             <dt style={{ fontWeight: 700 }}>Vehicles</dt>
             <dd style={{ margin: 0 }}>{(driver.vehicles || []).map((vehicle) => `${vehicle.vehicleNumber} (${vehicle.vehicleModel})`).join(', ') || '—'}</dd>

@@ -2,6 +2,8 @@ import api from './api';
 
 export const authService = {
   login: (credentials) => api.post('/auth/driver/login', credentials),
+  register: (details) => api.post('/auth/driver/register', details),
+  getVerifiedAgencies: () => api.get('/agency/verified'),
   getMe: () => api.get('/auth/me')
 };
 

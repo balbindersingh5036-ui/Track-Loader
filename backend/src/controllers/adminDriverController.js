@@ -8,7 +8,7 @@ import { hasApprovedDriverIdentityDocuments } from "../utils/driverEligibility.j
 import { extractCloudinaryAssetInfo } from "../utils/documentSigner.js";
 import { isDesignatedSuperAdmin } from "../utils/superAdmin.js";
 
-const safeDriver = (driver, vehicles = []) => ({
+const safeDriver = (driver, vehicles = [], canApproveDriver = false) => ({
   id: driver._id,
   name: driver.user?.name || driver.fullName,
   phone: driver.user?.phone || driver.phone,
@@ -21,6 +21,14 @@ const safeDriver = (driver, vehicles = []) => ({
   isOnline: driver.isOnline,
   isActive: driver.isActive,
   createdAt: driver.createdAt,
+  agency: driver.agency
+    ? {
+        id: driver.agency._id || driver.agency,
+        agencyName: driver.agency.agencyName || "",
+        city: driver.agency.city || ""
+      }
+    : null,
+  canApproveDriver,
   documents: {
     idProof: {
       status: driver.documents?.idProof?.url || driver.documents?.idProof?.publicId
@@ -94,13 +102,23 @@ export const getAdminDrivers = async (req, res) => {
     }
 
     const [drivers, total] = await Promise.all([
-      Driver.find(query).populate("user", "name phone email profileImage").sort({ createdAt: -1 }).skip(pagination.skip).limit(pagination.limit).lean(),
+      Driver.find(query)
+        .populate("user", "name phone email profileImage")
+        .populate("agency", "agencyName city")
+        .sort({ createdAt: -1 })
+        .skip(pagination.skip)
+        .limit(pagination.limit)
+        .lean(),
       Driver.countDocuments(query)
     ]);
     const vehiclesByDriver = await loadVehiclesByDriver(drivers);
 
     return successResponse(res, {
-      drivers: drivers.map((driver) => safeDriver(driver, vehiclesByDriver.get(driver._id.toString()))),
+      drivers: drivers.map((driver) => safeDriver(
+        driver,
+        vehiclesByDriver.get(driver._id.toString()),
+        isDesignatedSuperAdmin(req.user)
+      )),
       pagination: {
         page: pagination.page,
         limit: pagination.limit,

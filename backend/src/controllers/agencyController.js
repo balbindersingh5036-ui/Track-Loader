@@ -20,6 +20,23 @@ const getAgencyForUser = async (userId) => {
 const toPlainObject = (document) =>
   typeof document?.toObject === "function" ? document.toObject() : document;
 
+export const getVerifiedAgencies = async (_req, res) => {
+  try {
+    const agencies = await Agency.find({
+      approvalStatus: "approved",
+      isActive: true
+    })
+      .select("_id agencyName city")
+      .sort({ agencyName: 1 })
+      .lean();
+
+    return successResponse(res, { agencies }, "Verified agencies fetched");
+  } catch (error) {
+    console.error("Verified agency list error:", error);
+    return errorResponse(res, "Failed to fetch verified agencies", 500);
+  }
+};
+
 // Agency Profile & Registration
 export const registerAgency = async (req, res) => {
   try {
@@ -164,8 +181,24 @@ export const getAgencyDrivers = async (req, res) => {
       .populate("documents.drivingLicense.uploadedBy", "name")
       .sort({ createdAt: -1 });
 
+    const assignedVehicles = await Vehicle.find({
+      agency: agency._id,
+      driver: { $in: drivers.map((driver) => driver._id) }
+    })
+      .select("_id driver vehicleNumber vehicleModel vehicleType")
+      .lean();
+    const vehicleByDriver = new Map(
+      assignedVehicles.map((vehicle) => [String(vehicle.driver), {
+        id: vehicle._id,
+        vehicleNumber: vehicle.vehicleNumber,
+        vehicleModel: vehicle.vehicleModel,
+        vehicleType: vehicle.vehicleType
+      }])
+    );
+
     const enhancedDrivers = drivers.map((d) => {
       const dObj = d.toObject();
+      dObj.assignedVehicle = vehicleByDriver.get(String(d._id)) || null;
       return sanitizeDriverDocumentResponse(dObj, { includeSignedUrls: true });
     });
 
@@ -176,6 +209,7 @@ export const getAgencyDrivers = async (req, res) => {
 };
 
 export const createAgencyDriver = async (req, res) => {
+  let createdUser;
   try {
     const agency = await getAgencyForUser(req.user._id);
     if (!agency) {
@@ -196,7 +230,7 @@ export const createAgencyDriver = async (req, res) => {
     }
 
     const hashedPassword = await hashPassword(password);
-    const user = await User.create({
+    createdUser = await User.create({
       name: fullName.trim(),
       phone: phone.trim(),
       email: email ? email.trim().toLowerCase() : undefined,
@@ -205,7 +239,7 @@ export const createAgencyDriver = async (req, res) => {
     });
 
     const driver = await Driver.create({
-      user: user._id,
+      user: createdUser._id,
       agency: agency._id,
       fullName: fullName.trim(),
       phone: phone.trim(),
@@ -217,6 +251,17 @@ export const createAgencyDriver = async (req, res) => {
 
     return successResponse(res, { driver }, "Driver created by agency and pending Super Admin approval", 201);
   } catch (error) {
+    if (createdUser?._id) {
+      try {
+        await User.deleteOne({ _id: createdUser._id });
+      } catch (rollbackError) {
+        console.error("Failed to roll back incomplete agency driver creation:", rollbackError);
+      }
+    }
+    if (error.code === 11000) {
+      return errorResponse(res, "User with this phone number already exists", 409);
+    }
+    console.error("Agency driver creation error:", error);
     return errorResponse(res, "Failed to create driver", 500);
   }
 };

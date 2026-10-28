@@ -1,5 +1,7 @@
 import User from "../models/User.js";
 import Driver from "../models/Driver.js";
+import Agency from "../models/Agency.js";
+import mongoose from "mongoose";
 
 import {
   hashPassword,
@@ -96,6 +98,134 @@ export const register = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Registration failed"
+    });
+  }
+};
+
+export const registerDriver = async (req, res) => {
+  let createdUser;
+  try {
+    const { fullName, phone, email, password, address, agencyId } = req.body || {};
+
+    if (
+      typeof fullName !== "string" ||
+      !fullName.trim() ||
+      typeof phone !== "string" ||
+      !phone.trim() ||
+      typeof password !== "string"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Driver name, phone number, and password are required"
+      });
+    }
+    if (
+      (email !== undefined && typeof email !== "string") ||
+      (address !== undefined && typeof address !== "string")
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and address must be text values"
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters"
+      });
+    }
+
+    let agency = null;
+    if (agencyId !== undefined && agencyId !== null && agencyId !== "") {
+      if (!mongoose.Types.ObjectId.isValid(agencyId)) {
+        return res.status(400).json({
+          success: false,
+          message: "A valid agency must be selected"
+        });
+      }
+
+      agency = await Agency.findOne({
+        _id: agencyId,
+        approvalStatus: "approved",
+        isActive: true
+      }).select("_id");
+
+      if (!agency) {
+        return res.status(400).json({
+          success: false,
+          message: "The selected agency is unavailable. Refresh the agency list and try again."
+        });
+      }
+    }
+
+    const rawPhone = String(phone).replace(/\D/g, "");
+    const normalizedPhone = normalizePhoneNumber(phone);
+    if (!normalizedPhone) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid phone number"
+      });
+    }
+
+    const phoneCandidates = Array.from(new Set([normalizedPhone, rawPhone])).filter(Boolean);
+    if (await User.findOne({ phone: { $in: phoneCandidates } })) {
+      return res.status(409).json({
+        success: false,
+        message: "Phone number already registered"
+      });
+    }
+
+    createdUser = await User.create({
+      name: fullName.trim(),
+      phone: normalizedPhone,
+      email: email ? String(email).trim().toLowerCase() : undefined,
+      password: await hashPassword(password),
+      role: "driver"
+    });
+
+    const driver = await Driver.create({
+      user: createdUser._id,
+      agency: agency?._id || null,
+      fullName: fullName.trim(),
+      phone: normalizedPhone,
+      email: email ? String(email).trim().toLowerCase() : "",
+      address: typeof address === "string" ? address.trim() : "",
+      approvalStatus: "pending"
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Driver registration submitted and pending Super Admin approval",
+      data: {
+        driver: {
+          id: driver._id,
+          fullName: driver.fullName,
+          agency: driver.agency,
+          approvalStatus: driver.approvalStatus
+        }
+      }
+    });
+  } catch (error) {
+    if (createdUser?._id) {
+      try {
+        await User.deleteOne({ _id: createdUser._id });
+      } catch (rollbackError) {
+        console.error("Failed to roll back incomplete driver registration:", rollbackError);
+      }
+    }
+
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: "Phone number already registered"
+      });
+    }
+
+    console.error("Driver registration error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Driver registration failed"
     });
   }
 };

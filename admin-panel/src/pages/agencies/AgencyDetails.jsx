@@ -300,6 +300,7 @@ export default function AgencyDetails() {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
+                        {d.canReviewDocuments ? <>
                         <button
                           type="button"
                           className="btn"
@@ -327,6 +328,7 @@ export default function AgencyDetails() {
                         >
                           Suspend
                         </button>
+                        </> : <span style={{ color: 'var(--text-secondary)', fontSize: 12, alignSelf: 'center' }}>Super Admin review only</span>}
                       </div>
                     </td>
                   </tr>

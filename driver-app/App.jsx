@@ -27,6 +27,7 @@ import { getToken, removeToken, saveToken } from './src/utils/authStorage';
 import { getDriverBookingEligibility } from './src/utils/driverBookingEligibility.mjs';
 import LoadBalbinLogo from './src/components/LoadBalbinLogo';
 import BannerCarousel from './src/components/BannerCarousel';
+import RegisterScreen from './src/screens/auth/RegisterScreen';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
@@ -93,7 +94,7 @@ function ActionButton({ label, onPress, secondary = false, disabled = false, dan
   );
 }
 
-function Login({ onLogin, onRetry, initialError }) {
+function Login({ onLogin, onRetry, onRegister, initialError, initialNotice }) {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -128,6 +129,7 @@ function Login({ onLogin, onRetry, initialError }) {
         <LoadBalbinLogo width={180} height={50} style={{ alignSelf: 'center', marginBottom: 16 }} />
         <Text style={{ fontSize: 24, fontWeight: '800', color: colors.ink }}>Driver sign in</Text>
         <Text style={{ color: colors.muted, fontSize: 13 }}>Use the phone number or email registered with your driver account.</Text>
+        {initialNotice ? <Text accessibilityRole="status" style={{ color: colors.green, fontSize: 13 }}>{initialNotice}</Text> : null}
         
         <TextInput
           accessibilityLabel="Phone number or email"
@@ -169,6 +171,9 @@ function Login({ onLogin, onRetry, initialError }) {
           disabled={loading || !identifier.trim() || !password} 
           style={{ backgroundColor: colors.primary, borderColor: colors.primary }} 
         />
+        <Pressable accessibilityRole="button" onPress={onRegister} style={{ padding: 8, alignItems: 'center' }}>
+          <Text style={{ color: colors.primary, fontWeight: '700' }}>Register as a driver</Text>
+        </Pressable>
         
         {initialError && onRetry ? (
           <ActionButton label="Retry previous session" secondary onPress={onRetry} disabled={loading} />
@@ -190,6 +195,8 @@ const inputStyle = {
 
 export default function App() {
   const [user, setUser] = useState(null);
+  const [showDriverRegistration, setShowDriverRegistration] = useState(false);
+  const [registrationNotice, setRegistrationNotice] = useState('');
   const [token, setToken] = useState(null);
   const [ready, setReady] = useState(false);
   const [activeTab, setActiveTab] = useState('Home');
@@ -565,7 +572,29 @@ export default function App() {
   }
   
   if (!user) {
-    return <Login onLogin={signIn} onRetry={restoreSession} initialError={error} />;
+    if (showDriverRegistration) {
+      return (
+        <RegisterScreen
+          onCancel={() => setShowDriverRegistration(false)}
+          onRegistered={() => {
+            setShowDriverRegistration(false);
+            setRegistrationNotice('Registration submitted. You can sign in after the Super Admin approves your driver account.');
+          }}
+        />
+      );
+    }
+    return (
+      <Login
+        onLogin={signIn}
+        onRetry={restoreSession}
+        onRegister={() => {
+          setRegistrationNotice('');
+          setShowDriverRegistration(true);
+        }}
+        initialError={error}
+        initialNotice={registrationNotice}
+      />
+    );
   }
 
   const driverNameDisplay = (driver?.fullName || user?.name || "DRIVER").toUpperCase();

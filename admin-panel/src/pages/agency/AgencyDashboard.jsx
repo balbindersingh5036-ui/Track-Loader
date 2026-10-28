@@ -228,7 +228,7 @@ export default function AgencyDashboard() {
       }
 
       const [drRes, vRes, bRes] = await Promise.all([
-        agencyService.getAgencyDrivers().catch(() => ({ data: { data: { drivers: [] } } })),
+        agencyService.getAgencyDrivers(),
         agencyService.getAgencyVehicles().catch(() => ({ data: { data: { vehicles: [] } } })),
         agencyService.getAgencyBookings().catch(() => ({ data: { data: { bookings: [] } } }))
       ]);
@@ -1006,6 +1006,8 @@ export default function AgencyDashboard() {
                   <tr>
                     <th>Driver Details</th>
                     <th>Contact</th>
+                    <th>Registered</th>
+                    <th>Assigned Vehicle</th>
                     <th>Admin Approval</th>
                     <th>KYC Documents</th>
                     <th>Actions</th>
@@ -1021,6 +1023,17 @@ export default function AgencyDashboard() {
                       <td>
                         <div style={{ fontSize: 13 }}>{d.phone || d.user?.phone}</div>
                         {d.email && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{d.email}</div>}
+                      </td>
+                      <td>{d.createdAt ? new Date(d.createdAt).toLocaleDateString() : '—'}</td>
+                      <td>
+                        {d.assignedVehicle ? (
+                          <>
+                            <div style={{ fontWeight: 600 }}>{d.assignedVehicle.vehicleNumber || 'Assigned'}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                              {[d.assignedVehicle.vehicleModel, d.assignedVehicle.vehicleType].filter(Boolean).join(' · ') || '—'}
+                            </div>
+                          </>
+                        ) : 'Not assigned'}
                       </td>
                       <td>
                         <span className={`badge ${
@@ -1046,11 +1059,14 @@ export default function AgencyDashboard() {
                                 rel="noopener noreferrer"
                                 style={{ color: '#166534', fontWeight: 600 }}
                               >
-                                View (Uploaded)
+                                View
                               </a>
                             ) : (
                               <span style={{ color: '#991b1b' }}>Missing</span>
                             )}
+                            <span style={{ textTransform: 'capitalize', color: 'var(--text-secondary)' }}>
+                              {' '}· {d.documents?.idProof?.status?.replace('_', ' ') || 'not uploaded'}
+                            </span>
                           </div>
                           <div>
                             Licence:{' '}
@@ -1061,11 +1077,14 @@ export default function AgencyDashboard() {
                                 rel="noopener noreferrer"
                                 style={{ color: '#166534', fontWeight: 600 }}
                               >
-                                View (Uploaded)
+                                View
                               </a>
                             ) : (
                               <span style={{ color: '#991b1b' }}>Missing</span>
                             )}
+                            <span style={{ textTransform: 'capitalize', color: 'var(--text-secondary)' }}>
+                              {' '}· {d.documents?.drivingLicense?.status?.replace('_', ' ') || 'not uploaded'}
+                            </span>
                           </div>
                         </div>
                       </td>

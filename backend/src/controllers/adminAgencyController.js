@@ -7,6 +7,7 @@ import { parsePagination } from "../utils/pagination.js";
 import { sanitizeDriverDocumentResponse } from "../utils/driverDocumentResponse.js";
 import { sanitizeVehicleDocumentResponse } from "../utils/vehicleDocumentResponse.js";
 import { extractCloudinaryAssetInfo, generateSignedDocumentUrl } from "../utils/documentSigner.js";
+import { isDesignatedSuperAdmin } from "../utils/superAdmin.js";
 
 export const getAdminAgencies = async (req, res) => {
   try {
@@ -111,6 +112,7 @@ export const getAdminAgencyById = async (req, res) => {
 
     const enhancedDrivers = drivers.map((d) => {
       const dObj = d.toObject();
+      dObj.canReviewDocuments = isDesignatedSuperAdmin(req.user);
       return sanitizeDriverDocumentResponse(dObj, { includeSignedUrls: true });
     });
 

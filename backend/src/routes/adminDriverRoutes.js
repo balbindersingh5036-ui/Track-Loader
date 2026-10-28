@@ -18,9 +18,9 @@ router.use(protect, adminOnly);
 router.get("/", getAdminDrivers);
 router.get("/:id", getAdminDriverById);
 router.patch("/:id/documents/:docType/:action", superAdminOnly, reviewAdminDriverDocument);
-router.patch("/:id/approve", approveAdminDriver);
-router.patch("/:id/reject", rejectAdminDriver);
-router.patch("/:id/suspend", suspendAdminDriver);
+router.patch("/:id/approve", superAdminOnly, approveAdminDriver);
+router.patch("/:id/reject", superAdminOnly, rejectAdminDriver);
+router.patch("/:id/suspend", superAdminOnly, suspendAdminDriver);
 router.patch("/:id/status", updateAdminDriverStatus);
 
 export default router;
