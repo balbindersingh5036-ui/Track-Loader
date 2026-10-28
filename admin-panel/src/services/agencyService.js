@@ -7,6 +7,8 @@ export const agencyService = {
   approveAgency: (id) => api.patch(`/admin/agencies/${id}/approve`),
   rejectAgency: (id, reason) => api.patch(`/admin/agencies/${id}/reject`, { reason }),
   suspendAgency: (id, reason) => api.patch(`/admin/agencies/${id}/suspend`, { reason }),
+  reviewAgencyDocument: (id, docType, action, reason) =>
+    api.patch(`/admin/agencies/${id}/documents/${docType}/${action}`, action === 'reject' ? { reason } : {}),
 
   // Super Admin Driver Approval
   approveDriver: (id) => api.patch(`/admin/drivers/${id}/approve`),
@@ -25,6 +27,14 @@ export const agencyService = {
     const formData = new FormData();
     formData.append('document', file);
     return api.post(`/documents/driver/${driverId}/${docType}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000
+    });
+  },
+  uploadAgencyDocument: (agencyId, docType, file) => {
+    const formData = new FormData();
+    formData.append('document', file);
+    return api.post(`/documents/agency/${agencyId}/${docType}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
       timeout: 120000
     });

@@ -8,8 +8,13 @@ import Driver from "../src/models/Driver.js";
 import Vehicle from "../src/models/Vehicle.js";
 import cloudinary from "../src/config/cloudinary.js";
 import { env } from "../src/config/env.js";
-import { uploadDriverDocument, uploadVehicleDocument } from "../src/controllers/documentController.js";
+import {
+  uploadAgencyDocument,
+  uploadDriverDocument,
+  uploadVehicleDocument
+} from "../src/controllers/documentController.js";
 import { reviewAdminDriverDocument } from "../src/controllers/adminDriverController.js";
+import { reviewAdminAgencyDocument } from "../src/controllers/adminAgencyController.js";
 import { assignVehicleDriver } from "../src/controllers/agencyController.js";
 import { handleUploadSingle } from "../src/middleware/uploadMiddleware.js";
 
@@ -48,6 +53,200 @@ const useTestCloudinaryConfig = (t) => {
   });
   t.after(() => Object.assign(env.cloudinary, previous));
 };
+
+test("agency owner uploads Owner Aadhaar into the private vault for Super Admin review", async (t) => {
+  useTestCloudinaryConfig(t);
+  const agencyId = new mongoose.Types.ObjectId();
+  const ownerId = new mongoose.Types.ObjectId();
+  const agency = {
+    _id: agencyId,
+    owner: ownerId,
+    documents: { ownerAadhaar: { status: "not_uploaded" } },
+    markModified() {},
+    async save() { return this; }
+  };
+  t.mock.method(Agency, "findOne", async (filter) => {
+    assert.deepEqual(filter, { _id: agencyId.toString(), owner: ownerId });
+    return agency;
+  });
+  const upload = t.mock.method(cloudinary.uploader, "upload", async (_data, options) => {
+    assert.equal(options.type, "authenticated");
+    assert.equal(options.folder, "loadbalbin_kyc");
+    return privateAsset;
+  });
+
+  const res = response();
+  await uploadAgencyDocument({
+    params: { agencyId: agencyId.toString(), docType: "ownerAadhaar" },
+    user: { _id: ownerId, role: "agency" },
+    file: pngFile()
+  }, res);
+
+  assert.equal(res.statusCode, 201);
+  assert.equal(agency.documents.ownerAadhaar.status, "pending");
+  assert.equal(agency.documents.ownerAadhaar.uploadedBy.toString(), ownerId.toString());
+  assert.ok(agency.documents.ownerAadhaar.submittedAt instanceof Date);
+  assert.equal(upload.mock.calls.length, 1);
+  assert.equal("url" in res.body.data.document, false);
+});
+
+test("agency document upload rejects other owners and prevents duplicate pending submissions", async (t) => {
+  useTestCloudinaryConfig(t);
+  const agencyId = new mongoose.Types.ObjectId();
+  const ownerId = new mongoose.Types.ObjectId();
+  const otherOwnerId = new mongoose.Types.ObjectId();
+  const agency = {
+    _id: agencyId,
+    owner: ownerId,
+    documents: {
+      ownerAadhaar: {
+        status: "pending",
+        publicId: "loadbalbin_kyc/already-submitted"
+      }
+    }
+  };
+  t.mock.method(Agency, "findOne", async ({ owner }) => owner.toString() === ownerId.toString() ? agency : null);
+  const upload = t.mock.method(cloudinary.uploader, "upload", async () => privateAsset);
+
+  const unauthorized = response();
+  await uploadAgencyDocument({
+    params: { agencyId: agencyId.toString(), docType: "ownerAadhaar" },
+    user: { _id: otherOwnerId, role: "agency" },
+    file: pngFile()
+  }, unauthorized);
+  assert.equal(unauthorized.statusCode, 404);
+
+  const duplicate = response();
+  await uploadAgencyDocument({
+    params: { agencyId: agencyId.toString(), docType: "ownerAadhaar" },
+    user: { _id: ownerId, role: "agency" },
+    file: pngFile()
+  }, duplicate);
+  assert.equal(duplicate.statusCode, 409);
+  assert.equal(upload.mock.calls.length, 0);
+});
+
+test("agency owner can resubmit a rejected document and it returns to pending review", async (t) => {
+  useTestCloudinaryConfig(t);
+  const agencyId = new mongoose.Types.ObjectId();
+  const ownerId = new mongoose.Types.ObjectId();
+  const agency = {
+    _id: agencyId,
+    owner: ownerId,
+    documents: {
+      ownerAadhaar: {
+        status: "rejected",
+        rejectionReason: "Image is unreadable.",
+        publicId: "loadbalbin_kyc/rejected-document"
+      }
+    },
+    markModified() {},
+    async save() { return this; }
+  };
+  t.mock.method(Agency, "findOne", async () => agency);
+  t.mock.method(cloudinary.uploader, "upload", async () => privateAsset);
+
+  const res = response();
+  await uploadAgencyDocument({
+    params: { agencyId: agencyId.toString(), docType: "ownerAadhaar" },
+    user: { _id: ownerId, role: "agency" },
+    file: pngFile()
+  }, res);
+
+  assert.equal(res.statusCode, 201);
+  assert.equal(agency.documents.ownerAadhaar.status, "pending");
+  assert.equal(agency.documents.ownerAadhaar.rejectionReason, "");
+  assert.equal(agency.documents.ownerAadhaar.reviewedBy, null);
+});
+
+test("Super Admin agency document review records reviewer, time, and rejection reason", async (t) => {
+  const agencyId = new mongoose.Types.ObjectId();
+  const reviewerId = new mongoose.Types.ObjectId();
+  const agency = {
+    _id: agencyId,
+    approvalStatus: "approved",
+    reviewHistory: [],
+    documents: {
+      ownerAadhaar: {
+        url: privateAsset.secure_url,
+        publicId: privateAsset.public_id,
+        status: "pending",
+        submittedAt: new Date("2026-10-01T00:00:00Z")
+      }
+    },
+    markModified() {},
+    async save() { return this; }
+  };
+  t.mock.method(Agency, "findById", async () => agency);
+
+  const reason = "The submitted image is unreadable.";
+  const res = response();
+  await reviewAdminAgencyDocument({
+    params: { id: agencyId.toString(), docType: "ownerAadhaar", action: "reject" },
+    body: { reason },
+    user: { _id: reviewerId }
+  }, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(agency.documents.ownerAadhaar.status, "rejected");
+  assert.equal(agency.documents.ownerAadhaar.rejectionReason, reason);
+  assert.equal(agency.documents.ownerAadhaar.reviewedBy.toString(), reviewerId.toString());
+  assert.equal(agency.reviewHistory[0].action, "document_rejected");
+  assert.equal(agency.reviewHistory[0].reason, reason);
+  assert.equal(res.body.data.document.status, "rejected");
+});
+
+test("agency document approval records review without changing the agency account status", async (t) => {
+  const agencyId = new mongoose.Types.ObjectId();
+  const reviewerId = new mongoose.Types.ObjectId();
+  const agency = {
+    _id: agencyId,
+    approvalStatus: "approved",
+    reviewHistory: [],
+    documents: {
+      ownerAadhaar: {
+        url: privateAsset.secure_url,
+        publicId: privateAsset.public_id,
+        status: "pending"
+      }
+    },
+    markModified() {},
+    async save() { return this; }
+  };
+  t.mock.method(Agency, "findById", async () => agency);
+
+  const res = response();
+  await reviewAdminAgencyDocument({
+    params: { id: agencyId.toString(), docType: "ownerAadhaar", action: "approve" },
+    body: {},
+    user: { _id: reviewerId }
+  }, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(agency.approvalStatus, "approved");
+  assert.equal(agency.documents.ownerAadhaar.status, "approved");
+  assert.equal(agency.documents.ownerAadhaar.reviewedBy.toString(), reviewerId.toString());
+  assert.equal(agency.reviewHistory[0].action, "document_approved");
+});
+
+test("agency document approval requires a securely stored document", async (t) => {
+  const agencyId = new mongoose.Types.ObjectId();
+  const agency = {
+    _id: agencyId,
+    documents: {
+      ownerAadhaar: { url: "https://legacy.example/aadhaar.pdf", status: "pending" }
+    }
+  };
+  t.mock.method(Agency, "findById", async () => agency);
+
+  const res = response();
+  await reviewAdminAgencyDocument({
+    params: { id: agencyId.toString(), docType: "ownerAadhaar", action: "approve" },
+    body: {},
+    user: { _id: new mongoose.Types.ObjectId() }
+  }, res);
+  assert.equal(res.statusCode, 409);
+});
 
 test("driver upload stores private document metadata as pending", async (t) => {
   useTestCloudinaryConfig(t);

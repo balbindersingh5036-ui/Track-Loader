@@ -64,7 +64,12 @@ const agencySchema = new mongoose.Schema(
           type: String,
           enum: ["pending", "approved", "rejected"],
           default: "pending"
-        }
+        },
+        submittedAt: { type: Date, default: null },
+        uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+        reviewedAt: { type: Date, default: null },
+        reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+        rejectionReason: { type: String, default: "", trim: true }
       },
 
       ownerAadhaar: {
@@ -92,7 +97,12 @@ const agencySchema = new mongoose.Schema(
           type: String,
           enum: ["pending", "approved", "rejected"],
           default: "pending"
-        }
+        },
+        submittedAt: { type: Date, default: null },
+        uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+        reviewedAt: { type: Date, default: null },
+        reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+        rejectionReason: { type: String, default: "", trim: true }
       },
 
       taxId: {
@@ -116,7 +126,12 @@ const agencySchema = new mongoose.Schema(
           type: String,
           enum: ["pending", "approved", "rejected"],
           default: "pending"
-        }
+        },
+        submittedAt: { type: Date, default: null },
+        uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+        reviewedAt: { type: Date, default: null },
+        reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+        rejectionReason: { type: String, default: "", trim: true }
       }
     },
 
@@ -142,6 +157,22 @@ const agencySchema = new mongoose.Schema(
       ref: "User",
       default: null
     },
+
+    reviewHistory: [{
+      action: {
+        type: String,
+        enum: ["approved", "rejected", "suspended", "document_approved", "document_rejected"],
+        required: true
+      },
+      documentType: {
+        type: String,
+        enum: ["ownerAadhaar", "businessRegistration", "taxId"],
+        default: null
+      },
+      reason: { type: String, default: "", trim: true },
+      reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+      reviewedAt: { type: Date, required: true, default: Date.now }
+    }],
 
     isActive: {
       type: Boolean,

@@ -7,6 +7,7 @@ import { env } from "../config/env.js";
 import { errorResponse, successResponse } from "../utils/response.js";
 
 const driverDocumentTypes = new Set(["idProof", "drivingLicense"]);
+const agencyDocumentTypes = new Set(["ownerAadhaar", "businessRegistration", "taxId"]);
 const vehicleDocumentFields = {
   registration: "registration",
   insurance: "insurance"
@@ -89,6 +90,62 @@ const canManageDriver = async (req, driver) => {
   if (req.user.role !== "agency" || !driver.agency) return false;
   const agency = await Agency.findOne({ owner: req.user._id }).select("_id").lean();
   return Boolean(agency && String(driver.agency) === String(agency._id));
+};
+
+export const uploadAgencyDocument = async (req, res) => {
+  let uploadedAsset;
+  try {
+    const { agencyId, docType } = req.params;
+    if (!mongoose.isValidObjectId(agencyId)) return errorResponse(res, "Invalid agency ID", 400);
+    if (!agencyDocumentTypes.has(docType)) return errorResponse(res, "Invalid agency document type", 400);
+    if (!req.file) return errorResponse(res, "A document file is required", 400);
+    if (req.user.role !== "agency") {
+      return errorResponse(res, "Only the agency owner may submit agency documents", 403);
+    }
+
+    const agency = await Agency.findOne({ _id: agencyId, owner: req.user._id });
+    if (!agency) return errorResponse(res, "Agency not found for this owner", 404);
+    const existingDocument = agency.documents?.[docType];
+    const existingAssetInfo = existingDocument?.publicId
+      ? { publicId: existingDocument.publicId }
+      : null;
+    if (
+      existingDocument?.status === "pending" &&
+      existingAssetInfo?.publicId?.startsWith("loadbalbin_kyc/")
+    ) {
+      return errorResponse(res, "This document is already pending Super Admin review", 409);
+    }
+
+    const { asset, detected } = await uploadPrivateDocument(req.file);
+    uploadedAsset = asset;
+    agency.documents[docType] = {
+      url: asset.secure_url,
+      publicId: asset.public_id,
+      resourceType: asset.resource_type || "image",
+      format: asset.format || detected.format,
+      status: "pending",
+      submittedAt: new Date(),
+      uploadedBy: req.user._id,
+      reviewedAt: null,
+      reviewedBy: null,
+      rejectionReason: ""
+    };
+    agency.markModified("documents");
+    await agency.save();
+
+    return successResponse(res, {
+      document: {
+        status: agency.documents[docType].status,
+        submittedAt: agency.documents[docType].submittedAt,
+        format: agency.documents[docType].format
+      }
+    }, "Agency document submitted for Super Admin review", 201);
+  } catch (error) {
+    if (uploadedAsset) await removeUploadedAsset(uploadedAsset);
+    if (error.statusCode) return errorResponse(res, error.message, error.statusCode);
+    console.error("Agency document submission failed:", error.code || error.name || "unknown error");
+    return errorResponse(res, "Failed to submit agency document. Please try again.", 500);
+  }
 };
 
 export const uploadDriverDocument = async (req, res) => {

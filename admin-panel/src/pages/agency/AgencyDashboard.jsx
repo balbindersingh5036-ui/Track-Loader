@@ -7,11 +7,25 @@ import {
   ChevronRight, Calendar, Info, Check, Eye
 } from 'lucide-react';
 
+const isVehicleDispatchReady = (vehicle, agency) => Boolean(
+  agency.approvalStatus === 'approved' &&
+  agency.isActive !== false &&
+  vehicle.isActive !== false &&
+  vehicle.isAvailable &&
+  vehicle.driver?.isActive !== false &&
+  vehicle.driver?.approvalStatus === 'approved' &&
+  vehicle.driver?.documents?.idProof?.status === 'approved' &&
+  vehicle.driver?.documents?.drivingLicense?.status === 'approved' &&
+  vehicle.documents?.registration?.status === 'approved' &&
+  vehicle.documents?.insurance?.status === 'approved'
+);
+
 export default function AgencyDashboard() {
   const [agency, setAgency] = useState(null);
   const [drivers, setDrivers] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [bookingCount, setBookingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -92,6 +106,7 @@ export default function AgencyDashboard() {
     saving: false,
     message: ''
   });
+  const [agencyDocumentError, setAgencyDocumentError] = useState('');
 
   const handleFileUpload = async (e, targetField, setter, purpose = 'document') => {
     const file = e.target.files?.[0];
@@ -192,9 +207,7 @@ export default function AgencyDashboard() {
     phone: '',
     email: '',
     address: '',
-    city: '',
-    businessRegUrl: '',
-    ownerAadhaarUrl: ''
+    city: ''
   });
   const [registering, setRegistering] = useState(false);
 
@@ -229,13 +242,16 @@ export default function AgencyDashboard() {
 
       const [drRes, vRes, bRes] = await Promise.all([
         agencyService.getAgencyDrivers(),
-        agencyService.getAgencyVehicles().catch(() => ({ data: { data: { vehicles: [] } } })),
-        agencyService.getAgencyBookings().catch(() => ({ data: { data: { bookings: [] } } }))
+        agencyService.getAgencyVehicles(),
+        agencyService.getAgencyBookings()
       ]);
 
       setDrivers(drRes.data.data.drivers || []);
-      setVehicles(vRes.data.data.vehicles || []);
-      setBookings(bRes.data.data.bookings || []);
+      const loadedVehicles = vRes.data.data.vehicles || [];
+      const loadedBookings = bRes.data.data.bookings || [];
+      setVehicles(loadedVehicles);
+      setBookings(loadedBookings);
+      setBookingCount(bRes.data.data.pagination?.total ?? loadedBookings.length);
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to load agency dashboard data');
     } finally {
@@ -283,23 +299,7 @@ export default function AgencyDashboard() {
         phone: regForm.phone,
         email: regForm.email,
         address: regForm.address,
-        city: regForm.city,
-        documents: {
-          businessRegistration: {
-            url: regForm.businessRegUrl,
-            publicId: regForm.businessRegUrl_publicId || '',
-            resourceType: regForm.businessRegUrl_resourceType || 'image',
-            format: regForm.businessRegUrl_format || 'pdf',
-            status: 'pending'
-          },
-          ownerAadhaar: {
-            url: regForm.ownerAadhaarUrl,
-            publicId: regForm.ownerAadhaarUrl_publicId || '',
-            resourceType: regForm.ownerAadhaarUrl_resourceType || 'image',
-            format: regForm.ownerAadhaarUrl_format || 'pdf',
-            status: 'pending'
-          }
-        }
+        city: regForm.city
       });
       await loadData();
     } catch (err) {
@@ -324,6 +324,37 @@ export default function AgencyDashboard() {
     } catch (err) {
       alert(err.response?.data?.message || err.message || 'Failed to update profile');
       setProfileForm(prev => ({ ...prev, saving: false }));
+    }
+  };
+
+  const handleAgencyDocumentUpload = async (event, docType) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (file.size > 5 * 1024 * 1024) {
+      setAgencyDocumentError('File size exceeds the 5MB limit.');
+      event.target.value = '';
+      return;
+    }
+    if (!allowedMimeTypes.includes(file.type.toLowerCase())) {
+      setAgencyDocumentError('Choose a JPEG, PNG, WebP, or PDF document.');
+      event.target.value = '';
+      return;
+    }
+
+    const key = `agency-${docType}`;
+    setAgencyDocumentError('');
+    try {
+      setUploadingDoc(key);
+      await agencyService.uploadAgencyDocument(agency._id, docType, file);
+      await loadData();
+    } catch (uploadError) {
+      setAgencyDocumentError(
+        uploadError.response?.data?.message || uploadError.message || 'Secure document upload failed'
+      );
+    } finally {
+      setUploadingDoc('');
+      event.target.value = '';
     }
   };
 
@@ -507,7 +538,7 @@ export default function AgencyDashboard() {
           </div>
         </div>
         <p style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5, marginBottom: 20 }}>
-          Register your transport fleet to manage commercial vehicles and assign verified drivers. Once submitted, your business details and Aadhaar will be reviewed by Super Admin.
+          Register your transport fleet to manage commercial vehicles and drivers. The agency profile starts pending; submit optional business documents and Owner Aadhaar securely from Profile & KYC after registration.
         </p>
 
         {error && <div style={{ color: 'var(--danger)', background: '#fef2f2', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 13 }}>{error}</div>}
@@ -567,43 +598,8 @@ export default function AgencyDashboard() {
             </div>
           </div>
 
-          <div className="form-group">
-            <label>Owner Aadhaar Document (PDF or Image)</label>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>
-              🛡️ <strong>Regulatory Notice:</strong> Please upload a <strong>Masked Aadhaar</strong> (first 8 digits hidden, showing only last 4 digits). Documents are encrypted and accessible only via short-lived authenticated links.
-            </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                onChange={(e) => handleFileUpload(e, 'ownerAadhaarUrl', setRegForm, 'aadhaar')}
-              />
-              {uploadingDoc === 'ownerAadhaarUrl' && <span style={{ fontSize: 12, color: 'var(--primary)' }}>Uploading to secure vault…</span>}
-            </div>
-            <input
-              type="url"
-              value={regForm.ownerAadhaarUrl}
-              onChange={(e) => setRegForm({ ...regForm, ownerAadhaarUrl: e.target.value })}
-              placeholder="Or enter secure URL: https://.../owner-aadhaar.pdf"
-            />
-          </div>
-
-          <div className="form-group">
-            <label>Business Registration / Trade Licence Document</label>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-              <input
-                type="file"
-                accept="image/*,application/pdf"
-                onChange={(e) => handleFileUpload(e, 'businessRegUrl', setRegForm, 'document')}
-              />
-              {uploadingDoc === 'businessRegUrl' && <span style={{ fontSize: 12, color: 'var(--primary)' }}>Uploading…</span>}
-            </div>
-            <input
-              type="url"
-              value={regForm.businessRegUrl}
-              onChange={(e) => setRegForm({ ...regForm, businessRegUrl: e.target.value })}
-              placeholder="Or enter URL: https://.../business-registration.pdf"
-            />
+          <div style={{ padding: 12, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
+            After registration, upload Owner Aadhaar securely from Profile & KYC. Business registration and tax documents are optional and can also be submitted there.
           </div>
 
           <button type="submit" className="btn btn-primary" disabled={registering} style={{ marginTop: 8, height: 42 }}>
@@ -636,9 +632,15 @@ export default function AgencyDashboard() {
     return b.bookingStatus === bookingFilter;
   });
 
-  const approvedDriversCount = drivers.filter(d => d.approvalStatus === 'approved').length;
+  const approvedDriversCount = drivers.filter(d =>
+    d.isActive !== false &&
+    d.approvalStatus === 'approved' &&
+    d.documents?.idProof?.status === 'approved' &&
+    d.documents?.drivingLicense?.status === 'approved'
+  ).length;
   const pendingDriversCount = drivers.filter(d => d.approvalStatus === 'pending').length;
-  const activeFleetCount = vehicles.filter(v => v.isAvailable).length;
+  const availableFleetCount = vehicles.filter(v => v.isActive !== false && v.isAvailable).length;
+  const dispatchReadyFleetCount = vehicles.filter(v => isVehicleDispatchReady(v, agency)).length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -661,6 +663,15 @@ export default function AgencyDashboard() {
             {agency.agencyName} &bull; Fleet Management & Operations
           </div>
         </div>
+
+        {error && (
+          <div role="alert" style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', padding: 12, borderRadius: 8 }}>
+            <div>{error}</div>
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => loadData(true)} disabled={refreshing} style={{ marginTop: 8 }}>
+              Retry loading dashboard
+            </button>
+          </div>
+        )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button 
@@ -723,8 +734,11 @@ export default function AgencyDashboard() {
           <div style={{ marginTop: 12 }}>
             <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)' }}>{drivers.length}</div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-              {pendingDriversCount > 0 ? `${pendingDriversCount} pending verification` : 'All drivers processed'}
+              {pendingDriversCount} pending Super Admin verification
             </div>
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => setActiveTab('drivers')} style={{ marginTop: 8 }}>
+              View agency drivers
+            </button>
           </div>
         </div>
 
@@ -738,7 +752,7 @@ export default function AgencyDashboard() {
           <div style={{ marginTop: 12 }}>
             <div style={{ fontSize: 28, fontWeight: 700, color: '#10b981' }}>{vehicles.length}</div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-              {vehicles.length > 0 ? `${activeFleetCount} available for dispatches` : 'No vehicles registered'}
+              {`${availableFleetCount} available · ${dispatchReadyFleetCount} dispatch-ready · ${vehicles.length - dispatchReadyFleetCount} not eligible`}
             </div>
           </div>
         </div>
@@ -753,7 +767,7 @@ export default function AgencyDashboard() {
           <div style={{ marginTop: 12 }}>
             <div style={{ fontSize: 28, fontWeight: 700, color: '#f59e0b' }}>{approvedDriversCount}</div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-              Super Admin approved & active
+              Active with approved identity documents
             </div>
           </div>
         </div>
@@ -766,7 +780,7 @@ export default function AgencyDashboard() {
             </div>
           </div>
           <div style={{ marginTop: 12 }}>
-            <div style={{ fontSize: 28, fontWeight: 700, color: '#6366f1' }}>{bookings.length}</div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: '#6366f1' }}>{bookingCount}</div>
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
               Commercial client dispatches
             </div>
@@ -806,7 +820,7 @@ export default function AgencyDashboard() {
           onClick={() => setActiveTab('bookings')}
         >
           <MapPin size={16} />
-          Fleet Trips ({bookings.length})
+          Fleet Trips ({bookingCount})
         </button>
         <button
           type="button"
@@ -856,10 +870,10 @@ export default function AgencyDashboard() {
                         <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{d.phone || d.user?.phone}</div>
                       </div>
                       <span className={`badge ${
-                        d.approvalStatus === 'approved' ? 'success' :
-                        d.approvalStatus === 'rejected' ? 'danger' : 'warning'
+                        d.approvalStatus === 'approved' && d.isActive !== false ? 'success' :
+                        d.approvalStatus === 'rejected' || d.approvalStatus === 'suspended' || d.isActive === false ? 'danger' : 'warning'
                       }`}>
-                        {d.approvalStatus}
+                        {d.isActive === false ? 'Inactive' : d.approvalStatus === 'pending' ? 'Pending Super Admin Verification' : d.approvalStatus}
                       </span>
                     </div>
                   ))}
@@ -919,8 +933,8 @@ export default function AgencyDashboard() {
                           <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{v.vehicleModel} &bull; {v.vehicleType}</div>
                         </div>
                       </div>
-                      <span className={`badge ${v.isAvailable ? 'success' : 'default'}`}>
-                        {v.isAvailable ? 'Available' : 'On Trip'}
+                      <span className={`badge ${isVehicleDispatchReady(v, agency) ? 'success' : 'warning'}`}>
+                        {isVehicleDispatchReady(v, agency) ? 'Dispatch ready' : v.isAvailable ? 'Available · not dispatch-ready' : 'On Trip'}
                       </span>
                     </div>
                   ))}
@@ -1052,9 +1066,9 @@ export default function AgencyDashboard() {
                         <div style={{ fontSize: 12, display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <div>
                             Aadhaar:{' '}
-                            {d.documents?.idProof?.viewUrl || d.documents?.idProof?.url ? (
+                            {d.documents?.idProof?.viewUrl ? (
                               <a
-                                href={d.documents.idProof.viewUrl || d.documents.idProof.url}
+                                href={d.documents.idProof.viewUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 style={{ color: '#166534', fontWeight: 600 }}
@@ -1067,12 +1081,14 @@ export default function AgencyDashboard() {
                             <span style={{ textTransform: 'capitalize', color: 'var(--text-secondary)' }}>
                               {' '}· {d.documents?.idProof?.status?.replace('_', ' ') || 'not uploaded'}
                             </span>
+                            {d.documents?.idProof?.submittedAt ? <div style={{ color: 'var(--text-secondary)' }}>Submitted {new Date(d.documents.idProof.submittedAt).toLocaleDateString()}</div> : null}
+                            {d.documents?.idProof?.rejectionReason ? <div style={{ color: '#991b1b' }}>{d.documents.idProof.rejectionReason}</div> : null}
                           </div>
                           <div>
                             Licence:{' '}
-                            {d.documents?.drivingLicense?.viewUrl || d.documents?.drivingLicense?.url ? (
+                            {d.documents?.drivingLicense?.viewUrl ? (
                               <a
-                                href={d.documents.drivingLicense.viewUrl || d.documents.drivingLicense.url}
+                                href={d.documents.drivingLicense.viewUrl}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 style={{ color: '#166534', fontWeight: 600 }}
@@ -1085,6 +1101,8 @@ export default function AgencyDashboard() {
                             <span style={{ textTransform: 'capitalize', color: 'var(--text-secondary)' }}>
                               {' '}· {d.documents?.drivingLicense?.status?.replace('_', ' ') || 'not uploaded'}
                             </span>
+                            {d.documents?.drivingLicense?.submittedAt ? <div style={{ color: 'var(--text-secondary)' }}>Submitted {new Date(d.documents.drivingLicense.submittedAt).toLocaleDateString()}</div> : null}
+                            {d.documents?.drivingLicense?.rejectionReason ? <div style={{ color: '#991b1b' }}>{d.documents.drivingLicense.rejectionReason}</div> : null}
                           </div>
                         </div>
                       </td>
@@ -1240,6 +1258,9 @@ export default function AgencyDashboard() {
                         <span className={`badge ${v.isAvailable ? 'success' : 'warning'}`}>
                           {v.isAvailable ? 'Available' : 'On Trip'}
                         </span>
+                        {!isVehicleDispatchReady(v, agency) && (
+                          <div style={{ fontSize: 10, color: 'var(--text-secondary)', marginTop: 2 }}>Not eligible for dispatch</div>
+                        )}
                         {!v.isActive && (
                           <div style={{ fontSize: 10, color: 'var(--danger)', marginTop: 2 }}>Inactive</div>
                         )}
@@ -1318,8 +1339,8 @@ export default function AgencyDashboard() {
         <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
             <div>
-              <h3 style={{ margin: 0, fontSize: 16 }}>Fleet Trips & Dispatches ({bookings.length})</h3>
-              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Commercial customer shipments allocated to agency vehicles.</div>
+              <h3 style={{ margin: 0, fontSize: 16 }}>Fleet Trips & Dispatches ({bookingCount})</h3>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Showing the latest {bookings.length} of {bookingCount} agency-scoped bookings.</div>
             </div>
             <select
               value={bookingFilter}
@@ -1328,8 +1349,9 @@ export default function AgencyDashboard() {
             >
               <option value="all">All Booking Statuses</option>
               <option value="pending">Pending</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="in_transit">In Transit</option>
+              <option value="accepted">Accepted</option>
+              <option value="in-progress">In Progress</option>
+              <option value="rejected">Rejected</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
             </select>
@@ -1481,18 +1503,24 @@ export default function AgencyDashboard() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               {/* Owner Aadhaar */}
               <div style={{ padding: 14, background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                {(() => {
+                  const document = agency.documents?.ownerAadhaar || {};
+                  const status = document.status || 'not_uploaded';
+                  const mayUpload = status !== 'pending' || !document.viewUrl;
+                  return (
+                    <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>Owner Aadhaar Document</div>
-                  <span className={`badge ${agency.documents?.ownerAadhaar?.url ? 'success' : 'danger'}`}>
-                    {agency.documents?.ownerAadhaar?.url ? 'Submitted' : 'Missing'}
+                  <span className={`badge ${status === 'approved' ? 'success' : status === 'rejected' || status === 'not_uploaded' ? 'danger' : 'warning'}`}>
+                    {status === 'approved' ? 'Verified' : status === 'pending' ? 'Pending Super Admin Verification' : status === 'rejected' ? 'Rejected' : 'Missing'}
                   </span>
                 </div>
                 <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px 0' }}>
-                  Masked Aadhaar proof used for statutory identity compliance.
+                  Submit a masked Aadhaar securely for Super Admin review. Agency approval and driver-dropdown eligibility currently use the agency's active and approved status; owner Aadhaar is not a configured prerequisite.
                 </p>
-                {(agency.documents?.ownerAadhaar?.viewUrl || agency.documents?.ownerAadhaar?.url) ? (
+                {document.viewUrl ? (
                   <a
-                    href={agency.documents.ownerAadhaar.viewUrl || agency.documents.ownerAadhaar.url}
+                    href={document.viewUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-secondary btn-sm"
@@ -1500,25 +1528,52 @@ export default function AgencyDashboard() {
                   >
                     <Eye size={13} /> View Submitted Aadhaar
                   </a>
-                ) : (
-                  <span style={{ fontSize: 12, color: '#991b1b' }}>Not uploaded during registration</span>
-                )}
+                ) : null}
+                {document.submittedAt ? <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>Submitted {new Date(document.submittedAt).toLocaleString()}</div> : null}
+                {document.reviewedAt ? <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Reviewed {new Date(document.reviewedAt).toLocaleString()}</div> : null}
+                {document.reviewedBy ? <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Reviewed by {document.reviewedBy}</div> : null}
+                {document.rejectionReason ? <div role="alert" style={{ fontSize: 12, color: '#991b1b', marginTop: 6 }}>Reason: {document.rejectionReason}</div> : null}
+                {mayUpload ? (
+                  <label style={{ display: 'block', marginTop: 10, fontSize: 12, fontWeight: 600 }}>
+                    {status === 'rejected' ? 'Resubmit Owner Aadhaar' : status === 'approved' ? 'Replace with a private vault submission' : status === 'pending' ? 'Resubmit to the private vault for review' : 'Upload Owner Aadhaar'}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,application/pdf"
+                      aria-label="Upload or resubmit owner Aadhaar"
+                      disabled={uploadingDoc === 'agency-ownerAadhaar'}
+                      onChange={(event) => handleAgencyDocumentUpload(event, 'ownerAadhaar')}
+                      style={{ display: 'block', marginTop: 6 }}
+                    />
+                    {uploadingDoc === 'agency-ownerAadhaar' ? <span role="status">Uploading securely…</span> : null}
+                  </label>
+                ) : status === 'pending' ? (
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8 }}>Awaiting Super Admin review.</div>
+                ) : null}
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Business Registration */}
               <div style={{ padding: 14, background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                {(() => {
+                  const document = agency.documents?.businessRegistration || {};
+                  const status = document.status || 'not_uploaded';
+                  const mayUpload = status !== 'pending' || !document.viewUrl;
+                  return (
+                    <>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>Business Registration Document</div>
-                  <span className={`badge ${agency.documents?.businessRegistration?.url ? 'success' : 'default'}`}>
-                    {agency.documents?.businessRegistration?.url ? 'Submitted' : 'Optional'}
+                  <span className={`badge ${status === 'approved' ? 'success' : status === 'rejected' ? 'danger' : status === 'pending' ? 'warning' : 'default'}`}>
+                    {status === 'not_uploaded' ? 'Optional' : status === 'approved' ? 'Verified' : status === 'pending' ? 'Pending Super Admin Verification' : 'Rejected'}
                   </span>
                 </div>
                 <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px 0' }}>
                   Trade licence, GSTIN or commercial transport registration document.
                 </p>
-                {(agency.documents?.businessRegistration?.viewUrl || agency.documents?.businessRegistration?.url) ? (
+                {document.viewUrl ? (
                   <a
-                    href={agency.documents.businessRegistration.viewUrl || agency.documents.businessRegistration.url}
+                    href={document.viewUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-secondary btn-sm"
@@ -1526,10 +1581,33 @@ export default function AgencyDashboard() {
                   >
                     <Eye size={13} /> View Registration Certificate
                   </a>
-                ) : (
-                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>No business certificate attached</span>
-                )}
+                ) : null}
+                {document.submittedAt ? <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>Submitted {new Date(document.submittedAt).toLocaleString()}</div> : null}
+                {document.reviewedAt ? <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Reviewed {new Date(document.reviewedAt).toLocaleString()}</div> : null}
+                {document.reviewedBy ? <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Reviewed by {document.reviewedBy}</div> : null}
+                {document.rejectionReason ? <div role="alert" style={{ fontSize: 12, color: '#991b1b', marginTop: 6 }}>Reason: {document.rejectionReason}</div> : null}
+                {mayUpload ? (
+                  <label style={{ display: 'block', marginTop: 10, fontSize: 12, fontWeight: 600 }}>
+                    {status === 'rejected' ? 'Resubmit business document' : status === 'approved' ? 'Replace with a private vault submission' : status === 'pending' ? 'Resubmit to the private vault for review' : 'Upload optional business document'}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,application/pdf"
+                      aria-label="Upload or resubmit business registration document"
+                      disabled={uploadingDoc === 'agency-businessRegistration'}
+                      onChange={(event) => handleAgencyDocumentUpload(event, 'businessRegistration')}
+                      style={{ display: 'block', marginTop: 6 }}
+                    />
+                    {uploadingDoc === 'agency-businessRegistration' ? <span role="status">Uploading securely…</span> : null}
+                  </label>
+                ) : status === 'pending' ? (
+                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8 }}>Awaiting Super Admin review.</div>
+                ) : null}
+                    </>
+                  );
+                })()}
               </div>
+
+              {agencyDocumentError ? <div role="alert" style={{ color: '#991b1b', background: '#fef2f2', padding: 10, borderRadius: 6 }}>{agencyDocumentError}</div> : null}
 
               {/* Verification Info */}
               <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: 12, fontSize: 12, color: '#166534', lineHeight: 1.5 }}>

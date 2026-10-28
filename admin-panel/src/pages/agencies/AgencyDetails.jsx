@@ -11,6 +11,7 @@ export default function AgencyDetails() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionModal, setActionModal] = useState({ open: false, type: '', reason: '' });
   const [driverModal, setDriverModal] = useState({ open: false, driverId: null, type: '', reason: '' });
+  const [documentModal, setDocumentModal] = useState({ open: false, docType: '', action: '', reason: '' });
 
   const loadAgency = async () => {
     try {
@@ -53,6 +54,24 @@ export default function AgencyDetails() {
       await loadAgency();
     } catch (err) {
       alert(err.response?.data?.message || err.message || 'Action failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleAgencyDocumentReview = async () => {
+    try {
+      setActionLoading(true);
+      await agencyService.reviewAgencyDocument(
+        id,
+        documentModal.docType,
+        documentModal.action,
+        documentModal.reason
+      );
+      setDocumentModal({ open: false, docType: '', action: '', reason: '' });
+      await loadAgency();
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Document review failed');
     } finally {
       setActionLoading(false);
     }
@@ -102,6 +121,11 @@ export default function AgencyDetails() {
 
   const { agency, drivers, vehicles } = data;
   const docs = agency.documents || {};
+  const agencyDocuments = [
+    { type: 'ownerAadhaar', label: 'Owner Aadhaar Document', optional: false },
+    { type: 'businessRegistration', label: 'Business Registration / Trade Licence', optional: true },
+    { type: 'taxId', label: 'Tax ID / GST Document', optional: true }
+  ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -120,7 +144,7 @@ export default function AgencyDetails() {
             </span>
           </div>
 
-          <div style={{ display: 'flex', gap: 8 }}>
+          {data.canReviewAgencyDocuments && <div style={{ display: 'flex', gap: 8 }}>
             <button
               type="button"
               className="btn btn-primary"
@@ -146,7 +170,7 @@ export default function AgencyDetails() {
             >
               Suspend
             </button>
-          </div>
+          </div>}
         </div>
 
         {agency.rejectionReason && (
@@ -155,6 +179,16 @@ export default function AgencyDetails() {
           </div>
         )}
       </section>
+
+      {!data.superAdminReviewConfigured ? (
+        <section className="card" role="alert" style={{ background: '#fffbeb', borderColor: '#fcd34d', color: '#92400e' }}>
+          Super Admin review actions are unavailable until the backend is configured with the designated `SUPER_ADMIN_USER_ID`.
+        </section>
+      ) : !data.canReviewAgencyDocuments ? (
+        <section className="card" role="status" style={{ background: '#f8fafc', color: '#475569' }}>
+          You can view agency status, but only the designated Super Admin can approve agencies or review KYC documents.
+        </section>
+      ) : null}
 
       {/* Profile & Owner Document Verification */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24 }}>
@@ -179,68 +213,84 @@ export default function AgencyDetails() {
         <section className="card">
           <h3 style={{ marginTop: 0, borderBottom: '1px solid var(--border-color)', paddingBottom: 12 }}>Verification Documents (KYC)</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Owner Aadhaar Document:</div>
-              {docs.ownerAadhaar?.viewUrl ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <a
-                    href={docs.ownerAadhaar.viewUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-primary"
-                    style={{ fontSize: 13, textDecoration: 'none' }}
-                  >
-                    View Aadhaar (Authorized Link)
-                  </a>
-                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Status: {docs.ownerAadhaar.status || 'Submitted'}</span>
+            {agencyDocuments.map(({ type, label, optional }) => {
+              const document = docs[type] || {};
+              const submitted = document.status && document.status !== 'not_uploaded';
+              return (
+                <div key={type} style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: 12 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>{label}{optional ? ' (Optional)' : ''}</div>
+                  <div style={{ fontSize: 12, marginBottom: 8 }}>
+                    Status: <strong>{submitted ? document.status : optional ? 'optional / not uploaded' : 'missing'}</strong>
+                    {document.submittedAt ? ` · Submitted ${new Date(document.submittedAt).toLocaleString()}` : ''}
+                    {document.reviewedAt ? ` · Reviewed ${new Date(document.reviewedAt).toLocaleString()}` : ''}
+                  </div>
+                  {document.rejectionReason ? <div role="alert" style={{ color: '#991b1b', fontSize: 12, marginBottom: 8 }}>Rejection reason: {document.rejectionReason}</div> : null}
+                  {document.viewUrl ? (
+                    <a href={document.viewUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">
+                      View securely (temporary link)
+                    </a>
+                  ) : submitted ? (
+                    <div style={{ color: '#92400e', fontSize: 12, marginBottom: 8 }}>
+                      This legacy document is not in the private review vault. Ask the owner to resubmit it securely before review.
+                    </div>
+                  ) : null}
+                  {data.canReviewAgencyDocuments && document.viewUrl ? (
+                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        disabled={actionLoading}
+                        onClick={() => setDocumentModal({ open: true, docType: type, action: 'approve', reason: '' })}
+                      >
+                        Approve document
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        disabled={actionLoading}
+                        onClick={() => setDocumentModal({ open: true, docType: type, action: 'reject', reason: '' })}
+                        style={{ background: '#fee2e2', color: '#991b1b' }}
+                      >
+                        Reject with reason
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
-              ) : (
-                <span style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No Aadhaar uploaded yet.</span>
-              )}
-            </div>
-
-            <div>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Business Registration / Trade Licence:</div>
-              {docs.businessRegistration?.viewUrl ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <a
-                    href={docs.businessRegistration.viewUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn"
-                    style={{ fontSize: 13, textDecoration: 'none' }}
-                  >
-                    View Registration Document
-                  </a>
-                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Status: {docs.businessRegistration.status || 'Submitted'}</span>
-                </div>
-              ) : (
-                <span style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No registration document uploaded.</span>
-              )}
-            </div>
-
-            <div>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Tax ID / GST Document:</div>
-              {docs.taxId?.viewUrl ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <a
-                    href={docs.taxId.viewUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn"
-                    style={{ fontSize: 13, textDecoration: 'none' }}
-                  >
-                    View Tax/GST
-                  </a>
-                  <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Status: {docs.taxId.status || 'Submitted'}</span>
-                </div>
-              ) : (
-                <span style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No Tax/GST document uploaded.</span>
-              )}
-            </div>
+              );
+            })}
           </div>
         </section>
       </div>
+
+      {agency.approvalStatus === 'approved' && docs.ownerAadhaar?.status !== 'approved' ? (
+        <section className="card" role="status" style={{ borderColor: '#fcd34d', background: '#fffbeb', color: '#92400e' }}>
+          <strong>Owner identity document is not verified.</strong> Current backend business rules do not require Owner Aadhaar approval for agency approval or driver-registration dropdown eligibility. The agency remains active under the existing approved/active rule; request secure resubmission and review if policy requires it. No status was changed automatically.
+        </section>
+      ) : null}
+
+      <section className="card">
+        <h3 style={{ marginTop: 0 }}>Agency Review History</h3>
+        {(agency.reviewHistory || []).length === 0 ? (
+          <p style={{ color: 'var(--text-secondary)', marginBottom: 0 }}>
+            No detailed review history was recorded for earlier actions. The current approval timestamp and reviewer are {agency.approvedAt ? 'available in the agency profile' : 'not recorded'}.
+          </p>
+        ) : (
+          <ul style={{ margin: 0, paddingLeft: 20 }}>
+            {agency.reviewHistory.slice().reverse().map((entry, index) => (
+              <li key={`${entry.reviewedAt}-${index}`} style={{ marginBottom: 6 }}>
+                {entry.action.replaceAll('_', ' ')}{entry.documentType ? ` · ${entry.documentType}` : ''}
+                {entry.reason ? ` — ${entry.reason}` : ''}
+                {' · '}{entry.reviewedBy?.name || 'Super Admin'} · {entry.reviewedAt ? new Date(entry.reviewedAt).toLocaleString() : 'time unavailable'}
+              </li>
+            ))}
+          </ul>
+        )}
+        {agency.approvedAt ? (
+          <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text-secondary)' }}>
+            Current approval: {new Date(agency.approvedAt).toLocaleString()} by {agency.approvedBy?.name || 'recorded administrator'}.
+          </div>
+        ) : null}
+      </section>
 
       {/* Agency Managed Drivers */}
       <section className="card">
@@ -413,7 +463,7 @@ export default function AgencyDetails() {
                 className="btn"
                 style={{ background: 'var(--danger)', color: '#fff' }}
                 onClick={handleAgencyActionWithReason}
-                disabled={actionLoading}
+                disabled={actionLoading || !actionModal.reason.trim()}
               >
                 Confirm
               </button>
@@ -455,6 +505,44 @@ export default function AgencyDetails() {
                 disabled={actionLoading}
               >
                 Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {documentModal.open && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
+        }}>
+          <div className="card" role="dialog" aria-modal="true" aria-labelledby="agency-document-review-title" style={{ width: '100%', maxWidth: 440 }}>
+            <h3 id="agency-document-review-title">{documentModal.action === 'approve' ? 'Approve agency document' : 'Reject agency document'}</h3>
+            {documentModal.action === 'reject' ? (
+              <>
+                <label htmlFor="agency-document-rejection-reason">Reason (required)</label>
+                <textarea
+                  id="agency-document-rejection-reason"
+                  maxLength={500}
+                  required
+                  value={documentModal.reason}
+                  onChange={(event) => setDocumentModal({ ...documentModal, reason: event.target.value })}
+                  style={{ width: '100%', minHeight: 90, marginTop: 8 }}
+                />
+              </>
+            ) : <p>This records the document review decision only; agency approval status is unchanged.</p>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+              <button type="button" className="btn" onClick={() => setDocumentModal({ open: false, docType: '', action: '', reason: '' })}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn"
+                disabled={actionLoading || (documentModal.action === 'reject' && !documentModal.reason.trim())}
+                onClick={handleAgencyDocumentReview}
+                style={documentModal.action === 'reject' ? { background: '#991b1b', color: '#fff' } : undefined}
+              >
+                {actionLoading ? 'Saving…' : `Confirm ${documentModal.action}`}
               </button>
             </div>
           </div>

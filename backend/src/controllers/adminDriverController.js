@@ -146,6 +146,7 @@ export const getAdminDriverById = async (req, res) => {
     if (!driver) return errorResponse(res, "Driver not found", 404);
     const vehiclesByDriver = await loadVehiclesByDriver([driver]);
     const driverData = safeDriver(driver, vehiclesByDriver.get(driver._id.toString()));
+    const canReviewDocuments = isDesignatedSuperAdmin(req.user);
     
     // Allow authorized admin in detail view to inspect driver KYC documents with short-lived signed URLs
     const docs = driver.documents ? JSON.parse(JSON.stringify(driver.documents)) : {};
@@ -162,7 +163,7 @@ export const getAdminDriverById = async (req, res) => {
         const ext = extractCloudinaryAssetInfo(doc.url);
         if (ext) { pubId = ext.publicId; fmt = ext.format; }
       }
-      docs[key].viewUrl = pubId?.startsWith("loadbalbin_kyc/")
+      docs[key].viewUrl = canReviewDocuments && pubId?.startsWith("loadbalbin_kyc/")
         ? generateSignedDocumentUrl(pubId, fmt, 300, resType)
         : null;
       docs[key].uploadedBy = doc.uploadedBy?.name || null;
@@ -173,7 +174,7 @@ export const getAdminDriverById = async (req, res) => {
 
     driverData.documents = docs;
     driverData.agency = driver.agency || null;
-    driverData.canReviewDocuments = isDesignatedSuperAdmin(req.user);
+    driverData.canReviewDocuments = canReviewDocuments;
 
     return successResponse(res, {
       driver: driverData

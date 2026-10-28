@@ -7,7 +7,12 @@ import { protect } from "../middleware/authMiddleware.js";
 import { errorResponse, successResponse } from "../utils/response.js";
 import { generateSignedDocumentUrl, extractCloudinaryAssetInfo } from "../utils/documentSigner.js";
 import { handleUploadSingle } from "../middleware/uploadMiddleware.js";
-import { uploadDriverDocument, uploadVehicleDocument } from "../controllers/documentController.js";
+import {
+  uploadAgencyDocument,
+  uploadDriverDocument,
+  uploadVehicleDocument
+} from "../controllers/documentController.js";
+import { isDesignatedSuperAdmin } from "../utils/superAdmin.js";
 
 const router = express.Router();
 
@@ -67,7 +72,7 @@ router.get("/agency/:agencyId/:docType", protect, async (req, res) => {
     }
 
     // Authorization check: Super Admin or owner of the agency
-    const isSuperAdmin = req.user.role === "admin";
+    const isSuperAdmin = isDesignatedSuperAdmin(req.user);
     const isOwner = String(agency.owner) === String(req.user._id);
 
     if (!isSuperAdmin && !isOwner) {
@@ -108,7 +113,7 @@ router.get("/driver/:driverId/:docType", protect, async (req, res) => {
       return errorResponse(res, "Driver not found", 404);
     }
 
-    const isSuperAdmin = req.user.role === "admin";
+    const isSuperAdmin = isDesignatedSuperAdmin(req.user);
     const isSelfDriver = String(driver.user) === String(req.user._id);
 
     let isManagingAgencyOwner = false;
@@ -136,6 +141,7 @@ router.get("/driver/:driverId/:docType", protect, async (req, res) => {
   }
 });
 
+router.post("/agency/:agencyId/:docType", protect, handleUploadSingle("document"), uploadAgencyDocument);
 router.post("/driver/:driverId/:docType", protect, handleUploadSingle("document"), uploadDriverDocument);
 router.post("/vehicle/:vehicleId/:docType", protect, handleUploadSingle("document"), uploadVehicleDocument);
 
@@ -150,7 +156,7 @@ router.get("/vehicle/:vehicleId/:docType", protect, async (req, res) => {
     const vehicle = await Vehicle.findById(vehicleId);
     if (!vehicle) return errorResponse(res, "Vehicle not found", 404);
 
-    let authorized = req.user.role === "admin";
+    let authorized = isDesignatedSuperAdmin(req.user);
     if (req.user.role === "driver") {
       const driver = await Driver.findOne({ user: req.user._id }).select("_id").lean();
       authorized = Boolean(driver && String(vehicle.driver) === String(driver._id));

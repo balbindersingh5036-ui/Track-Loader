@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import Agency from "../models/Agency.js";
 import Driver from "../models/Driver.js";
 import Vehicle from "../models/Vehicle.js";
+import Booking from "../models/Booking.js";
 import User from "../models/User.js";
 import { errorResponse, successResponse } from "../utils/response.js";
 import { parsePagination } from "../utils/pagination.js";
@@ -12,6 +13,7 @@ import {
 } from "../utils/driverEligibility.js";
 import { sanitizeVehicleDocumentResponse } from "../utils/vehicleDocumentResponse.js";
 import { sanitizeDriverDocumentResponse } from "../utils/driverDocumentResponse.js";
+import { extractCloudinaryAssetInfo, generateSignedDocumentUrl } from "../utils/documentSigner.js";
 
 // Helper to retrieve current authenticated user's agency
 const getAgencyForUser = async (userId) => {
@@ -19,6 +21,39 @@ const getAgencyForUser = async (userId) => {
 };
 const toPlainObject = (document) =>
   typeof document?.toObject === "function" ? document.toObject() : document;
+const agencyDocumentTypes = ["ownerAadhaar", "businessRegistration", "taxId"];
+
+const serializeAgencyDocument = (document) => {
+  const doc = document || {};
+  const hasDocument = Boolean(doc.publicId || doc.url);
+  const asset = doc.publicId
+    ? { publicId: doc.publicId, format: doc.format, resourceType: doc.resourceType }
+    : extractCloudinaryAssetInfo(doc.url);
+  const privateAsset = asset?.publicId?.startsWith("loadbalbin_kyc/");
+
+  return {
+    status: hasDocument ? doc.status || "pending" : "not_uploaded",
+    format: doc.format || asset?.format || "",
+    maskedNumber: doc.maskedNumber || "",
+    submittedAt: doc.submittedAt || null,
+    reviewedAt: doc.reviewedAt || null,
+    reviewedBy: typeof doc.reviewedBy === "object" ? doc.reviewedBy?.name || null : null,
+    rejectionReason: doc.rejectionReason || "",
+    viewUrl: privateAsset
+      ? generateSignedDocumentUrl(asset.publicId, asset.format || "pdf", 300, doc.resourceType || asset.resourceType || "image")
+      : null
+  };
+};
+
+const serializeAgencyOwnerView = (agency) => {
+  const plainAgency = toPlainObject(agency);
+  return {
+    ...plainAgency,
+    documents: Object.fromEntries(
+      agencyDocumentTypes.map((docType) => [docType, serializeAgencyDocument(plainAgency.documents?.[docType])])
+    )
+  };
+};
 
 export const getVerifiedAgencies = async (_req, res) => {
   try {
@@ -40,8 +75,11 @@ export const getVerifiedAgencies = async (_req, res) => {
 // Agency Profile & Registration
 export const registerAgency = async (req, res) => {
   try {
-    const { agencyName, phone, email, address, city, documents } = req.body;
+    const { agencyName, phone, email, address, city } = req.body;
 
+    if (Object.hasOwn(req.body || {}, "documents")) {
+      return errorResponse(res, "Agency documents must be submitted through the authenticated private upload endpoint", 400);
+    }
     if (!agencyName || typeof agencyName !== "string" || !agencyName.trim()) {
       return errorResponse(res, "Agency name is required", 400);
     }
@@ -54,50 +92,13 @@ export const registerAgency = async (req, res) => {
       return errorResponse(res, "Agency with this owner or phone number already exists", 409);
     }
 
-    const sanitizedDocs = {};
-    if (documents?.ownerAadhaar?.url) {
-      const url = String(documents.ownerAadhaar.url).trim();
-      if (!url.startsWith("https://")) return errorResponse(res, "Owner Aadhaar URL must be a valid secure HTTPS link", 400);
-      sanitizedDocs.ownerAadhaar = {
-        url,
-        publicId: documents.ownerAadhaar.publicId || "",
-        resourceType: documents.ownerAadhaar.resourceType || "image",
-        format: documents.ownerAadhaar.format || (url.endsWith(".pdf") ? "pdf" : "jpg"),
-        maskedNumber: documents.ownerAadhaar.maskedNumber || "",
-        status: "pending"
-      };
-    }
-    if (documents?.businessRegistration?.url) {
-      const url = String(documents.businessRegistration.url).trim();
-      if (!url.startsWith("https://")) return errorResponse(res, "Business Registration URL must be a valid secure HTTPS link", 400);
-      sanitizedDocs.businessRegistration = {
-        url,
-        publicId: documents.businessRegistration.publicId || "",
-        resourceType: documents.businessRegistration.resourceType || "image",
-        format: documents.businessRegistration.format || (url.endsWith(".pdf") ? "pdf" : "jpg"),
-        status: "pending"
-      };
-    }
-    if (documents?.taxId?.url) {
-      const url = String(documents.taxId.url).trim();
-      if (!url.startsWith("https://")) return errorResponse(res, "Tax ID URL must be a valid secure HTTPS link", 400);
-      sanitizedDocs.taxId = {
-        url,
-        publicId: documents.taxId.publicId || "",
-        resourceType: documents.taxId.resourceType || "image",
-        format: documents.taxId.format || (url.endsWith(".pdf") ? "pdf" : "jpg"),
-        status: "pending"
-      };
-    }
-
     const agency = await Agency.create({
       owner: req.user._id,
       agencyName: agencyName.trim(),
       phone: phone.trim(),
       email: email ? email.trim().toLowerCase() : "",
       address: address ? address.trim() : "",
-      city: city ? city.trim() : "",
-      documents: sanitizedDocs
+      city: city ? city.trim() : ""
     });
 
     // Update user role to agency if not already admin
@@ -105,7 +106,12 @@ export const registerAgency = async (req, res) => {
       await User.findByIdAndUpdate(req.user._id, { role: "agency" });
     }
 
-    return successResponse(res, { agency }, "Agency registered successfully and pending approval", 201);
+    return successResponse(
+      res,
+      { agency: serializeAgencyOwnerView(agency) },
+      "Agency registered successfully and pending approval",
+      201
+    );
   } catch (error) {
     return errorResponse(res, "Failed to register agency", 500);
   }
@@ -113,34 +119,15 @@ export const registerAgency = async (req, res) => {
 
 export const getMyAgency = async (req, res) => {
   try {
-    const agency = await getAgencyForUser(req.user._id);
+    const agency = await Agency.findOne({ owner: req.user._id })
+      .populate("documents.ownerAadhaar.reviewedBy", "name")
+      .populate("documents.businessRegistration.reviewedBy", "name")
+      .populate("documents.taxId.reviewedBy", "name");
     if (!agency) {
       return errorResponse(res, "Agency not found", 404);
     }
 
-    const agencyObj = agency.toObject();
-    const { generateSignedDocumentUrl, extractCloudinaryAssetInfo } = await import("../utils/documentSigner.js");
-
-    if (agencyObj.documents) {
-      for (const [key, doc] of Object.entries(agencyObj.documents)) {
-        if (doc && (doc.publicId || doc.url)) {
-          let pubId = doc.publicId;
-          let fmt = doc.format || "pdf";
-          let resType = doc.resourceType || "image";
-          if (!pubId && doc.url) {
-            const ext = extractCloudinaryAssetInfo(doc.url);
-            if (ext) { pubId = ext.publicId; fmt = ext.format; }
-          }
-          if (pubId) {
-            agencyObj.documents[key].viewUrl = generateSignedDocumentUrl(pubId, fmt, 300, resType);
-          } else {
-            agencyObj.documents[key].viewUrl = doc.url;
-          }
-        }
-      }
-    }
-
-    return successResponse(res, { agency: agencyObj }, "Agency profile fetched");
+    return successResponse(res, { agency: serializeAgencyOwnerView(agency) }, "Agency profile fetched");
   } catch (error) {
     return errorResponse(res, "Failed to fetch agency profile", 500);
   }
@@ -152,16 +139,22 @@ export const updateMyAgency = async (req, res) => {
     if (!agency) {
       return errorResponse(res, "Agency not found", 404);
     }
+    if (Object.hasOwn(req.body || {}, "documents")) {
+      return errorResponse(res, "Agency documents must be submitted through the authenticated private upload endpoint", 400);
+    }
 
-    const { agencyName, address, city, documents } = req.body;
+    const { agencyName, address, city } = req.body;
     const updates = {};
-    if (agencyName) updates.agencyName = agencyName.trim();
+    if (typeof agencyName === "string" && agencyName.trim()) updates.agencyName = agencyName.trim();
     if (address !== undefined) updates.address = address.trim();
     if (city !== undefined) updates.city = city.trim();
-    if (documents) updates.documents = documents;
 
     const updated = await Agency.findByIdAndUpdate(agency._id, { $set: updates }, { new: true });
-    return successResponse(res, { agency: updated }, "Agency profile updated");
+    return successResponse(
+      res,
+      { agency: serializeAgencyOwnerView(updated) },
+      "Agency profile updated"
+    );
   } catch (error) {
     return errorResponse(res, "Failed to update agency profile", 500);
   }
@@ -301,7 +294,10 @@ export const getAgencyVehicles = async (req, res) => {
     }
 
     const vehicles = await Vehicle.find({ agency: agency._id })
-      .populate("driver", "fullName phone rating approvalStatus isActive")
+      .populate(
+        "driver",
+        "fullName phone rating approvalStatus isActive documents.idProof.status documents.drivingLicense.status"
+      )
       .populate("documents.registration.uploadedBy", "name")
       .populate("documents.insurance.uploadedBy", "name")
       .sort({ createdAt: -1 });
@@ -480,17 +476,24 @@ export const getAgencyBookings = async (req, res) => {
     const vehicleIds = vehicles.map((v) => v._id);
     const driverIds = drivers.map((d) => d._id);
 
-    const Booking = (await import("../models/Booking.js")).default;
-    const bookings = await Booking.find({
+    const query = {
       $or: [{ vehicle: { $in: vehicleIds } }, { driver: { $in: driverIds } }]
-    })
-      .populate("customer", "name phone")
-      .populate("driver", "fullName phone")
-      .populate("vehicle", "vehicleNumber vehicleModel vehicleType")
-      .sort({ createdAt: -1 })
-      .limit(50);
+    };
+    const [bookings, total] = await Promise.all([
+      Booking.find(query)
+        .populate("customer", "name phone")
+        .populate("driver", "fullName phone")
+        .populate("vehicle", "vehicleNumber vehicleModel vehicleType")
+        .sort({ createdAt: -1 })
+        .limit(50),
+      Booking.countDocuments(query)
+    ]);
 
-    return successResponse(res, { bookings }, "Agency bookings fetched");
+    return successResponse(
+      res,
+      { bookings, pagination: { total, returned: bookings.length } },
+      "Agency bookings fetched"
+    );
   } catch (error) {
     return errorResponse(res, "Failed to fetch agency bookings", 500);
   }

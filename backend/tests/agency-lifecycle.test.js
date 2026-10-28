@@ -102,11 +102,7 @@ test("Agency Lifecycle: 1. Owner registers an agency", async (t) => {
       phone: "+919876543210",
       email: "contact@speedy.com",
       address: "123 Transporter Hub",
-      city: "Ludhiana",
-      documents: {
-        businessRegistration: { url: "https://docs.com/reg.pdf", status: "pending" },
-        ownerAadhaar: { url: "https://docs.com/aadhaar.pdf", status: "pending" }
-      }
+      city: "Ludhiana"
     }
   };
   const res = createResponse();
@@ -117,7 +113,31 @@ test("Agency Lifecycle: 1. Owner registers an agency", async (t) => {
   assert.equal(res.body.success, true);
   assert.equal(createdAgencyData.agencyName, "Speedy Logistics");
   assert.equal(createdAgencyData.phone, "+919876543210");
+  assert.equal(createdAgencyData.documents, undefined);
   assert.equal(userRoleUpdated, true);
+});
+
+test("Agency Lifecycle: registration rejects client-supplied document references", async () => {
+  const res = createResponse();
+
+  await registerAgency({
+    user: { _id: new mongoose.Types.ObjectId(), role: "customer" },
+    body: {
+      agencyName: "Untrusted Agency",
+      phone: "+919876543210",
+      documents: {
+        ownerAadhaar: {
+          url: "https://example.com/private.pdf",
+          publicId: "loadbalbin_kyc/another-owner/private-document",
+          status: "approved"
+        }
+      }
+    }
+  }, res);
+
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.success, false);
+  assert.match(res.body.message, /authenticated private upload endpoint/i);
 });
 
 test("Agency Lifecycle: 2. Super Admin approves the agency", async (t) => {
