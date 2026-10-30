@@ -43,6 +43,13 @@ export default function AgencyDashboard() {
     reason: '',
     processing: false
   });
+  const [approveModal, setApproveModal] = useState({
+    open: false,
+    driverId: null,
+    driverName: '',
+    agencyName: '',
+    processing: false
+  });
   const [stats, setStats] = useState({
     total: 0,
     pendingAgency: 0,
@@ -61,6 +68,19 @@ export default function AgencyDashboard() {
       alert(err.response?.data?.message || err.message || 'Failed to accept driver request');
     } finally {
       setAcceptingRequestId(null);
+    }
+  };
+
+  const handleConfirmApproveJoining = async () => {
+    if (!approveModal.driverId) return;
+    try {
+      setApproveModal(prev => ({ ...prev, processing: true }));
+      await agencyService.acceptAgencyDriverRequest(approveModal.driverId);
+      setApproveModal({ open: false, driverId: null, driverName: '', agencyName: '', processing: false });
+      await loadData(true);
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Failed to approve driver joining request');
+      setApproveModal(prev => ({ ...prev, processing: false }));
     }
   };
 
@@ -308,12 +328,16 @@ export default function AgencyDashboard() {
       if (statsRes.data?.data?.counts) {
         setStats(statsRes.data.data.counts);
       } else {
+        const resolvedList = loadedDrivers.map(d => ({
+          ...d,
+          associationStatus: d.agencyAssociation?.status || (d.agency ? (d.approvalStatus === 'approved' ? 'approved' : 'pending') : 'none')
+        }));
         setStats({
           total: loadedDrivers.length,
-          pendingAgency: loadedRequests.filter(r => r.agencyAssociation?.status === 'pending').length,
-          acceptedPendingSuperAdmin: loadedDrivers.filter(d => d.approvalStatus === 'pending').length,
-          superAdminApprovedAndEligible: loadedDrivers.filter(d => d.approvalStatus === 'approved' && d.isActive !== false).length,
-          rejectedOrSuspended: loadedDrivers.filter(d => d.approvalStatus === 'rejected' || d.approvalStatus === 'suspended').length
+          pendingAgency: resolvedList.filter(d => d.associationStatus === 'pending').length,
+          acceptedPendingSuperAdmin: resolvedList.filter(d => d.associationStatus === 'approved' && d.approvalStatus === 'pending').length,
+          superAdminApprovedAndEligible: resolvedList.filter(d => d.associationStatus === 'approved' && d.approvalStatus === 'approved' && d.isActive !== false).length,
+          rejectedOrSuspended: resolvedList.filter(d => d.associationStatus === 'rejected' || d.approvalStatus === 'rejected' || d.approvalStatus === 'suspended').length
         });
       }
     } catch (err) {
@@ -693,8 +717,16 @@ export default function AgencyDashboard() {
   const filteredDrivers = drivers.filter(d => {
     const matchesSearch = (d.fullName || d.user?.name || '').toLowerCase().includes(driverSearch.toLowerCase()) ||
       (d.phone || d.user?.phone || '').includes(driverSearch);
-    if (driverFilter === 'all') return matchesSearch;
-    return matchesSearch && d.approvalStatus === driverFilter;
+    if (!matchesSearch) return false;
+    if (driverFilter === 'all') return true;
+    const assocStatus = d.agencyAssociation?.status || (d.agency ? (d.approvalStatus === 'approved' ? 'approved' : 'pending') : 'none');
+    if (driverFilter === 'pending_agency') return assocStatus === 'pending';
+    if (driverFilter === 'pending_admin') return assocStatus === 'approved' && d.approvalStatus === 'pending';
+    if (driverFilter === 'pending') return assocStatus === 'pending' || d.approvalStatus === 'pending';
+    if (driverFilter === 'approved') return d.approvalStatus === 'approved';
+    if (driverFilter === 'rejected') return assocStatus === 'rejected' || d.approvalStatus === 'rejected';
+    if (driverFilter === 'suspended') return d.approvalStatus === 'suspended';
+    return d.approvalStatus === driverFilter;
   });
 
   const filteredVehicles = vehicles.filter(v => {
@@ -1133,11 +1165,16 @@ export default function AgencyDashboard() {
                                 <button
                                   type="button"
                                   className="btn btn-sm btn-primary"
-                                  disabled={acceptingRequestId === req.id}
-                                  onClick={() => handleAcceptRequest(req.id)}
-                                  style={{ padding: '4px 10px', fontSize: 12 }}
+                                  style={{ padding: '4px 10px', fontSize: 12, background: '#16a34a', borderColor: '#16a34a', color: '#fff' }}
+                                  onClick={() => setApproveModal({
+                                    open: true,
+                                    driverId: req.id,
+                                    driverName: req.fullName,
+                                    agencyName: agency?.agencyName || 'Your Agency',
+                                    processing: false
+                                  })}
                                 >
-                                  {acceptingRequestId === req.id ? 'Accepting...' : 'Accept'}
+                                  Accept
                                 </button>
                                 <button
                                   type="button"
@@ -1197,11 +1234,12 @@ export default function AgencyDashboard() {
             <select
               value={driverFilter}
               onChange={e => setDriverFilter(e.target.value)}
-              style={{ width: 'auto', minWidth: 150, padding: '6px 10px', fontSize: 13 }}
+              style={{ width: 'auto', minWidth: 160, padding: '6px 10px', fontSize: 13 }}
             >
               <option value="all">All Verification Statuses</option>
-              <option value="pending">Pending Verification</option>
-              <option value="approved">Approved</option>
+              <option value="pending_agency">Pending Agency Approval</option>
+              <option value="pending_admin">Accepted, Pending Super Admin</option>
+              <option value="approved">Super Admin Approved</option>
               <option value="rejected">Rejected</option>
               <option value="suspended">Suspended</option>
             </select>
@@ -1313,32 +1351,108 @@ export default function AgencyDashboard() {
                         </div>
                       </td>
                       <td>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => setDocModal({
-                            open: true,
-                            driverId: d._id,
-                            driverName: d.fullName || d.user?.name || 'Driver',
-                            aadhaarUrl: d.documents?.idProof?.url || '',
-                            aadhaarFile: null,
-                            aadhaarFileName: d.documents?.idProof?.url ? 'Current Aadhaar Document' : '',
-                            aadhaarUrl_publicId: d.documents?.idProof?.publicId || '',
-                            aadhaarUrl_resourceType: d.documents?.idProof?.resourceType || 'image',
-                            aadhaarUrl_format: d.documents?.idProof?.format || 'pdf',
-                            dlUrl: d.documents?.drivingLicense?.url || '',
-                            dlFile: null,
-                            dlFileName: d.documents?.drivingLicense?.url ? 'Current Driving Licence' : '',
-                            dlUrl_publicId: d.documents?.drivingLicense?.publicId || '',
-                            dlUrl_resourceType: d.documents?.drivingLicense?.resourceType || 'image',
-                            dlUrl_format: d.documents?.drivingLicense?.format || 'pdf',
-                            updating: false,
-                            error: '',
-                            success: ''
-                          })}
-                        >
-                          Upload / Update Docs
-                        </button>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
+                          {(() => {
+                            const assocStatus = d.agencyAssociation?.status || (d.agency ? (d.approvalStatus === 'approved' ? 'approved' : 'pending') : 'none');
+                            if (assocStatus === 'pending') {
+                              return (
+                                <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-primary"
+                                    style={{ padding: '4px 10px', fontSize: 12, background: '#16a34a', borderColor: '#16a34a', color: '#fff' }}
+                                    onClick={() => setApproveModal({
+                                      open: true,
+                                      driverId: d._id,
+                                      driverName: d.fullName || d.user?.name || 'Driver',
+                                      agencyName: agency?.agencyName || 'Your Agency',
+                                      processing: false
+                                    })}
+                                  >
+                                    Approve Joining
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline"
+                                    style={{ padding: '4px 10px', fontSize: 12, borderColor: '#ef4444', color: '#ef4444' }}
+                                    onClick={() => setRejectModal({
+                                      open: true,
+                                      requestId: d._id,
+                                      driverName: d.fullName || d.user?.name || 'Driver',
+                                      reason: '',
+                                      processing: false
+                                    })}
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              );
+                            }
+                            if (assocStatus === 'approved') {
+                              return (
+                                <div>
+                                  <span
+                                    className="badge success"
+                                    style={{
+                                      display: 'inline-block',
+                                      fontSize: 11,
+                                      padding: '4px 8px',
+                                      whiteSpace: 'normal',
+                                      lineHeight: 1.3
+                                    }}
+                                  >
+                                    {d.approvalStatus === 'approved'
+                                      ? 'Agency Approved'
+                                      : 'Agency Approved — Pending Super Admin Verification'}
+                                  </span>
+                                </div>
+                              );
+                            }
+                            if (assocStatus === 'rejected') {
+                              return (
+                                <div>
+                                  <span className="badge danger" style={{ fontSize: 11 }}>
+                                    Rejected
+                                  </span>
+                                  {d.agencyAssociation?.rejectionReason && (
+                                    <div style={{ fontSize: 11, color: '#dc2626', marginTop: 2 }}>
+                                      Reason: {d.agencyAssociation.rejectionReason}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            style={{ padding: '4px 10px', fontSize: 12 }}
+                            onClick={() => setDocModal({
+                              open: true,
+                              driverId: d._id,
+                              driverName: d.fullName || d.user?.name || 'Driver',
+                              aadhaarUrl: d.documents?.idProof?.url || '',
+                              aadhaarFile: null,
+                              aadhaarFileName: d.documents?.idProof?.url ? 'Current Aadhaar Document' : '',
+                              aadhaarUrl_publicId: d.documents?.idProof?.publicId || '',
+                              aadhaarUrl_resourceType: d.documents?.idProof?.resourceType || 'image',
+                              aadhaarUrl_format: d.documents?.idProof?.format || 'pdf',
+                              dlUrl: d.documents?.drivingLicense?.url || '',
+                              dlFile: null,
+                              dlFileName: d.documents?.drivingLicense?.url ? 'Current Driving Licence' : '',
+                              dlUrl_publicId: d.documents?.drivingLicense?.publicId || '',
+                              dlUrl_resourceType: d.documents?.drivingLicense?.resourceType || 'image',
+                              dlUrl_format: d.documents?.drivingLicense?.format || 'pdf',
+                              updating: false,
+                              error: '',
+                              success: ''
+                            })}
+                          >
+                            Upload / Update Docs
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -2350,6 +2464,49 @@ export default function AgencyDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Driver Joining Request Approve Modal */}
+      {approveModal.open && (
+        <div className="modal-backdrop" onClick={() => setApproveModal({ open: false, driverId: null, driverName: '', agencyName: '', processing: false })}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <h3 style={{ margin: 0, fontSize: 16 }}>Approve Driver Joining</h3>
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => setApproveModal({ open: false, driverId: null, driverName: '', agencyName: '', processing: false })}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 14px 0', lineHeight: 1.5 }}>
+              Are you sure you want to approve driver <strong>{approveModal.driverName}</strong> to join <strong>{approveModal.agencyName || agency?.agencyName}</strong>?
+            </p>
+            <div style={{ padding: 12, background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, fontSize: 12, color: '#166534', marginBottom: 16 }}>
+              <strong>Notice:</strong> This action only approves this driver's association with your agency. Identity documents (Aadhaar &amp; Driving Licence) and final driver account activation remain pending with the Super Admin.
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                disabled={approveModal.processing}
+                onClick={() => setApproveModal({ open: false, driverId: null, driverName: '', agencyName: '', processing: false })}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                style={{ background: '#16a34a', borderColor: '#16a34a', color: '#fff' }}
+                disabled={approveModal.processing}
+                onClick={handleConfirmApproveJoining}
+              >
+                {approveModal.processing ? 'Approving...' : 'Confirm Approval'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -11,7 +11,9 @@ import { registerDriver } from "../src/controllers/authController.js";
 import {
   acceptAgencyDriverRequest,
   rejectAgencyDriverRequest,
-  getAgencyJoiningRequests
+  getAgencyJoiningRequests,
+  getAgencyStats,
+  resolveAgencyAssociation
 } from "../src/controllers/agencyController.js";
 import {
   approveAdminDriver,
@@ -547,3 +549,52 @@ test("Dual Approval 12: Independent driver does not require agency association a
   assert.equal(onlineEligibility.eligible, true);
 });
 
+test("Dual Approval 13: Association resolution correctly falls back for legacy and pending drivers", () => {
+  // 1. Explicit pending
+  assert.equal(resolveAgencyAssociation({ agencyAssociation: { status: "pending" } }).status, "pending");
+  // 2. Explicit approved
+  assert.equal(resolveAgencyAssociation({ agencyAssociation: { status: "approved" } }).status, "approved");
+  // 3. Explicit rejected
+  assert.equal(resolveAgencyAssociation({ agencyAssociation: { status: "rejected" } }).status, "rejected");
+  // 4. Missing / schema default 'none' on agency-linked driver awaiting approval
+  assert.equal(resolveAgencyAssociation({ agencyAssociation: { status: "none" }, approvalStatus: "pending" }).status, "pending");
+  // 5. Legacy agency driver already approved by Super Admin
+  assert.equal(resolveAgencyAssociation({ agencyAssociation: { status: "none" }, approvalStatus: "approved" }).status, "approved");
+});
+
+test("Dual Approval 14: getAgencyStats provides strict count consistency matching association state", async (t) => {
+  const agencyId = new mongoose.Types.ObjectId();
+  const ownerId = new mongoose.Types.ObjectId();
+
+  t.mock.method(Agency, "findOne", async () => ({ _id: agencyId }));
+
+  const sampleDrivers = [
+    // Driver 1: Rajesh - Accepted by agency, pending Super Admin
+    {
+      _id: new mongoose.Types.ObjectId(),
+      agency: agencyId,
+      approvalStatus: "pending",
+      agencyAssociation: { status: "approved" }
+    },
+    // Driver 2: Amit - Registered with agency, pending agency approval (legacy/default state)
+    {
+      _id: new mongoose.Types.ObjectId(),
+      agency: agencyId,
+      approvalStatus: "pending",
+      agencyAssociation: { status: "none" }
+    }
+  ];
+
+  t.mock.method(Driver, "find", () => mockQuery(sampleDrivers));
+
+  const res = createResponse();
+  await getAgencyStats({ user: { _id: ownerId } }, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.success, true);
+  const counts = res.body.data.counts;
+  assert.equal(counts.total, 2);
+  assert.equal(counts.pendingAgency, 1);
+  assert.equal(counts.acceptedPendingSuperAdmin, 1);
+  assert.equal(counts.pendingAgency + counts.acceptedPendingSuperAdmin, counts.total);
+});

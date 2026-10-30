@@ -160,6 +160,32 @@ export const updateMyAgency = async (req, res) => {
   }
 };
 
+// Helper to reliably resolve agency association status for drivers
+export const resolveAgencyAssociation = (driver) => {
+  const assoc = driver.agencyAssociation;
+  if (assoc?.status === "approved" || assoc?.status === "rejected" || assoc?.status === "pending") {
+    return {
+      status: assoc.status,
+      rejectionReason: assoc.rejectionReason || "",
+      decidedAt: assoc.decidedAt || assoc.decisionAt || null,
+      decisionAt: assoc.decisionAt || assoc.decidedAt || null,
+      reviewedBy: assoc.reviewedBy || null
+    };
+  }
+
+  // Fallback for agency-linked drivers:
+  // If driver was already approved by Super Admin in legacy data, mark association approved.
+  // Otherwise, if attached to an agency, they are pending agency approval.
+  const fallbackStatus = driver.approvalStatus === "approved" ? "approved" : "pending";
+  return {
+    status: fallbackStatus,
+    rejectionReason: assoc?.rejectionReason || "",
+    decidedAt: assoc?.decidedAt || null,
+    decisionAt: assoc?.decisionAt || null,
+    reviewedBy: assoc?.reviewedBy || null
+  };
+};
+
 // Agency-managed Drivers
 export const getAgencyDrivers = async (req, res) => {
   try {
@@ -191,6 +217,7 @@ export const getAgencyDrivers = async (req, res) => {
 
     const enhancedDrivers = drivers.map((d) => {
       const dObj = d.toObject();
+      dObj.agencyAssociation = resolveAgencyAssociation(dObj);
       dObj.assignedVehicle = vehicleByDriver.get(String(d._id)) || null;
       return sanitizeDriverDocumentResponse(dObj, { includeSignedUrls: true });
     });
@@ -515,45 +542,38 @@ export const getAgencyJoiningRequests = async (req, res) => {
     }
 
     const { status } = req.query;
-    const query = { agency: agency._id };
-    if (status) {
-      query["agencyAssociation.status"] = status;
-    } else {
-      query["agencyAssociation.status"] = { $in: ["pending", "rejected", "approved"] };
-    }
-
-    const drivers = await Driver.find(query)
+    const drivers = await Driver.find({ agency: agency._id })
       .populate("user", "name phone email profileImage createdAt")
       .populate("agencyAssociation.reviewedBy", "name role")
       .sort({ createdAt: -1 });
 
-    const requests = drivers.map((driver) => {
-      const d = driver.toObject();
-      return {
-        id: d._id,
-        fullName: d.fullName || d.user?.name || "",
-        phone: d.phone || d.user?.phone || "",
-        email: d.email || d.user?.email || "",
-        createdAt: d.createdAt,
-        registeredAt: d.createdAt,
-        agencyAssociation: d.agencyAssociation || {
-          status: "pending",
-          rejectionReason: "",
-          decidedAt: null,
-          decisionAt: null,
-          reviewedBy: null
-        },
-        approvalStatus: d.approvalStatus,
-        documents: {
-          idProof: {
-            status: d.documents?.idProof?.status || "not_uploaded"
-          },
-          drivingLicense: {
-            status: d.documents?.drivingLicense?.status || "not_uploaded"
+    const requests = drivers
+      .map((driver) => {
+        const d = driver.toObject();
+        const association = resolveAgencyAssociation(d);
+        return {
+          id: d._id,
+          fullName: d.fullName || d.user?.name || "",
+          phone: d.phone || d.user?.phone || "",
+          email: d.email || d.user?.email || "",
+          createdAt: d.createdAt,
+          registeredAt: d.createdAt,
+          agencyAssociation: association,
+          approvalStatus: d.approvalStatus,
+          documents: {
+            idProof: {
+              status: d.documents?.idProof?.status || "not_uploaded"
+            },
+            drivingLicense: {
+              status: d.documents?.drivingLicense?.status || "not_uploaded"
+            }
           }
-        }
-      };
-    });
+        };
+      })
+      .filter((reqItem) => {
+        if (!status || status === "all") return true;
+        return reqItem.agencyAssociation?.status === status;
+      });
 
     return successResponse(res, { requests }, "Driver joining requests fetched");
   } catch (error) {
@@ -677,21 +697,30 @@ export const getAgencyStats = async (req, res) => {
 
     const allDrivers = await Driver.find({ agency: agency._id }).lean();
     const total = allDrivers.length;
-    const pendingAgency = allDrivers.filter(
-      (d) => d.agencyAssociation?.status === "pending"
+
+    const resolvedDrivers = allDrivers.map((d) => ({
+      ...d,
+      agencyAssociation: resolveAgencyAssociation(d)
+    }));
+
+    const pendingAgency = resolvedDrivers.filter(
+      (d) => d.agencyAssociation.status === "pending"
     ).length;
-    const acceptedPendingSuperAdmin = allDrivers.filter(
-      (d) => (d.agencyAssociation?.status === "approved" || !d.agencyAssociation) && d.approvalStatus === "pending"
+
+    const acceptedPendingSuperAdmin = resolvedDrivers.filter(
+      (d) => d.agencyAssociation.status === "approved" && d.approvalStatus === "pending"
     ).length;
-    const superAdminApprovedAndEligible = allDrivers.filter(
-      (d) => (d.agencyAssociation?.status === "approved" || !d.agencyAssociation) &&
+
+    const superAdminApprovedAndEligible = resolvedDrivers.filter(
+      (d) => d.agencyAssociation.status === "approved" &&
              d.approvalStatus === "approved" &&
              d.isActive !== false &&
              d.documents?.idProof?.status === "approved" &&
              d.documents?.drivingLicense?.status === "approved"
     ).length;
-    const rejectedOrSuspended = allDrivers.filter(
-      (d) => d.agencyAssociation?.status === "rejected" ||
+
+    const rejectedOrSuspended = resolvedDrivers.filter(
+      (d) => d.agencyAssociation.status === "rejected" ||
              d.approvalStatus === "rejected" ||
              d.approvalStatus === "suspended"
     ).length;
