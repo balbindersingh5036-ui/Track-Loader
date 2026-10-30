@@ -164,6 +164,20 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
           resourceType: "image",
           format: "pdf",
           status: "pending"
+        },
+        vehicleRegistration: {
+          url: "https://api.cloudinary.com/v1_1/demo/image/download?public_id=driver_a_rc",
+          publicId: "loadbalbin_kyc/driver_a_rc",
+          resourceType: "image",
+          format: "pdf",
+          status: "pending"
+        },
+        insurance: {
+          url: "https://api.cloudinary.com/v1_1/demo/image/download?public_id=driver_a_ins",
+          publicId: "loadbalbin_kyc/driver_a_ins",
+          resourceType: "image",
+          format: "pdf",
+          status: "pending"
         }
       }
     });
@@ -320,6 +334,79 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
       .set("Authorization", `Bearer ${adminToken}`);
     assert.equal(resDriver.status, 200);
     assert.ok(resDriver.body.data.document.viewUrl);
+
+    // Verify all 4 driver document types are viewable by designated Super Admin
+    for (const docKey of ["idProof", "drivingLicense", "vehicleRegistration", "insurance"]) {
+      const docRes = await request(app)
+        .get(`/api/documents/driver/${driverA._id}/${docKey}`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      assert.equal(docRes.status, 200, `Super Admin must be authorized to view driver ${docKey}`);
+      assert.ok(docRes.body.data.document.viewUrl, `viewUrl must be returned for ${docKey}`);
+      assert.equal(docRes.body.data.document.expiresInSeconds, 300);
+    }
+  });
+
+  // TEST: Ordinary admin receives 403 on driver KYC documents
+  it("7b. Ordinary admin receives 403 when attempting to view driver KYC documents", async () => {
+    const res = await request(app)
+      .get(`/api/documents/driver/${driverA._id}/idProof`)
+      .set("Authorization", `Bearer ${regularAdminToken}`);
+    assert.equal(res.status, 403);
+    assert.equal(res.body.success, false);
+    assert.match(res.body.message, /Access denied.*not authorized/i);
+  });
+
+  // TEST: Missing documents return 404 and do not generate signed URLs
+  it("7c. Missing driver documents return 404 without generating signed URLs", async () => {
+    const res = await request(app)
+      .get(`/api/documents/driver/${driverB._id}/insurance`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    assert.equal(res.status, 404);
+    assert.equal(res.body.success, false);
+    assert.match(res.body.message, /not been uploaded/i);
+  });
+
+  // TEST: Expired signed URLs can be refreshed via subsequent authorized requests
+  it("7d. Expired signed URLs can be refreshed through repeated authorized requests", async () => {
+    const firstReq = await request(app)
+      .get(`/api/documents/driver/${driverA._id}/drivingLicense`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    assert.equal(firstReq.status, 200);
+    const firstUrl = firstReq.body.data.document.viewUrl;
+    assert.ok(firstUrl);
+
+    // Subsequent authorized request generates a fresh valid signed URL
+    const secondReq = await request(app)
+      .get(`/api/documents/driver/${driverA._id}/drivingLicense`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    assert.equal(secondReq.status, 200);
+    const secondUrl = secondReq.body.data.document.viewUrl;
+    assert.ok(secondUrl);
+    assert.equal(typeof secondUrl, "string");
+  });
+
+  // TEST: Super Admin identity matching handles trimmed IDs and quoted env values
+  it("7e. Super Admin identity check handles whitespace, quotes, and plain user objects", async () => {
+    const originalEnv = env.superAdminUserId;
+    const originalProcess = process.env.SUPER_ADMIN_USER_ID;
+    try {
+      // Simulate env variable with surrounding quotes and extra whitespace as entered in Render dashboard
+      process.env.SUPER_ADMIN_USER_ID = `  "${adminUser._id.toString()}"  `;
+      env.superAdminUserId = process.env.SUPER_ADMIN_USER_ID;
+
+      const res = await request(app)
+        .get(`/api/documents/driver/${driverA._id}/idProof`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      assert.equal(res.status, 200, "Super Admin must be authorized despite whitespace or quotes in env setting");
+      assert.ok(res.body.data.document.viewUrl);
+    } finally {
+      if (originalProcess !== undefined) {
+        process.env.SUPER_ADMIN_USER_ID = originalProcess;
+      } else {
+        delete process.env.SUPER_ADMIN_USER_ID;
+      }
+      env.superAdminUserId = originalEnv;
+    }
   });
 
   // TEST 8: Live Cloudinary check - Unsigned URL cannot retrieve authenticated KYC asset

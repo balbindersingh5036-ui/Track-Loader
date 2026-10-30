@@ -296,7 +296,7 @@ export const getAdminDriverById = async (req, res) => {
         const ext = extractCloudinaryAssetInfo(doc.url);
         if (ext) { pubId = ext.publicId; fmt = ext.format; }
       }
-      doc.viewUrl = canReviewDocuments && pubId?.startsWith("loadbalbin_kyc/")
+      doc.viewUrl = canReviewDocuments && pubId && (pubId.includes("loadbalbin_kyc/") || pubId.includes("loadbalbin_profiles/"))
         ? generateSignedDocumentUrl(pubId, fmt, 300, resType)
         : null;
       doc.uploadedBy = doc.uploadedBy?.name || null;

@@ -18,7 +18,7 @@ export const env = {
 
   jwtSecret: process.env.JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
-  superAdminUserId: process.env.SUPER_ADMIN_USER_ID || "",
+  superAdminUserId: (process.env.SUPER_ADMIN_USER_ID || "").trim().replace(/^["']|["']$/g, "").trim(),
 
   cloudinary: {
     cloudName: process.env.CLOUDINARY_CLOUD_NAME || "",

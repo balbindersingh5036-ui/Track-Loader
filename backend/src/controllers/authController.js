@@ -12,6 +12,7 @@ import {
   generateToken
 } from "../utils/generateToken.js";
 import { getSetting } from "../services/systemSettingService.js";
+import { isDesignatedSuperAdmin, isSuperAdminConfigured } from "../utils/superAdmin.js";
 
 /* =========================================================
    CUSTOMER REGISTER
@@ -581,6 +582,9 @@ export const adminLogin = async (req, res) => {
       agency = await Agency.findOne({ owner: user._id }).lean();
     }
 
+    const isSuperAdmin = isDesignatedSuperAdmin(user);
+    const superAdminConfigured = isSuperAdminConfigured();
+
     return res.status(200).json({
       success: true,
       message: `${user.role === "admin" ? "Admin" : "Agency"} login successful`,
@@ -591,7 +595,9 @@ export const adminLogin = async (req, res) => {
           name: user.name,
           phone: user.phone,
           email: user.email || "",
-          role: user.role
+          role: user.role,
+          isSuperAdmin,
+          superAdminConfigured
         },
         agency
       }
@@ -612,11 +618,16 @@ export const adminLogin = async (req, res) => {
 ========================================================= */
 
 export const getMe = async (req, res) => {
+  const userObj = req.user?.toObject ? req.user.toObject() : { ...req.user };
+  delete userObj.password;
+  userObj.isSuperAdmin = isDesignatedSuperAdmin(req.user);
+  userObj.superAdminConfigured = isSuperAdminConfigured();
+
   return res.status(200).json({
     success: true,
     message: "User fetched successfully",
     data: {
-      user: req.user
+      user: userObj
     }
   });
 };

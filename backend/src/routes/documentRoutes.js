@@ -33,10 +33,12 @@ const createDocumentViewPayload = (doc) => {
     }
   }
 
-  const isPrivateKycAsset = typeof publicId === "string" && publicId.startsWith("loadbalbin_kyc/");
+  const isPrivateKycAsset = typeof publicId === "string" && (
+    publicId.includes("loadbalbin_kyc/") || publicId.includes("loadbalbin_profiles/")
+  );
   const viewUrl = isPrivateKycAsset
     ? generateSignedDocumentUrl(publicId, format, 300, resourceType)
-    : null;
+    : (!isPrivateKycAsset && doc.url && typeof doc.url === "string" && doc.url.startsWith("http") && !doc.url.includes("cloudinary.com") ? doc.url : null);
 
   return {
     status: doc.status || (doc.url || doc.publicId ? "pending" : "not_uploaded"),
@@ -72,8 +74,9 @@ router.get("/agency/:agencyId/:docType", protect, async (req, res) => {
     }
 
     // Authorization check: Super Admin or owner of the agency
+    const userId = String(req.user?._id || req.user?.id || "").trim();
     const isSuperAdmin = isDesignatedSuperAdmin(req.user);
-    const isOwner = String(agency.owner) === String(req.user._id);
+    const isOwner = Boolean(userId && agency.owner && String(agency.owner) === userId);
 
     if (!isSuperAdmin && !isOwner) {
       return errorResponse(res, "Access denied. You are not authorized to view this agency's KYC documents.", 403);
@@ -113,13 +116,15 @@ router.get("/driver/:driverId/:docType", protect, async (req, res) => {
       return errorResponse(res, "Driver not found", 404);
     }
 
+    const userId = String(req.user?._id || req.user?.id || "").trim();
+    const driverUserId = String(driver.user?._id || driver.user || "").trim();
     const isSuperAdmin = isDesignatedSuperAdmin(req.user);
-    const isSelfDriver = String(driver.user) === String(req.user._id);
+    const isSelfDriver = Boolean(userId && driverUserId && driverUserId === userId);
 
     let isManagingAgencyOwner = false;
     if (driver.agency) {
       const agency = await Agency.findById(driver.agency);
-      if (agency && String(agency.owner) === String(req.user._id)) {
+      if (agency && agency.owner && String(agency.owner) === userId) {
         isManagingAgencyOwner = true;
       }
     }
@@ -156,12 +161,13 @@ router.get("/vehicle/:vehicleId/:docType", protect, async (req, res) => {
     const vehicle = await Vehicle.findById(vehicleId);
     if (!vehicle) return errorResponse(res, "Vehicle not found", 404);
 
+    const userId = String(req.user?._id || req.user?.id || "").trim();
     let authorized = isDesignatedSuperAdmin(req.user);
     if (req.user.role === "driver") {
-      const driver = await Driver.findOne({ user: req.user._id }).select("_id").lean();
+      const driver = await Driver.findOne({ user: userId }).select("_id").lean();
       authorized = Boolean(driver && String(vehicle.driver) === String(driver._id));
     } else if (req.user.role === "agency" && vehicle.agency) {
-      const agency = await Agency.findOne({ owner: req.user._id }).select("_id").lean();
+      const agency = await Agency.findOne({ owner: userId }).select("_id").lean();
       authorized = Boolean(agency && String(vehicle.agency) === String(agency._id));
     }
     if (!authorized) return errorResponse(res, "Access denied. You are not authorized to view this vehicle document.", 403);

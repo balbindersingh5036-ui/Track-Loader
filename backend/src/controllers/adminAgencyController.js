@@ -195,7 +195,7 @@ export const getAdminAgencyById = async (req, res) => {
             format = asset.format;
           }
         }
-        doc.viewUrl = canReviewAgencyDocuments && publicId?.startsWith("loadbalbin_kyc/")
+        doc.viewUrl = canReviewAgencyDocuments && publicId && (publicId.includes("loadbalbin_kyc/") || publicId.includes("loadbalbin_profiles/"))
           ? generateSignedDocumentUrl(publicId, format, 300, doc.resourceType || "image")
           : null;
         doc.status = hasDocument ? doc.status || "pending" : "not_uploaded";
