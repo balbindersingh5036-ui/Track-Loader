@@ -20,6 +20,41 @@ const isVehicleDispatchReady = (vehicle, agency) => Boolean(
   vehicle.documents?.insurance?.status === 'approved'
 );
 
+const getBookingStatusLabel = (booking) => {
+  if (booking.bookingStatus === 'cancelled') return 'Cancelled';
+  if (booking.bookingStatus === 'completed') return 'Completed';
+  if (booking.bookingStatus === 'in-progress') return 'In Progress';
+  if (booking.bookingStatus === 'accepted') return 'Driver Accepted';
+  if (booking.bookingStatus === 'rejected' || booking.assignmentStatus === 'rejected') return 'Driver Rejected';
+  if (booking.assignmentStatus === 'pending_acceptance') return 'Awaiting Driver Acceptance';
+  if (booking.bookingStatus === 'pending' && booking.driver) return 'Awaiting Driver Acceptance';
+  return 'Pending Agency Assignment';
+};
+
+const getCompatibleAgencyVehicle = (driver, booking, vehicles) => {
+  if (!driver || driver.isActive === false || driver.approvalStatus !== 'approved' ||
+      driver.agencyAssociation?.status !== 'approved' ||
+      driver.documents?.idProof?.status !== 'approved' ||
+      driver.documents?.drivingLicense?.status !== 'approved') return null;
+
+  const requiredKg = booking.weight?.unit === 'ton'
+    ? Number(booking.weight.value || 0) * 1000
+    : Number(booking.weight?.value || 0);
+  return vehicles.find((vehicle) => {
+    const assignedDriverId = vehicle.driver?._id || vehicle.driver;
+    const capacityKg = vehicle.loadCapacity?.unit === 'ton'
+      ? Number(vehicle.loadCapacity.value || 0) * 1000
+      : Number(vehicle.loadCapacity?.value || 0);
+    return String(assignedDriverId) === String(driver._id) &&
+      vehicle.isActive !== false &&
+      vehicle.isAvailable &&
+      vehicle.vehicleType === booking.vehicleType &&
+      capacityKg >= requiredKg &&
+      vehicle.documents?.registration?.status === 'approved' &&
+      vehicle.documents?.insurance?.status === 'approved';
+  }) || null;
+};
+
 export default function AgencyDashboard() {
   const [agency, setAgency] = useState(null);
   const [drivers, setDrivers] = useState([]);
@@ -105,6 +140,8 @@ export default function AgencyDashboard() {
   const [vehicleSearch, setVehicleSearch] = useState('');
   const [vehicleFilter, setVehicleFilter] = useState('all');
   const [bookingFilter, setBookingFilter] = useState('all');
+  const [bookingDriverSelections, setBookingDriverSelections] = useState({});
+  const [assigningBookingId, setAssigningBookingId] = useState('');
 
   // Form states
   const [newDriver, setNewDriver] = useState({
@@ -444,6 +481,32 @@ export default function AgencyDashboard() {
     }
   };
 
+  const handleAssignAgencyBooking = async (booking) => {
+    const driverId = bookingDriverSelections[booking._id];
+    const driver = drivers.find((item) => String(item._id) === String(driverId));
+    const vehicle = driver ? getCompatibleAgencyVehicle(driver, booking, vehicles) : null;
+    if (!driver || !vehicle) {
+      setError('Choose an eligible agency driver with an approved compatible available vehicle.');
+      return;
+    }
+
+    try {
+      setAssigningBookingId(booking._id);
+      setError('');
+      await agencyService.assignAgencyBooking(booking._id, driver._id, vehicle._id);
+      setBookingDriverSelections((current) => {
+        const next = { ...current };
+        delete next[booking._id];
+        return next;
+      });
+      await loadData(true);
+    } catch (assignError) {
+      setError(assignError.response?.data?.message || assignError.message || 'Failed to assign the booking');
+    } finally {
+      setAssigningBookingId('');
+    }
+  };
+
   const handleAgencyDocumentUpload = async (event, docType) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -773,6 +836,9 @@ export default function AgencyDashboard() {
   });
 
   const filteredBookings = bookings.filter(b => {
+    if (bookingFilter === 'pending_acceptance') return b.assignmentStatus === 'pending_acceptance';
+    if (bookingFilter === 'driver_rejected') return b.assignmentStatus === 'rejected' || b.bookingStatus === 'rejected';
+    if (bookingFilter === 'agency_assignment') return b.bookingStatus === 'pending' && !b.driver;
     if (bookingFilter === 'all') return true;
     return b.bookingStatus === bookingFilter;
   });
@@ -1707,13 +1773,17 @@ export default function AgencyDashboard() {
               style={{ width: 'auto', minWidth: 150, padding: '6px 10px', fontSize: 13 }}
             >
               <option value="all">All Booking Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="accepted">Accepted</option>
+              <option value="agency_assignment">Pending Agency Assignment</option>
+              <option value="pending_acceptance">Awaiting Driver Acceptance</option>
+              <option value="driver_rejected">Driver Rejected</option>
+              <option value="accepted">Driver Accepted</option>
               <option value="in-progress">In Progress</option>
-              <option value="rejected">Rejected</option>
               <option value="completed">Completed</option>
               <option value="cancelled">Cancelled</option>
             </select>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => loadData(true)} disabled={refreshing}>
+              {refreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
           </div>
 
           {filteredBookings.length === 0 ? (
@@ -1732,9 +1802,13 @@ export default function AgencyDashboard() {
                     <th>Booking Ref</th>
                     <th>Customer</th>
                     <th>Pickup & Drop</th>
-                    <th>Vehicle & Driver</th>
+                    <th>Vehicle Type</th>
+                    <th>Goods / Capacity</th>
+                    <th>Assigned Driver</th>
+                    <th>Driver Response</th>
                     <th>Status</th>
                     <th>Fare</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1758,21 +1832,67 @@ export default function AgencyDashboard() {
                           <strong>To:</strong> {b.drop?.address || '—'}
                         </div>
                       </td>
+                      <td>{(b.vehicleType || '—').replace(/-/g, ' ')}</td>
                       <td>
-                        <div style={{ fontSize: 13, fontWeight: 500 }}>{b.vehicle?.vehicleNumber || b.vehicleType}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Driver: {b.driver?.fullName || 'Pending'}</div>
+                        <div style={{ fontWeight: 500 }}>{b.goods || '—'}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                          {b.weight?.value ?? '—'} {b.weight?.unit || ''} · {b.vehicle?.loadCapacity?.value ?? 'Capacity pending'} {b.vehicle?.loadCapacity?.unit || ''}
+                        </div>
+                      </td>
+                      <td>{b.driver?.fullName || 'Unassigned'}</td>
+                      <td>
+                        {b.assignmentStatus === 'accepted' || b.bookingStatus === 'accepted' ? 'Accepted' :
+                          b.assignmentStatus === 'pending_acceptance' || (b.bookingStatus === 'pending' && b.driver) ? 'Pending response' :
+                            b.assignmentStatus === 'rejected' || b.bookingStatus === 'rejected' ? 'Rejected' : 'Not assigned'}
+                        {b.rejectedReason ? <div style={{ color: 'var(--danger)', fontSize: 11 }}>{b.rejectedReason}</div> : null}
                       </td>
                       <td>
                         <span className={`badge ${
                           b.bookingStatus === 'completed' ? 'success' :
-                          b.bookingStatus === 'in_transit' ? 'info' :
-                          b.bookingStatus === 'cancelled' ? 'danger' : 'warning'
+                          b.bookingStatus === 'accepted' || b.bookingStatus === 'in-progress' ? 'info' :
+                          b.bookingStatus === 'cancelled' || b.assignmentStatus === 'rejected' ? 'danger' : 'warning'
                         }`}>
-                          {b.bookingStatus}
+                          {getBookingStatusLabel(b)}
                         </span>
                       </td>
                       <td style={{ fontWeight: 700 }}>
                         ₹{b.finalFare || b.estimatedFare || 0}
+                      </td>
+                      <td>
+                        {b.bookingStatus === 'pending' && !b.driver &&
+                        (['unassigned', 'rejected', undefined, null].includes(b.assignmentStatus)) ? (() => {
+                          const eligibleDrivers = drivers.filter((driver) =>
+                            getCompatibleAgencyVehicle(driver, b, vehicles)
+                          );
+                          return eligibleDrivers.length ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 170 }}>
+                              <select
+                                aria-label={`Choose a driver for booking ${b.bookingId}`}
+                                value={bookingDriverSelections[b._id] || ''}
+                                onChange={(event) => setBookingDriverSelections((current) => ({ ...current, [b._id]: event.target.value }))}
+                                disabled={assigningBookingId === b._id}
+                              >
+                                <option value="">Select eligible driver</option>
+                                {eligibleDrivers.map((driver) => {
+                                  const compatibleVehicle = getCompatibleAgencyVehicle(driver, b, vehicles);
+                                  return (
+                                    <option key={driver._id} value={driver._id}>
+                                      {driver.fullName} · {compatibleVehicle?.vehicleNumber}
+                                    </option>
+                                  );
+                                })}
+                              </select>
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm"
+                                disabled={!bookingDriverSelections[b._id] || assigningBookingId === b._id}
+                                onClick={() => handleAssignAgencyBooking(b)}
+                              >
+                                {assigningBookingId === b._id ? 'Assigning…' : 'Assign Driver'}
+                              </button>
+                            </div>
+                          ) : <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>No eligible driver / vehicle</span>;
+                        })() : '—'}
                       </td>
                     </tr>
                   ))}

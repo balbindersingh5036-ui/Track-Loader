@@ -281,7 +281,7 @@ export default function BookingDetailsScreen({ route, navigation }) {
                 </Text>
               </View>
             ) : null}
-            <Status value={booking.bookingStatus} />
+            <Status value={booking.bookingStatus} assignmentStatus={booking.assignmentStatus} assigned={Boolean(booking.driver)} />
           </View>
         </View>
 

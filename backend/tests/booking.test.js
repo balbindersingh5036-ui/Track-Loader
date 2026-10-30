@@ -11,6 +11,11 @@ test("booking schema supports the customer summary statuses", () => {
     ["pending", "accepted", "rejected", "cancelled", "in-progress", "completed"]
   );
   assert.equal(Booking.schema.path("customer").options.required, true);
+  assert.deepEqual(
+    Booking.schema.path("assignmentStatus").enumValues,
+    ["unassigned", "pending_acceptance", "accepted", "rejected"]
+  );
+  assert.ok(Booking.schema.path("assignmentHistory"));
 
   const bookingModes = Booking.schema.path("bookingMode").enumValues;
   assert.deepEqual(bookingModes, ["instant", "scheduled"]);

@@ -392,6 +392,7 @@ test("Agency Lifecycle: 7 & 8. Customer instant booking finds approved agency al
         user: approvedDriverUserId,
         isActive: true,
         approvalStatus: "approved",
+        agencyAssociation: { status: "approved" },
         documents: {
           idProof: { status: "approved" },
           drivingLicense: { status: "approved" }
@@ -440,9 +441,13 @@ test("Agency Lifecycle: 9. Driver accepts, starts trip, completes delivery, and 
     customer: customerId,
     driver: driverId,
     vehicle: vehicleId,
-    bookingStatus: "in-progress",
+    bookingStatus: "pending",
+    assignmentStatus: "pending_acceptance",
+    vehicleType: "mini-truck",
+    weight: { value: 500, unit: "kg" },
     estimatedFare: 450,
     finalFare: 0,
+    assignmentHistory: [],
     async save() {
       return this;
     }
@@ -459,18 +464,23 @@ test("Agency Lifecycle: 9. Driver accepts, starts trip, completes delivery, and 
     }
   }));
 
-  t.mock.method(Booking, "findById", async () => ({
+  t.mock.method(Booking, "findOne", async () => ({
     _id: bookingId,
     bookingStatus: "pending",
+    assignmentStatus: "pending_acceptance",
+    driver: driverId,
     vehicle: vehicleId,
-    vehicleType: "mini-truck"
+    vehicleType: "mini-truck",
+    weight: { value: 500, unit: "kg" }
   }));
 
   t.mock.method(Vehicle, "findOne", async () => ({
     _id: vehicleId,
     driver: driverId,
-    isAvailable: true,
     isActive: true,
+    isAvailable: false,
+    vehicleType: "mini-truck",
+    loadCapacity: { value: 1000, unit: "kg" },
     documents: {
       registration: { status: "approved" },
       insurance: { status: "approved" }
@@ -479,6 +489,7 @@ test("Agency Lifecycle: 9. Driver accepts, starts trip, completes delivery, and 
 
   t.mock.method(Booking, "findOneAndUpdate", async (filter, update) => {
     mockBooking.bookingStatus = update.$set.bookingStatus;
+    mockBooking.assignmentStatus = update.$set.assignmentStatus || mockBooking.assignmentStatus;
     return mockBooking;
   });
   t.mock.method(Vehicle, "findByIdAndUpdate", async () => ({}));
@@ -508,8 +519,39 @@ test("Agency Lifecycle: 9. Driver accepts, starts trip, completes delivery, and 
 
 test("Agency Lifecycle: 10. Scheduled Booking flow validation", async (t) => {
   const customerId = new mongoose.Types.ObjectId();
+  const agencyId = new mongoose.Types.ObjectId();
+  const approvedDriver = {
+    _id: new mongoose.Types.ObjectId(),
+    isActive: true,
+    approvalStatus: "approved",
+    agency: { _id: agencyId, approvalStatus: "approved", isActive: true },
+    agencyAssociation: { status: "approved" },
+    documents: {
+      idProof: { status: "approved" },
+      drivingLicense: { status: "approved" }
+    }
+  };
+  const approvedVehicle = {
+    _id: new mongoose.Types.ObjectId(),
+    agency: { _id: agencyId, approvalStatus: "approved", isActive: true },
+    driver: approvedDriver,
+    vehicleType: "mini-truck",
+    loadCapacity: { value: 1000, unit: "kg" },
+    isActive: true,
+    isAvailable: true,
+    documents: {
+      registration: { status: "approved" },
+      insurance: { status: "approved" }
+    }
+  };
 
   t.mock.method(SystemSetting, "findOne", async () => ({ value: true }));
+  t.mock.method(Agency, "findOne", async () => ({
+    _id: agencyId,
+    approvalStatus: "approved",
+    isActive: true
+  }));
+  t.mock.method(Vehicle, "find", () => mockQuery([approvedVehicle]));
   t.mock.method(Fare, "findOne", () => ({ lean: async () => fareConfig }));
   t.mock.method(Booking, "findOne", async () => null);
   t.mock.method(Booking.prototype, "save", async function () { return this; });
@@ -523,6 +565,7 @@ test("Agency Lifecycle: 10. Scheduled Booking flow validation", async (t) => {
       bookingMode: "scheduled",
       preferredPickupDate: "2020-01-01",
       preferredPickupTime: "10:00",
+      agencyId: agencyId.toString(),
       vehicleType: "mini-truck",
       pickup: { address: "Origin", latitude: 30.7046, longitude: 76.7179 },
       drop: { address: "Destination", latitude: 30.7333, longitude: 76.7794 },
@@ -543,6 +586,7 @@ test("Agency Lifecycle: 10. Scheduled Booking flow validation", async (t) => {
       bookingMode: "scheduled",
       preferredPickupDate: `${futureYear}-12-15`,
       preferredPickupTime: "10:30",
+      agencyId: agencyId.toString(),
       vehicleType: "mini-truck",
       pickup: { address: "Origin", latitude: 30.7046, longitude: 76.7179 },
       drop: { address: "Destination", latitude: 30.7333, longitude: 76.7794 },

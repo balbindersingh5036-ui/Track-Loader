@@ -214,6 +214,7 @@ export const getVehicles = async (req, res) => {
 
     const vehicles = await Vehicle.find(filter)
       .populate("driver", driverProjection)
+      .populate("agency", "agencyName approvalStatus isActive")
       .sort({ createdAt: -1 })
       .lean();
     return successResponse(res, {

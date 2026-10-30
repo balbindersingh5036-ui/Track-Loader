@@ -100,6 +100,7 @@ test("agency dashboard returns the real scoped booking count even when only rece
 
   assert.deepEqual(bookingFilter, {
     $or: [
+      { agency: agencyId },
       { vehicle: { $in: [vehicleId] } },
       { driver: { $in: [driverId] } }
     ]

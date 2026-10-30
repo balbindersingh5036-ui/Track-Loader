@@ -12,6 +12,7 @@ import {
   updateAgencyVehicle,
   assignVehicleDriver,
   getAgencyBookings,
+  assignAgencyBooking,
   getAgencyJoiningRequests,
   acceptAgencyDriverRequest,
   rejectAgencyDriverRequest,
@@ -46,5 +47,6 @@ router.post("/vehicles", protect, agencyOnly, createAgencyVehicle);
 router.put("/vehicles/:id", protect, agencyOnly, updateAgencyVehicle);
 router.patch("/vehicles/:id/driver", protect, agencyOnly, assignVehicleDriver);
 router.get("/bookings", protect, agencyOnly, getAgencyBookings);
+router.patch("/bookings/:id/assign", protect, agencyOnly, assignAgencyBooking);
 
 export default router;

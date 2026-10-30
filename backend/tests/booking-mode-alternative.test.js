@@ -3,6 +3,7 @@ import test from "node:test";
 import mongoose from "mongoose";
 
 import Booking from "../src/models/Booking.js";
+import Agency from "../src/models/Agency.js";
 import Vehicle from "../src/models/Vehicle.js";
 import Driver from "../src/models/Driver.js";
 import Fare from "../src/models/Fare.js";
@@ -57,7 +58,7 @@ const alternativeVehicleId = new mongoose.Types.ObjectId();
 const approvedDriverUserId = new mongoose.Types.ObjectId();
 const approvedDriverId = new mongoose.Types.ObjectId();
 
-test("Instant booking assigns eligible same-type alternative vehicle and notifies driver", async (t) => {
+test("Instant booking may select a same-type alternative vehicle without accepting or notifying its driver", async (t) => {
   t.mock.method(SystemSetting, "findOne", async () => ({ value: true }));
   t.mock.method(Fare, "findOne", () => ({ lean: async () => fareConfig }));
   t.mock.method(Booking, "findOne", async () => null);
@@ -150,9 +151,13 @@ test("Instant booking assigns eligible same-type alternative vehicle and notifie
   assert.equal(res.body.data.booking.bookingMode, "instant");
   assert.equal(res.body.data.booking.alternativeVehicleAssigned, true);
 
-  // Verify driver notification was sent
+  assert.equal(res.body.data.booking.bookingStatus, "pending");
+  assert.equal(res.body.data.booking.assignmentStatus, "unassigned");
+  assert.equal(res.body.data.booking.driver, null);
+
+  // Agency assignment happens after creation; the selected vehicle's driver does not accept implicitly.
   const driverNotif = savedNotifications.find(n => n.recipient?.toString() === approvedDriverUserId.toString());
-  assert.ok(driverNotif, "Driver should receive a notification for the booking request");
+  assert.equal(driverNotif, undefined);
 });
 
 test("Instant booking excludes alternative vehicles with unapproved or inactive drivers", async (t) => {
@@ -279,22 +284,28 @@ test("Concurrent driver acceptance protection returns 409 when already accepted"
     documents: approvedDriverDocuments
   }));
 
-  t.mock.method(Booking, "findById", async () => ({
+  t.mock.method(Booking, "findOne", async () => ({
     _id: bookingId,
     bookingStatus: "pending",
-    vehicleType: "mini-truck"
+    assignmentStatus: "pending_acceptance",
+    driver: approvedDriverId,
+    vehicle: alternativeVehicleId,
+    vehicleType: "mini-truck",
+    weight: { value: 100, unit: "kg" }
   }));
+  t.mock.method(Booking, "findOneAndUpdate", async () => null);
 
   t.mock.method(Vehicle, "findOne", async () => ({
     _id: alternativeVehicleId,
     driver: approvedDriverId,
+    vehicleType: "mini-truck",
+    loadCapacity: { value: 500, unit: "kg" },
     isAvailable: true,
     isActive: true,
     documents: approvedVehicleDocuments
   }));
 
   // Atomic findOneAndUpdate fails because another concurrent request already accepted the booking
-  t.mock.method(Booking, "findOneAndUpdate", async () => null);
 
   const res = createResponse();
   await acceptBooking(
@@ -349,6 +360,29 @@ test("Scheduled booking accepts valid future pickup date and time", async (t) =>
     return this;
   });
   t.mock.method(User, "find", async () => []);
+  const agencyId = new mongoose.Types.ObjectId();
+  t.mock.method(Agency, "findOne", async () => ({
+    _id: agencyId,
+    approvalStatus: "approved",
+    isActive: true
+  }));
+  t.mock.method(Vehicle, "find", () => mockQuery([{
+    _id: alternativeVehicleId,
+    agency: { _id: agencyId, approvalStatus: "approved", isActive: true },
+    vehicleType: "mini-truck",
+    loadCapacity: { value: 500, unit: "kg" },
+    isActive: true,
+    isAvailable: true,
+    documents: approvedVehicleDocuments,
+    driver: {
+      _id: approvedDriverId,
+      agency: agencyId,
+      agencyAssociation: { status: "approved" },
+      approvalStatus: "approved",
+      isActive: true,
+      documents: approvedDriverDocuments
+    }
+  }]));
 
   clearCache("booking.enabled");
   clearFareCache();
@@ -365,6 +399,7 @@ test("Scheduled booking accepts valid future pickup date and time", async (t) =>
         preferredPickupDate: "2030-05-15",
         preferredPickupTime: "14:30",
         vehicleType: "mini-truck",
+        agencyId: agencyId.toString(),
         bookingMode: "scheduled"
       }
     },

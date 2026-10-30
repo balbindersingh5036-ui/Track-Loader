@@ -16,6 +16,8 @@ import {
 } from "../utils/driverEligibility.js";
 import { sanitizeVehicleDocumentResponse } from "../utils/vehicleDocumentResponse.js";
 import { sanitizeDriverDocumentResponse } from "../utils/driverDocumentResponse.js";
+import { notifyCustomer, notifyDriver } from "../services/notificationService.js";
+import { emitToUser } from "../sockets/socket.js";
 import { extractCloudinaryAssetInfo, generateSignedDocumentUrl } from "../utils/documentSigner.js";
 
 // Helper to retrieve current authenticated user's agency
@@ -568,13 +570,18 @@ export const getAgencyBookings = async (req, res) => {
     const driverIds = drivers.map((d) => d._id);
 
     const query = {
-      $or: [{ vehicle: { $in: vehicleIds } }, { driver: { $in: driverIds } }]
+      $or: [
+        { agency: agency._id },
+        { vehicle: { $in: vehicleIds } },
+        { driver: { $in: driverIds } }
+      ]
     };
     const [bookings, total] = await Promise.all([
       Booking.find(query)
         .populate("customer", "name phone")
         .populate("driver", "fullName phone")
-        .populate("vehicle", "vehicleNumber vehicleModel vehicleType")
+        .populate("vehicle", "vehicleNumber vehicleModel vehicleType loadCapacity isActive isAvailable documents")
+        .populate("assignmentHistory.actor", "name role")
         .sort({ createdAt: -1 })
         .limit(50),
       Booking.countDocuments(query)
@@ -587,6 +594,144 @@ export const getAgencyBookings = async (req, res) => {
     );
   } catch (error) {
     return errorResponse(res, "Failed to fetch agency bookings", 500);
+  }
+};
+
+export const assignAgencyBooking = async (req, res) => {
+  let reservedVehicleId;
+  try {
+    const agency = await getAgencyForUser(req.user._id);
+    if (!agency) return errorResponse(res, "Agency not found", 404);
+    if (agency.approvalStatus !== "approved" || !agency.isActive) {
+      return errorResponse(res, "Only an active, approved agency may assign bookings", 403);
+    }
+
+    const { id } = req.params;
+    const { driverId, vehicleId } = req.body;
+    if (![id, driverId, vehicleId].every((value) => mongoose.Types.ObjectId.isValid(value))) {
+      return errorResponse(res, "Valid booking, driver, and vehicle IDs are required", 400);
+    }
+
+    const booking = await Booking.findById(id);
+    if (!booking) return errorResponse(res, "Booking not found", 404);
+    if (booking.bookingStatus !== "pending" || booking.driver) {
+      return errorResponse(res, "Booking is not available for agency assignment", 409);
+    }
+    if (booking.agency && String(booking.agency) !== String(agency._id)) {
+      return errorResponse(res, "Booking belongs to another agency", 403);
+    }
+    if (!booking.agency) {
+      if (!booking.vehicle) {
+        return errorResponse(res, "Booking is not routed to your agency", 403);
+      }
+      const selectedFleetVehicle = await Vehicle.findOne({
+        _id: booking.vehicle,
+        agency: agency._id
+      });
+      if (!selectedFleetVehicle) {
+        return errorResponse(res, "Booking belongs to another agency", 403);
+      }
+    }
+
+    const driver = await Driver.findOne({ _id: driverId, agency: agency._id });
+    if (!driver || driver.agencyAssociation?.status !== "approved") {
+      return errorResponse(res, "Driver must belong to this agency and have an approved agency association", 403);
+    }
+
+    const vehicle = await Vehicle.findOne({
+      _id: vehicleId,
+      agency: agency._id,
+      driver: driver._id,
+      isActive: true,
+      isAvailable: true
+    });
+    const eligibility = checkDriverAssignableToVehicle(driver, vehicle, agency);
+    if (!eligibility.eligible) return errorResponse(res, eligibility.message, 400);
+    if (vehicle.vehicleType !== booking.vehicleType) {
+      return errorResponse(res, "Vehicle type does not match the booking", 400);
+    }
+
+    const capacityKg = vehicle.loadCapacity?.unit === "ton"
+      ? Number(vehicle.loadCapacity.value || 0) * 1000
+      : Number(vehicle.loadCapacity?.value || 0);
+    const requiredWeightKg = booking.weight?.unit === "ton"
+      ? Number(booking.weight.value || 0) * 1000
+      : Number(booking.weight?.value || 0);
+    if (capacityKg < requiredWeightKg) return errorResponse(res, "Vehicle capacity is insufficient for this booking", 400);
+
+    const reservedVehicle = await Vehicle.findOneAndUpdate(
+      { _id: vehicle._id, agency: agency._id, driver: driver._id, isActive: true, isAvailable: true },
+      { $set: { isAvailable: false } },
+      { new: true }
+    );
+    if (!reservedVehicle) return errorResponse(res, "Vehicle is no longer available", 409);
+    reservedVehicleId = reservedVehicle._id;
+
+    const assigned = await Booking.findOneAndUpdate(
+      {
+        _id: booking._id,
+        bookingStatus: "pending",
+        driver: null,
+        $and: [
+          { $or: [{ agency: agency._id }, { agency: null }] },
+          { $or: [{ assignmentStatus: { $in: ["unassigned", "rejected"] } }, { assignmentStatus: { $exists: false } }] }
+        ]
+      },
+      {
+        $set: {
+          agency: agency._id,
+          driver: driver._id,
+          vehicle: vehicle._id,
+          assignmentStatus: "pending_acceptance",
+          rejectedReason: ""
+        },
+        $push: {
+          assignmentHistory: {
+            action: "assigned",
+            actor: req.user._id,
+            actorRole: "agency",
+            driver: driver._id,
+            vehicle: vehicle._id
+          }
+        }
+      },
+      { new: true }
+    );
+    if (!assigned) {
+      await Vehicle.findOneAndUpdate(
+        { _id: reservedVehicle._id, driver: driver._id, isAvailable: false },
+        { $set: { isAvailable: true } }
+      );
+      reservedVehicleId = null;
+      return errorResponse(res, "Booking was assigned by another request or is no longer available", 409);
+    }
+    reservedVehicleId = null;
+
+    await notifyDriver(driver.user, "New Booking Request", `Booking ${booking.bookingId} is awaiting your response.`, assigned._id);
+    await notifyCustomer(assigned.customer, "Driver Assigned", `A driver has been assigned to booking ${booking.bookingId} and must accept it.`, assigned._id);
+    emitToUser(agency.owner, "booking:assigned", {
+      bookingId: assigned.bookingId,
+      bookingStatus: assigned.bookingStatus,
+      assignmentStatus: assigned.assignmentStatus,
+      driverId: assigned.driver,
+      vehicleId: assigned.vehicle,
+      updatedAt: assigned.updatedAt
+    });
+
+    return successResponse(res, { booking: assigned }, "Booking assigned and awaiting driver acceptance");
+  } catch (error) {
+    if (reservedVehicleId) {
+      try {
+        await Vehicle.findOneAndUpdate(
+          { _id: reservedVehicleId, isAvailable: false },
+          { $set: { isAvailable: true } }
+        );
+      } catch (releaseError) {
+        console.error("Failed to release vehicle after agency booking assignment error:", releaseError);
+      }
+    }
+    console.error("Agency booking assignment error:", error);
+    return errorResponse(res, "Failed to assign booking", 500);
   }
 };
 

@@ -8,6 +8,7 @@ import Notification from "../src/models/Notification.js";
 import Rating from "../src/models/Rating.js";
 import SystemSetting from "../src/models/SystemSetting.js";
 import User from "../src/models/User.js";
+import Vehicle from "../src/models/Vehicle.js";
 import {
   adminCreateFare
 } from "../src/controllers/fareController.js";
@@ -185,7 +186,33 @@ test("rating report applies valid pagination and returns 400 for invalid paginat
 
 test("booking accepts zero weight and rejects invalid numeric inputs", async (t) => {
   const customerId = new mongoose.Types.ObjectId();
+  const vehicleId = new mongoose.Types.ObjectId();
+  const eligibleVehicle = {
+    _id: vehicleId,
+    agency: null,
+    vehicleType: "mini-truck",
+    loadCapacity: { value: 1000, unit: "kg" },
+    isActive: true,
+    isAvailable: true,
+    documents: {
+      registration: { status: "approved" },
+      insurance: { status: "approved" }
+    },
+    driver: {
+      _id: new mongoose.Types.ObjectId(),
+      agency: null,
+      isActive: true,
+      approvalStatus: "approved",
+      documents: {
+        idProof: { status: "approved" },
+        drivingLicense: { status: "approved" }
+      }
+    }
+  };
   t.mock.method(SystemSetting, "findOne", async () => ({ value: true }));
+  t.mock.method(Vehicle, "findById", () => ({
+    populate: async () => eligibleVehicle
+  }));
   t.mock.method(Fare, "findOne", () => ({ lean: async () => fareConfig }));
   t.mock.method(Booking, "findOne", async () => null);
   t.mock.method(Booking.prototype, "save", async function () {
@@ -200,21 +227,21 @@ test("booking accepts zero weight and rejects invalid numeric inputs", async (t)
 
   const validRes = createResponse();
   await createBooking(
-    { user: { _id: customerId }, body: bookingBody() },
+    { user: { _id: customerId }, body: bookingBody({ vehicle: vehicleId.toString() }) },
     validRes
   );
   assert.equal(validRes.statusCode, 201);
   assert.equal(validRes.body.data.booking.weight.value, 0);
 
   const invalidBodies = [
-    bookingBody({ weight: { value: -1, unit: "kg" } }),
-    bookingBody({ weight: { value: "", unit: "kg" } }),
-    bookingBody({ weight: { value: "   ", unit: "kg" } }),
-    bookingBody({ weight: { value: NaN, unit: "kg" } }),
-    bookingBody({ weight: { value: Infinity, unit: "kg" } }),
-    bookingBody({ weight: { value: 0, unit: "lb" } }),
-    bookingBody({ pickup: { address: "Pickup", latitude: "", longitude: 0 } }),
-    bookingBody({ drop: { address: "Drop", latitude: Infinity, longitude: 0 } })
+    bookingBody({ vehicle: vehicleId.toString(), weight: { value: -1, unit: "kg" } }),
+    bookingBody({ vehicle: vehicleId.toString(), weight: { value: "", unit: "kg" } }),
+    bookingBody({ vehicle: vehicleId.toString(), weight: { value: "   ", unit: "kg" } }),
+    bookingBody({ vehicle: vehicleId.toString(), weight: { value: NaN, unit: "kg" } }),
+    bookingBody({ vehicle: vehicleId.toString(), weight: { value: Infinity, unit: "kg" } }),
+    bookingBody({ vehicle: vehicleId.toString(), weight: { value: 0, unit: "lb" } }),
+    bookingBody({ vehicle: vehicleId.toString(), pickup: { address: "Pickup", latitude: "", longitude: 0 } }),
+    bookingBody({ vehicle: vehicleId.toString(), drop: { address: "Drop", latitude: Infinity, longitude: 0 } })
   ];
 
   for (const body of invalidBodies) {

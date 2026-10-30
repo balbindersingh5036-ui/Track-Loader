@@ -246,11 +246,21 @@ export const Empty = ({
   </Card>
 );
 
-export const Status = ({ value, style }) => {
+export const Status = ({ value, assignmentStatus, assigned = false, style }) => {
   const norm = (value || "unknown").toLowerCase().replace(/_/g, "-");
   let badgeStyle = styles.statusNeutral;
   let textStyle = styles.statusTextNeutral;
-  let label = norm.replace(/-/g, " ");
+  let label = assignmentStatus === "pending_acceptance"
+    ? "Awaiting Driver Acceptance"
+    : assignmentStatus === "rejected" || norm === "rejected"
+      ? "Driver Rejected"
+      : norm === "accepted"
+        ? "Driver Accepted"
+          : norm === "pending" && assigned
+            ? "Awaiting Driver Acceptance"
+            : norm === "pending"
+          ? "Pending Agency Assignment"
+          : norm.replace(/-/g, " ");
 
   if (["completed", "accepted", "approved", "delivered", "active", "paid"].includes(norm)) {
     badgeStyle = styles.statusSuccess;

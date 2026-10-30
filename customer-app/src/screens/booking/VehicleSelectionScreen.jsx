@@ -9,6 +9,7 @@ import { getErrorMessage } from "../../utils/errorMessage";
 export default function VehicleSelectionScreen({ route, navigation }) {
   const [vehicles, setVehicles] = useState([]);
   const [selectedId, setSelectedId] = useState(route.params?.vehicleId || "");
+  const [selectedAgencyId, setSelectedAgencyId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -22,19 +23,36 @@ export default function VehicleSelectionScreen({ route, navigation }) {
 
   const continueToConfirm = () => {
     const selected = vehicles.find((vehicle) => vehicle._id === selectedId);
+    const selectedAgency = selected?.agency?._id || (selected?.agency ? selected.agency : selectedAgencyId);
     navigation.navigate("BookingConfirm", {
       ...route.params,
       vehicleType: selected?.vehicleType || route.params?.vehicleType || "mini-truck",
       vehicleId: selectedId || null,
+      agencyId: selectedAgency || null,
       vehicle: selected || (selectedId ? { vehicleModel: route.params?.vehicle?.vehicleModel || "Requested Vehicle" } : null)
     });
   };
+
+  const requestedWeightKg = route.params?.weight?.unit === "ton"
+    ? Number(route.params.weight.value || 0) * 1000
+    : Number(route.params?.weight?.value || 0);
+  const cargoCompatibleVehicles = vehicles.filter((vehicle) => {
+    const capacityKg = vehicle.loadCapacity?.unit === "ton"
+      ? Number(vehicle.loadCapacity.value || 0) * 1000
+      : Number(vehicle.loadCapacity?.value || 0);
+    return capacityKg >= requestedWeightKg;
+  });
+  const agencies = [...new Map(
+    cargoCompatibleVehicles
+      .filter((vehicle) => vehicle.agency?._id && vehicle.agency.approvalStatus === "approved" && vehicle.agency.isActive)
+      .map((vehicle) => [vehicle.agency._id, vehicle.agency])
+  ).values()];
 
   return (
     <Screen>
       <Heading
         title="Select Vehicle"
-        subtitle="Choose an available vehicle or select driver assignment."
+        subtitle="Choose an available agency vehicle or ask an approved agency to assign one."
       />
 
       {/* STEP INDICATOR */}
@@ -61,23 +79,23 @@ export default function VehicleSelectionScreen({ route, navigation }) {
         <Loading label="Loading matching vehicles..." />
       ) : (
         <View style={styles.list}>
-          {/* AUTO-ASSIGN OPTION */}
+          {/* ROUTE TO AGENCY */}
           <Pressable
             style={[
               styles.vehicleOptionCard,
               shadows.soft,
               selectedId === "" && styles.selectedCard
             ]}
-            onPress={() => setSelectedId("")}
+            onPress={() => { setSelectedId(""); setSelectedAgencyId(""); }}
           >
             <View style={styles.radioRow}>
               <View style={styles.iconBox}>
                 <MaterialCommunityIcons name="account-clock-outline" size={24} color={colors.primary} />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.optionTitle}>Automatic Driver Assignment</Text>
+                <Text style={styles.optionTitle}>Ask an Agency to Assign a Driver</Text>
                 <Text style={styles.optionSubtitle}>
-                  LoadBalbin will assign the nearest approved driver matching your goods.
+                  Select an approved agency. Its admin will assign an eligible driver and vehicle; the driver must then accept your request.
                 </Text>
               </View>
               <View style={[styles.radioCircle, selectedId === "" && styles.radioActive]}>
@@ -85,9 +103,32 @@ export default function VehicleSelectionScreen({ route, navigation }) {
               </View>
             </View>
           </Pressable>
+          {selectedId === "" ? (
+            <View style={{ gap: 8, marginLeft: 52 }}>
+              {agencies.map((agency) => (
+                <Pressable
+                  key={agency._id}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: selectedAgencyId === agency._id }}
+                  onPress={() => setSelectedAgencyId(agency._id)}
+                  style={[
+                    styles.vehicleOptionCard,
+                    selectedAgencyId === agency._id && styles.selectedCard,
+                    { padding: 12 }
+                  ]}
+                >
+                  <Text style={styles.optionTitle}>{agency.agencyName || "Transport Agency"}</Text>
+                  <Text style={styles.optionSubtitle}>Agency will select a compatible available vehicle.</Text>
+                </Pressable>
+              ))}
+              {agencies.length === 0 ? (
+                <Text style={styles.optionSubtitle}>No approved agencies with available vehicles match this vehicle type.</Text>
+              ) : null}
+            </View>
+          ) : null}
 
           {/* VEHICLE LIST OPTIONS */}
-          {vehicles.map((vehicle) => {
+          {cargoCompatibleVehicles.filter((vehicle) => vehicle.agency?._id && vehicle.agency.approvalStatus === "approved" && vehicle.agency.isActive).map((vehicle) => {
             const isSelected = selectedId === vehicle._id;
             return (
               <Pressable
@@ -97,7 +138,7 @@ export default function VehicleSelectionScreen({ route, navigation }) {
                   shadows.soft,
                   isSelected && styles.selectedCard
                 ]}
-                onPress={() => setSelectedId(vehicle._id)}
+                onPress={() => { setSelectedId(vehicle._id); setSelectedAgencyId(""); }}
               >
                 <View style={styles.radioRow}>
                   {vehicle.vehicleImage ? (
@@ -113,6 +154,7 @@ export default function VehicleSelectionScreen({ route, navigation }) {
                     <Text style={styles.optionSubtitle}>
                       {vehicle.vehicleType?.replace(/-/g, " ")} · {vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit}
                     </Text>
+                    <Text style={styles.optionSubtitle}>{vehicle.agency?.agencyName || "Agency Fleet"}</Text>
                     <Text style={styles.bodyTypeTag}>{vehicle.bodyType || "Open Body"}</Text>
                   </View>
 
@@ -132,6 +174,7 @@ export default function VehicleSelectionScreen({ route, navigation }) {
           icon={<Ionicons name="arrow-forward" size={16} color={colors.white} />}
           iconPosition="right"
           onPress={continueToConfirm}
+          disabled={selectedId === "" && !selectedAgencyId}
           style={{ marginTop: 12 }}
         />
       ) : null}

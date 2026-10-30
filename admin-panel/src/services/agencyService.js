@@ -56,6 +56,8 @@ export const agencyService = {
     });
   },
   getAgencyBookings: () => api.get('/agency/bookings'),
+  assignAgencyBooking: (bookingId, driverId, vehicleId) =>
+    api.patch(`/agency/bookings/${bookingId}/assign`, { driverId, vehicleId }),
   uploadFile: (file, purpose = 'document') => {
     const formData = new FormData();
     formData.append('image', file);

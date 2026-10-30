@@ -60,6 +60,7 @@ export default function BookingConfirmScreen({ route, navigation }) {
         bookingMode
       };
       if (details.vehicleId) payload.vehicle = details.vehicleId;
+      if (!details.vehicleId && details.agencyId) payload.agencyId = details.agencyId;
       if (details.customerNote) payload.customerNote = details.customerNote;
 
       const booking = await bookingService.createBooking(payload);

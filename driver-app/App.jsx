@@ -882,9 +882,9 @@ export default function App() {
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 12, marginBottom: 8 }}>
                   <View>
                     <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 4 }}>
-                      NEW REQUESTS
+                      ASSIGNED BOOKINGS
                     </Text>
-                    <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Loads near you</Text>
+                    <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Bookings assigned to you</Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'transparent', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: colors.border }}>
                     <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent }} />
@@ -909,9 +909,9 @@ export default function App() {
           <>
             <View style={{ marginTop: 12, marginBottom: 8 }}>
               <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 4 }}>
-                AVAILABLE REQUESTS
+                ASSIGNED BOOKING REQUESTS
               </Text>
-              <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Loads near you</Text>
+              <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Bookings assigned to you</Text>
             </View>
 
             {renderBookingEligibility()}
@@ -919,9 +919,9 @@ export default function App() {
             {!loading && bookingEligibility?.eligible && requests.length === 0 ? (
               <View style={[cardStyle, { alignItems: 'center', padding: 32 }]}>
                 <Ionicons name="cube-outline" size={36} color={colors.muted} style={{ marginBottom: 10 }} />
-                <Text style={bodyText}>No available requests.</Text>
+                <Text style={bodyText}>No bookings are awaiting your response.</Text>
                 <Text style={[mutedText, { marginTop: 4, textAlign: 'center' }]}>
-                  {driver?.isOnline ? 'Checking for new customer bookings in your vehicle category...' : 'Go online to receive real-time load requests.'}
+                  {driver?.isOnline ? 'Your agency will assign compatible bookings to you.' : 'Go online to be available for agency-assigned bookings.'}
                 </Text>
               </View>
             ) : null}
@@ -1491,7 +1491,11 @@ function BookingCard({ booking, actions, onAction, actionLoading }) {
             </View>
           )}
           <Text style={{ color: colors.muted, fontSize: 11, fontWeight: '600', textTransform: 'capitalize' }}>
-            {booking.bookingStatus}
+            {booking.bookingStatus === 'pending' && (booking.assignmentStatus === 'pending_acceptance' || booking.driver)
+              ? 'Awaiting your response'
+              : booking.bookingStatus === 'accepted'
+                ? 'Driver accepted'
+                : booking.bookingStatus}
           </Text>
         </View>
       </View>
@@ -1525,11 +1529,31 @@ function BookingCard({ booking, actions, onAction, actionLoading }) {
         {booking.distanceKm ? ` · ${booking.distanceKm} km` : ''}
       </Text>
 
+      {booking.vehicle ? (
+        <Text style={[mutedText, { fontSize: 12, marginTop: 6 }]}>
+          Vehicle: {booking.vehicle.vehicleNumber || booking.vehicle.vehicleModel || 'Assigned vehicle'}
+          {booking.vehicle.loadCapacity?.value ? ` · Capacity ${booking.vehicle.loadCapacity.value} ${booking.vehicle.loadCapacity.unit || 'kg'}` : ''}
+        </Text>
+      ) : null}
+      {booking.customer ? (
+        <Text style={[mutedText, { fontSize: 12, marginTop: 6 }]}>
+          Customer: {booking.customer.name || 'Customer'}{booking.customer.phone ? ` · ${booking.customer.phone}` : ''}
+        </Text>
+      ) : null}
+      <Text style={[mutedText, { fontSize: 12, marginTop: 6 }]}>
+        Payment: {booking.paymentStatus || 'pending'} · ₹{booking.finalFare || booking.estimatedFare || 0}
+      </Text>
+
       {/* CUSTOMER NOTE */}
       {booking.customerNote ? (
         <View style={{ marginTop: 8, padding: 8, backgroundColor: colors.card2, borderRadius: 6 }}>
           <Text style={[mutedText, { fontSize: 11 }]}>Note: {booking.customerNote}</Text>
         </View>
+      ) : null}
+      {booking.rejectedReason ? (
+        <Text style={{ color: colors.warning, fontSize: 11, marginTop: 8 }}>
+          Previous response: {booking.rejectedReason}
+        </Text>
       ) : null}
 
       {/* ACTIONS */}
@@ -1537,7 +1561,7 @@ function BookingCard({ booking, actions, onAction, actionLoading }) {
         <View style={{ flexDirection: 'row', gap: 12, marginTop: 18 }}>
           {actions.map((action) => {
             const isReject = action === 'reject';
-            const label = action === 'accept' ? 'Accept load' : action === 'start' ? 'Start Trip' : action === 'complete' ? 'Complete Trip' : 'Reject';
+            const label = action === 'accept' ? 'Accept Booking' : action === 'start' ? 'Start Trip' : action === 'complete' ? 'Complete Trip' : 'Reject Booking';
             return (
               <View key={action} style={!isReject ? { flex: 2 } : { flex: 1 }}>
                 <ActionButton

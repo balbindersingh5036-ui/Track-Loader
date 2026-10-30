@@ -1,21 +1,19 @@
-import React from 'react';
-import api from '../../services/api';
+import React, { useState } from 'react';
 import ApiListPage from '../../components/common/ApiListPage';
 
-export default function Bookings() {
-  const assignDriver = async (booking) => {
-    const response = await api.get('/admin/drivers', { params: { approvalStatus: 'approved', limit: 100 } });
-    const drivers = response.data?.data?.drivers || [];
-    if (!drivers.length) throw new Error('No approved drivers are available.');
-    const choice = window.prompt(
-      `Choose a driver number:\n${drivers.map((driver, index) => `${index + 1}. ${driver.name} (${driver.phone})`).join('\n')}`
-    );
-    if (choice === null) return;
-    const index = Number(choice) - 1;
-    if (!Number.isInteger(index) || index < 0 || index >= drivers.length) throw new Error('Choose a valid driver number.');
-    await api.patch(`/admin/bookings/${booking._id}/assign-driver`, { driverId: drivers[index].id });
-  };
+const bookingStatusLabel = (booking) => {
+  if (booking.bookingStatus === 'cancelled') return 'Cancelled';
+  if (booking.bookingStatus === 'completed') return 'Completed';
+  if (booking.bookingStatus === 'in-progress') return 'In Progress';
+  if (booking.bookingStatus === 'accepted') return 'Driver Accepted';
+  if (booking.bookingStatus === 'rejected' || booking.assignmentStatus === 'rejected') return 'Driver Rejected';
+  if (booking.assignmentStatus === 'pending_acceptance') return 'Awaiting Driver Acceptance';
+  if (booking.bookingStatus === 'pending' && booking.driver) return 'Awaiting Driver Acceptance';
+  return 'Pending Agency Assignment';
+};
 
+export default function Bookings() {
+  const [activeFilter, setActiveFilter] = useState({ value: '' });
   return (
     <ApiListPage
       title="Bookings"
@@ -23,24 +21,25 @@ export default function Bookings() {
       collection="bookings"
       searchParam="bookingId"
       detailPath={(item) => `/bookings/${item._id}`}
-      columns={[
-        { label: 'Booking', path: 'bookingId' },
-        { label: 'Customer', render: (item) => item.customer?.name || '—' },
-        { label: 'Driver', render: (item) => item.driver?.fullName || 'Unassigned' },
-        { label: 'Status', path: 'bookingStatus' },
-        { label: 'Fare', render: (item) => `₹${item.finalFare || item.estimatedFare || 0}` }
+      filters={[
+        { label: 'All', value: '' },
+        { label: 'Pending Agency Assignment', value: 'unassigned', param: 'assignmentStatus' },
+        { label: 'Awaiting Driver Acceptance', value: 'pending_acceptance', param: 'assignmentStatus' },
+        { label: 'Driver Rejected', value: 'rejected', param: 'assignmentStatus' },
+        { label: 'Driver Accepted', value: 'accepted', param: 'bookingStatus' },
+        { label: 'In Progress', value: 'in-progress', param: 'bookingStatus' },
+        { label: 'Completed', value: 'completed', param: 'bookingStatus' },
+        { label: 'Cancelled', value: 'cancelled', param: 'bookingStatus' }
       ]}
-      actions={[
-        {
-          label: 'Assign driver',
-          disabled: (item) => ['completed', 'cancelled'].includes(item.bookingStatus),
-          run: assignDriver
-        },
-        ...['accepted', 'cancelled'].map((status) => ({
-          label: status[0].toUpperCase() + status.slice(1),
-          disabled: (item) => ['completed', 'cancelled'].includes(item.bookingStatus) || item.bookingStatus === status,
-          run: (item) => api.patch(`/admin/bookings/${item._id}/status`, { status })
-        }))
+      activeFilter={activeFilter}
+      onFilterChange={setActiveFilter}
+      columns={[
+        { label: 'Booking Reference', path: 'bookingId' },
+        { label: 'Customer', render: (item) => item.customer?.name || '—' },
+        { label: 'Agency', render: (item) => item.agency?.agencyName || '—' },
+        { label: 'Assigned Driver', render: (item) => item.driver?.fullName || 'Unassigned' },
+        { label: 'Status', render: bookingStatusLabel },
+        { label: 'Fare', render: (item) => `₹${item.finalFare || item.estimatedFare || 0}` }
       ]}
     />
   );

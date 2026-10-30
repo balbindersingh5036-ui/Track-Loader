@@ -168,7 +168,7 @@ export default function MyBookingsScreen({ navigation }) {
                       "Fleet Vehicle"}
                   </Text>
                 </View>
-                <Status value={booking.bookingStatus} />
+                <Status value={booking.bookingStatus} assignmentStatus={booking.assignmentStatus} assigned={Boolean(booking.driver)} />
               </View>
 
               <View style={styles.routeBox}>

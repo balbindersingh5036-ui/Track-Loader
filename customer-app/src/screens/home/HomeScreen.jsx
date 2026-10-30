@@ -250,7 +250,7 @@ export default function HomeScreen({ navigation }) {
                     activeBooking.vehicleType?.replaceAll("-", " ")}
                 </Text>
               </View>
-              <Status value={activeBooking.bookingStatus} />
+              <Status value={activeBooking.bookingStatus} assignmentStatus={activeBooking.assignmentStatus} assigned={Boolean(activeBooking.driver)} />
             </View>
 
             <View style={styles.activeBookingRoute}>

@@ -16,6 +16,13 @@ const bookingSchema = new mongoose.Schema(
       index: true
     },
 
+    agency: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Agency",
+      default: null,
+      index: true
+    },
+
     driver: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Driver",
@@ -164,6 +171,31 @@ const bookingSchema = new mongoose.Schema(
       default: "pending",
       index: true
     },
+
+    assignmentStatus: {
+      type: String,
+      enum: ["unassigned", "pending_acceptance", "accepted", "rejected"],
+      default: "unassigned",
+      index: true
+    },
+
+    assignmentHistory: [{
+      action: {
+        type: String,
+        enum: ["created", "assigned", "accepted", "rejected", "cancelled", "started", "completed"],
+        required: true
+      },
+      actor: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+      actorRole: {
+        type: String,
+        enum: ["customer", "agency", "driver", "admin", "system"],
+        required: true
+      },
+      driver: { type: mongoose.Schema.Types.ObjectId, ref: "Driver", default: null },
+      vehicle: { type: mongoose.Schema.Types.ObjectId, ref: "Vehicle", default: null },
+      reason: { type: String, default: "", trim: true },
+      occurredAt: { type: Date, default: Date.now }
+    }],
 
     customerNote: {
       type: String,
