@@ -61,7 +61,7 @@ router.get("/agency/:agencyId/:docType", protect, async (req, res) => {
       return errorResponse(res, "Invalid agency ID", 400);
     }
 
-    const validTypes = ["ownerAadhaar", "businessRegistration", "taxId"];
+    const validTypes = ["ownerAadhaar", "businessRegistration", "taxId", "tradeLicense", "gstCertificate"];
     if (!validTypes.includes(docType)) {
       return errorResponse(res, "Invalid agency document type requested", 400);
     }
@@ -103,7 +103,7 @@ router.get("/driver/:driverId/:docType", protect, async (req, res) => {
       return errorResponse(res, "Invalid driver ID", 400);
     }
 
-    const validTypes = ["idProof", "drivingLicense"];
+    const validTypes = ["idProof", "drivingLicense", "vehicleRegistration", "insurance"];
     if (!validTypes.includes(docType)) {
       return errorResponse(res, "Invalid driver document type requested", 400);
     }

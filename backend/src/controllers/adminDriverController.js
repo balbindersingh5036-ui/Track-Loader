@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Driver from "../models/Driver.js";
 import User from "../models/User.js";
+import Agency from "../models/Agency.js";
 import Vehicle from "../models/Vehicle.js";
 import { errorResponse, successResponse } from "../utils/response.js";
 import { parsePagination } from "../utils/pagination.js";
@@ -13,6 +14,37 @@ const safeDriver = (driver, vehicles = [], canApproveDriver = false) => {
   const agencyAccepted = !isAgencyLinked || driver.agencyAssociation?.status === "approved";
   const hasApprovedDocs = hasApprovedDriverIdentityDocuments(driver);
   const eligibleForSuperAdminApproval = canApproveDriver && hasApprovedDocs && agencyAccepted && driver.approvalStatus !== "approved";
+
+  const docs = driver.documents || {};
+  const docConfig = [
+    { key: "idProof", label: "Aadhaar / Identity Proof", mandatory: true },
+    { key: "drivingLicense", label: "Driving Licence", mandatory: true },
+    { key: "vehicleRegistration", label: "Vehicle RC", mandatory: false },
+    { key: "insurance", label: "Insurance", mandatory: false }
+  ];
+
+  const sanitizedDocs = {};
+  const kycSummary = [];
+
+  for (const { key, label, mandatory } of docConfig) {
+    const doc = docs[key];
+    const isSubmitted = Boolean(doc && (doc.publicId || doc.url || (doc.status && doc.status !== "not_uploaded" && doc.status !== "missing")));
+    const status = isSubmitted ? (doc?.status || "pending") : "missing";
+
+    const docObj = {
+      key,
+      label,
+      mandatory,
+      isSubmitted,
+      status,
+      submittedAt: doc?.submittedAt || null,
+      reviewedAt: doc?.reviewedAt || null,
+      rejectionReason: doc?.rejectionReason || ""
+    };
+
+    sanitizedDocs[key] = docObj;
+    kycSummary.push(docObj);
+  }
 
   return {
     id: driver._id,
@@ -50,18 +82,8 @@ const safeDriver = (driver, vehicles = [], canApproveDriver = false) => {
           reviewedBy: null
         },
     canApproveDriver: eligibleForSuperAdminApproval,
-    documents: {
-      idProof: {
-        status: driver.documents?.idProof?.url || driver.documents?.idProof?.publicId
-          ? driver.documents.idProof.status || "pending"
-          : "not_uploaded"
-      },
-      drivingLicense: {
-        status: driver.documents?.drivingLicense?.url || driver.documents?.drivingLicense?.publicId
-          ? driver.documents.drivingLicense.status || "pending"
-          : "not_uploaded"
-      }
-    },
+    documents: sanitizedDocs,
+    kycDocuments: kycSummary,
     vehicles: (vehicles || []).map((vehicle) => ({
       id: vehicle._id,
       vehicleNumber: vehicle.vehicleNumber,
@@ -97,73 +119,112 @@ export const getAdminDrivers = async (req, res) => {
     }
 
     const query = {};
+
     if (req.query.approvalStatus !== undefined) {
       if (!["pending", "approved", "rejected", "suspended"].includes(req.query.approvalStatus)) {
         return errorResponse(res, "Invalid approvalStatus", 400);
       }
       query.approvalStatus = req.query.approvalStatus;
     }
-    if (req.query.filter !== undefined) {
-      const f = req.query.filter;
-      if (f === "pending_agency") {
-        query.agency = { $ne: null };
-        query["agencyAssociation.status"] = "pending";
-      } else if (f === "agency_accepted_pending_super_admin") {
-        query.agency = { $ne: null };
-        query["agencyAssociation.status"] = "approved";
-        query.approvalStatus = "pending";
-      } else if (f === "pending_kyc") {
-        query.approvalStatus = { $nin: ["rejected", "suspended"] };
-        query.$or = [
-          { "documents.idProof.status": { $ne: "approved" } },
-          { "documents.drivingLicense.status": { $ne: "approved" } }
-        ];
-      } else if (f === "pending_final_approval") {
-        query["documents.idProof.status"] = "approved";
-        query["documents.drivingLicense.status"] = "approved";
-        query.approvalStatus = "pending";
-        query.$or = [
-          { agency: null },
-          { "agencyAssociation.status": "approved" }
-        ];
-      } else if (f === "fully_approved") {
-        query.approvalStatus = "approved";
-        query.isActive = true;
-        query["documents.idProof.status"] = "approved";
-        query["documents.drivingLicense.status"] = "approved";
-        query.$or = [
-          { agency: null },
-          { "agencyAssociation.status": "approved" }
-        ];
-      } else if (f === "rejected") {
-        query.$or = [
-          { approvalStatus: "rejected" },
-          { "agencyAssociation.status": "rejected" }
-        ];
-      } else if (f === "suspended") {
-        query.approvalStatus = "suspended";
-      } else if (f !== "all" && f !== "") {
-        return errorResponse(res, "Invalid filter", 400);
-      }
-    }
+
     if (req.query.isOnline !== undefined) {
       if (!["true", "false"].includes(req.query.isOnline)) {
         return errorResponse(res, "isOnline must be true or false", 400);
       }
       query.isOnline = req.query.isOnline === "true";
     }
+
+    const extraConditions = [];
+
+    if (req.query.filter !== undefined) {
+      const f = req.query.filter;
+      if (f === "pending_agency") {
+        query.agency = { $ne: null };
+        query["agencyAssociation.status"] = "pending";
+        query.approvalStatus = { $nin: ["rejected", "suspended"] };
+      } else if (f === "agency_accepted_pending_super_admin") {
+        query.agency = { $ne: null };
+        query["agencyAssociation.status"] = "approved";
+        query.approvalStatus = "pending";
+      } else if (f === "pending_kyc") {
+        query.approvalStatus = { $nin: ["rejected", "suspended"] };
+        extraConditions.push({
+          $or: [
+            { "documents.idProof.status": { $ne: "approved" } },
+            { "documents.drivingLicense.status": { $ne: "approved" } }
+          ]
+        });
+      } else if (f === "pending_final_approval") {
+        query["documents.idProof.status"] = "approved";
+        query["documents.drivingLicense.status"] = "approved";
+        query.approvalStatus = "pending";
+        extraConditions.push({
+          $or: [
+            { agency: null },
+            { "agencyAssociation.status": "approved" }
+          ]
+        });
+      } else if (f === "fully_approved") {
+        query.approvalStatus = "approved";
+        query.isActive = true;
+        query["documents.idProof.status"] = "approved";
+        query["documents.drivingLicense.status"] = "approved";
+        extraConditions.push({
+          $or: [
+            { agency: null },
+            { "agencyAssociation.status": "approved" }
+          ]
+        });
+      } else if (f === "rejected") {
+        extraConditions.push({
+          $or: [
+            { approvalStatus: "rejected" },
+            { "agencyAssociation.status": "rejected" }
+          ]
+        });
+      } else if (f === "suspended") {
+        query.approvalStatus = "suspended";
+      } else if (f !== "all" && f !== "") {
+        return errorResponse(res, "Invalid filter", 400);
+      }
+    }
+
     if (typeof req.query.search === "string" && req.query.search.trim()) {
-      const regex = new RegExp(req.query.search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      const term = req.query.search.trim();
+      const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+
+      const searchOr = [
+        { fullName: regex },
+        { phone: regex },
+        { email: regex }
+      ];
+
       const matchingUsers = await User.find({
         role: "driver",
         $or: [{ name: regex }, { phone: regex }, { email: regex }]
       }).select("_id").lean();
-      query.$or = [
-        { fullName: regex },
-        { phone: regex },
-        { email: regex },
-        { user: { $in: matchingUsers.map((user) => user._id) } }
-      ];
+      if (matchingUsers.length > 0) {
+        searchOr.push({ user: { $in: matchingUsers.map((u) => u._id) } });
+      }
+
+      const matchingAgencies = await Agency.find({
+        agencyName: regex
+      }).select("_id").lean();
+      if (matchingAgencies.length > 0) {
+        searchOr.push({ agency: { $in: matchingAgencies.map((a) => a._id) } });
+      }
+
+      if (mongoose.isValidObjectId(term)) {
+        searchOr.push({ _id: new mongoose.Types.ObjectId(term) });
+      }
+
+      extraConditions.push({ $or: searchOr });
+    }
+
+    if (extraConditions.length === 1) {
+      Object.assign(query, extraConditions[0]);
+    } else if (extraConditions.length > 1) {
+      query.$and = extraConditions;
     }
 
     const [drivers, total] = await Promise.all([
@@ -208,20 +269,26 @@ export const getAdminDriverById = async (req, res) => {
       .populate("documents.idProof.reviewedBy", "name role")
       .populate("documents.drivingLicense.uploadedBy", "name role")
       .populate("documents.drivingLicense.reviewedBy", "name role")
+      .populate("documents.vehicleRegistration.uploadedBy", "name role")
+      .populate("documents.vehicleRegistration.reviewedBy", "name role")
+      .populate("documents.insurance.uploadedBy", "name role")
+      .populate("documents.insurance.reviewedBy", "name role")
       .lean();
     if (!driver) return errorResponse(res, "Driver not found", 404);
     const vehiclesByDriver = await loadVehiclesByDriver([driver]);
-    const driverData = safeDriver(driver, vehiclesByDriver.get(driver._id.toString()));
     const canReviewDocuments = isDesignatedSuperAdmin(req.user);
-    
+    const driverData = safeDriver(driver, vehiclesByDriver.get(driver._id.toString()), canReviewDocuments);
+
     // Allow authorized admin in detail view to inspect driver KYC documents with short-lived signed URLs
     const docs = driver.documents ? JSON.parse(JSON.stringify(driver.documents)) : {};
     const { generateSignedDocumentUrl, extractCloudinaryAssetInfo } = await import("../utils/documentSigner.js");
 
-    for (const key of ["idProof", "drivingLicense"]) {
+    const supportedDocKeys = ["idProof", "drivingLicense", "vehicleRegistration", "insurance"];
+    for (const key of supportedDocKeys) {
       const doc = docs[key];
       if (!doc) continue;
-      doc.status = doc.url || doc.publicId ? doc.status || "pending" : "not_uploaded";
+      const hasDoc = Boolean(doc.url || doc.publicId || (doc.status && doc.status !== "not_uploaded" && doc.status !== "missing"));
+      doc.status = hasDoc ? doc.status || "pending" : "not_uploaded";
       let pubId = doc.publicId;
       let fmt = doc.format || "pdf";
       const resType = doc.resourceType || "image";
@@ -229,13 +296,13 @@ export const getAdminDriverById = async (req, res) => {
         const ext = extractCloudinaryAssetInfo(doc.url);
         if (ext) { pubId = ext.publicId; fmt = ext.format; }
       }
-      docs[key].viewUrl = canReviewDocuments && pubId?.startsWith("loadbalbin_kyc/")
+      doc.viewUrl = canReviewDocuments && pubId?.startsWith("loadbalbin_kyc/")
         ? generateSignedDocumentUrl(pubId, fmt, 300, resType)
         : null;
-      docs[key].uploadedBy = doc.uploadedBy?.name || null;
-      docs[key].reviewedBy = doc.reviewedBy?.name || null;
-      delete docs[key].url;
-      delete docs[key].publicId;
+      doc.uploadedBy = doc.uploadedBy?.name || null;
+      doc.reviewedBy = doc.reviewedBy?.name || null;
+      delete doc.url;
+      delete doc.publicId;
     }
 
     driverData.documents = docs;
@@ -255,7 +322,7 @@ const updateApproval = (approvalStatus) => async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return errorResponse(res, "Invalid driver ID", 400);
     const bodyKeys = Object.keys(req.body || {});
-    if (approvalStatus === "rejected") {
+    if (approvalStatus === "rejected" || approvalStatus === "suspended") {
       const invalidKeys = bodyKeys.filter((k) => k !== "reason" && k !== "rejectionReason");
       if (invalidKeys.length > 0) {
         return errorResponse(res, "This action only accepts an optional reason field", 400);
@@ -279,8 +346,11 @@ const updateApproval = (approvalStatus) => async (req, res) => {
         }
       }
     }
-    if (approvalStatus === "rejected" && (req.body?.reason || req.body?.rejectionReason)) {
+    if ((approvalStatus === "rejected" || approvalStatus === "suspended") && (req.body?.reason || req.body?.rejectionReason)) {
       updateDoc.rejectionReason = req.body?.reason || req.body?.rejectionReason;
+    }
+    if (approvalStatus === "suspended") {
+      updateDoc.isOnline = false;
     }
 
     const driver = await Driver.findByIdAndUpdate(
@@ -291,7 +361,7 @@ const updateApproval = (approvalStatus) => async (req, res) => {
     if (!driver) return errorResponse(res, "Driver not found", 404);
     const vehiclesByDriver = await loadVehiclesByDriver([driver]);
     return successResponse(res, {
-      driver: safeDriver(driver, vehiclesByDriver.get(driver._id.toString()))
+      driver: safeDriver(driver, vehiclesByDriver.get(driver._id.toString()), isDesignatedSuperAdmin(req.user))
     }, `Driver ${approvalStatus}`);
   } catch (error) {
     console.error(`Admin driver ${approvalStatus} error:`, error);
@@ -302,7 +372,7 @@ const updateApproval = (approvalStatus) => async (req, res) => {
 export const reviewAdminDriverDocument = async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return errorResponse(res, "Invalid driver ID", 400);
-    if (!["idProof", "drivingLicense"].includes(req.params.docType)) {
+    if (!["idProof", "drivingLicense", "vehicleRegistration", "insurance"].includes(req.params.docType)) {
       return errorResponse(res, "Invalid driver document type", 400);
     }
     if (!["approve", "reject"].includes(req.params.action)) {
@@ -364,15 +434,19 @@ export const updateAdminDriverStatus = async (req, res) => {
     if (keys.length !== 1 || keys[0] !== "isActive" || typeof req.body.isActive !== "boolean") {
       return errorResponse(res, "Only a boolean isActive value may be updated", 400);
     }
+    const updateDoc = { isActive: req.body.isActive };
+    if (!req.body.isActive) {
+      updateDoc.isOnline = false;
+    }
     const driver = await Driver.findByIdAndUpdate(
       req.params.id,
-      { $set: { isActive: req.body.isActive } },
+      { $set: updateDoc },
       { new: true, runValidators: true }
     ).populate("user", "name phone email profileImage");
     if (!driver) return errorResponse(res, "Driver not found", 404);
     const vehiclesByDriver = await loadVehiclesByDriver([driver]);
     return successResponse(res, {
-      driver: safeDriver(driver, vehiclesByDriver.get(driver._id.toString()))
+      driver: safeDriver(driver, vehiclesByDriver.get(driver._id.toString()), isDesignatedSuperAdmin(req.user))
     }, "Driver account status updated");
   } catch (error) {
     console.error("Admin driver status update error:", error);

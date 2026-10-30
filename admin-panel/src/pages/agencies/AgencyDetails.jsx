@@ -30,6 +30,17 @@ export default function AgencyDetails() {
     loadAgency();
   }, [id]);
 
+  useEffect(() => {
+    if (!loading && data && window.location.hash === '#documents') {
+      setTimeout(() => {
+        const el = document.getElementById('documents');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 150);
+    }
+  }, [loading, data]);
+
   const handleApproveAgency = async () => {
     try {
       setActionLoading(true);
@@ -121,11 +132,47 @@ export default function AgencyDetails() {
 
   const { agency, drivers, vehicles } = data;
   const docs = agency.documents || {};
-  const agencyDocuments = [
-    { type: 'ownerAadhaar', label: 'Owner Aadhaar Document', optional: false },
-    { type: 'businessRegistration', label: 'Business Registration / Trade Licence', optional: true },
-    { type: 'taxId', label: 'Tax ID / GST Document', optional: true }
+  const supportedAgencyDocuments = [
+    { type: 'ownerAadhaar', label: 'Owner Aadhaar / Identity Proof', optional: false },
+    { type: 'businessRegistration', label: 'Business Registration Certificate', optional: true },
+    { type: 'tradeLicense', label: 'Trade Licence', optional: true },
+    { type: 'gstCertificate', label: 'GST Certificate', optional: true },
+    { type: 'taxId', label: 'Tax ID / PAN Document', optional: true }
   ];
+
+  const knownKeys = new Set(supportedAgencyDocuments.map((d) => d.type));
+  const dynamicDocuments = Object.keys(docs)
+    .filter((k) => !knownKeys.has(k) && docs[k] && typeof docs[k] === 'object')
+    .map((k) => ({
+      type: k,
+      label: k.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase()),
+      optional: true
+    }));
+  const allAgencyDocuments = [...supportedAgencyDocuments, ...dynamicDocuments];
+
+  const getDocStatusBadge = (status, optional) => {
+    const map = {
+      approved: { bg: '#dcfce7', color: '#166534', label: 'Approved' },
+      pending: { bg: '#fef9c3', color: '#854d0e', label: 'Pending' },
+      rejected: { bg: '#fee2e2', color: '#991b1b', label: 'Rejected' },
+      missing: { bg: '#f3f4f6', color: '#6b7280', label: optional ? 'Optional / Not Uploaded' : 'Missing' },
+      not_uploaded: { bg: '#f3f4f6', color: '#6b7280', label: optional ? 'Optional / Not Uploaded' : 'Missing' }
+    };
+    const s = map[status] || map.missing;
+    return (
+      <span style={{
+        background: s.bg,
+        color: s.color,
+        padding: '3px 8px',
+        borderRadius: '12px',
+        fontSize: '12px',
+        fontWeight: 'bold',
+        textTransform: 'capitalize'
+      }}>
+        {s.label}
+      </span>
+    );
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
@@ -190,77 +237,162 @@ export default function AgencyDetails() {
         </section>
       ) : null}
 
-      {/* Profile & Owner Document Verification */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 24 }}>
-        <section className="card">
-          <h3 style={{ marginTop: 0, borderBottom: '1px solid var(--border-color)', paddingBottom: 12 }}>Agency & Owner Profile</h3>
-          <dl style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: 12, margin: 0 }}>
-            <dt style={{ fontWeight: 600 }}>Phone:</dt>
-            <dd style={{ margin: 0 }}>{agency.phone || '—'}</dd>
-            <dt style={{ fontWeight: 600 }}>Email:</dt>
-            <dd style={{ margin: 0 }}>{agency.email || '—'}</dd>
-            <dt style={{ fontWeight: 600 }}>Address:</dt>
-            <dd style={{ margin: 0 }}>{agency.address || '—'}</dd>
-            <dt style={{ fontWeight: 600 }}>City:</dt>
-            <dd style={{ margin: 0 }}>{agency.city || '—'}</dd>
-            <dt style={{ fontWeight: 600 }}>Owner Name:</dt>
-            <dd style={{ margin: 0 }}>{agency.owner?.name || '—'}</dd>
-            <dt style={{ fontWeight: 600 }}>Owner Phone:</dt>
-            <dd style={{ margin: 0 }}>{agency.owner?.phone || '—'}</dd>
-          </dl>
-        </section>
+      {/* Agency & Owner Profile */}
+      <section className="card">
+        <h3 style={{ marginTop: 0, borderBottom: '1px solid var(--border-color)', paddingBottom: 12 }}>Agency & Owner Profile</h3>
+        <dl style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, margin: 0 }}>
+          <div>
+            <dt style={{ fontWeight: 600, color: 'var(--text-secondary)', fontSize: 13 }}>Agency Phone</dt>
+            <dd style={{ margin: '4px 0 0 0', fontWeight: 500 }}>{agency.phone || '—'}</dd>
+          </div>
+          <div>
+            <dt style={{ fontWeight: 600, color: 'var(--text-secondary)', fontSize: 13 }}>Agency Email</dt>
+            <dd style={{ margin: '4px 0 0 0', fontWeight: 500 }}>{agency.email || '—'}</dd>
+          </div>
+          <div>
+            <dt style={{ fontWeight: 600, color: 'var(--text-secondary)', fontSize: 13 }}>City / Location</dt>
+            <dd style={{ margin: '4px 0 0 0', fontWeight: 500 }}>{agency.city || '—'}</dd>
+          </div>
+          <div>
+            <dt style={{ fontWeight: 600, color: 'var(--text-secondary)', fontSize: 13 }}>Registered Address</dt>
+            <dd style={{ margin: '4px 0 0 0', fontWeight: 500 }}>{agency.address || '—'}</dd>
+          </div>
+          <div>
+            <dt style={{ fontWeight: 600, color: 'var(--text-secondary)', fontSize: 13 }}>Owner Name</dt>
+            <dd style={{ margin: '4px 0 0 0', fontWeight: 500 }}>{agency.owner?.name || '—'}</dd>
+          </div>
+          <div>
+            <dt style={{ fontWeight: 600, color: 'var(--text-secondary)', fontSize: 13 }}>Owner Contact Phone</dt>
+            <dd style={{ margin: '4px 0 0 0', fontWeight: 500 }}>{agency.owner?.phone || '—'}</dd>
+          </div>
+        </dl>
+      </section>
 
-        <section className="card">
-          <h3 style={{ marginTop: 0, borderBottom: '1px solid var(--border-color)', paddingBottom: 12 }}>Verification Documents (KYC)</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {agencyDocuments.map(({ type, label, optional }) => {
-              const document = docs[type] || {};
-              const submitted = document.status && document.status !== 'not_uploaded';
-              return (
-                <div key={type} style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: 12 }}>
-                  <div style={{ fontWeight: 600, marginBottom: 4 }}>{label}{optional ? ' (Optional)' : ''}</div>
-                  <div style={{ fontSize: 12, marginBottom: 8 }}>
-                    Status: <strong>{submitted ? document.status : optional ? 'optional / not uploaded' : 'missing'}</strong>
-                    {document.submittedAt ? ` · Submitted ${new Date(document.submittedAt).toLocaleString()}` : ''}
-                    {document.reviewedAt ? ` · Reviewed ${new Date(document.reviewedAt).toLocaleString()}` : ''}
+      {/* Dedicated Agency Verification Documents Section */}
+      <section id="documents" className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, borderBottom: '1px solid var(--border-color)', paddingBottom: 12 }}>
+          <div>
+            <h3 style={{ margin: 0 }}>Agency Verification Documents</h3>
+            <p style={{ margin: '4px 0 0 0', fontSize: 13, color: 'var(--text-secondary)' }}>
+              Review submitted compliance and KYC documents for this agency.
+            </p>
+          </div>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)', background: '#f3f4f6', padding: '4px 10px', borderRadius: 12 }}>
+            {allAgencyDocuments.filter((d) => docs[d.type]?.status && docs[d.type]?.status !== 'not_uploaded' && docs[d.type]?.status !== 'missing').length} of {allAgencyDocuments.length} Submitted
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+          {allAgencyDocuments.map(({ type, label, optional }) => {
+            const document = docs[type] || {};
+            const submitted = Boolean(document.status && document.status !== 'not_uploaded' && document.status !== 'missing');
+            const status = submitted ? (document.status || 'pending') : 'missing';
+            const reviewer = document.reviewerName || document.reviewedBy;
+
+            return (
+              <div
+                key={type}
+                style={{
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 10,
+                  padding: 16,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  background: '#fff'
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+                    <div>
+                      <span style={{ fontWeight: 600, fontSize: 14 }}>{label}</span>
+                      <div style={{ fontSize: 11, color: optional ? '#6b7280' : '#b45309', fontWeight: 500, marginTop: 2 }}>
+                        {optional ? 'Optional' : 'Mandatory'}
+                      </div>
+                    </div>
+                    {getDocStatusBadge(status, optional)}
                   </div>
-                  {document.rejectionReason ? <div role="alert" style={{ color: '#991b1b', fontSize: 12, marginBottom: 8 }}>Rejection reason: {document.rejectionReason}</div> : null}
+
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>
+                    <div>
+                      <strong>Submitted:</strong>{' '}
+                      {document.submittedAt ? new Date(document.submittedAt).toLocaleString() : 'Not submitted yet'}
+                    </div>
+                    {(document.reviewedAt || reviewer) && (
+                      <div>
+                        <strong>Reviewed by:</strong>{' '}
+                        {reviewer ? (typeof reviewer === 'string' ? reviewer : reviewer.name || 'Super Admin') : 'Super Admin'}
+                        {document.reviewedAt ? ` on ${new Date(document.reviewedAt).toLocaleString()}` : ''}
+                      </div>
+                    )}
+                  </div>
+
+                  {document.rejectionReason && (
+                    <div
+                      role="alert"
+                      style={{
+                        marginTop: 10,
+                        padding: '8px 10px',
+                        background: '#fee2e2',
+                        color: '#991b1b',
+                        borderRadius: 6,
+                        fontSize: 12,
+                        border: '1px solid #fecaca'
+                      }}
+                    >
+                      <strong>Rejection Reason:</strong> {document.rejectionReason}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid #f3f4f6' }}>
                   {document.viewUrl ? (
-                    <a href={document.viewUrl} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">
-                      View securely (temporary link)
+                    <a
+                      href={document.viewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-secondary btn-sm"
+                      style={{ display: 'inline-block', marginBottom: 8 }}
+                    >
+                      View Document (Secure Signed Link) &rarr;
                     </a>
                   ) : submitted ? (
                     <div style={{ color: '#92400e', fontSize: 12, marginBottom: 8 }}>
                       This legacy document is not in the private review vault. Ask the owner to resubmit it securely before review.
                     </div>
-                  ) : null}
+                  ) : (
+                    <div style={{ color: '#9ca3af', fontSize: 12, marginBottom: 8, fontStyle: 'italic' }}>
+                      No document uploaded
+                    </div>
+                  )}
+
                   {data.canReviewAgencyDocuments && document.viewUrl ? (
-                    <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <button
                         type="button"
                         className="btn btn-primary btn-sm"
-                        disabled={actionLoading}
+                        disabled={actionLoading || document.status === 'approved'}
                         onClick={() => setDocumentModal({ open: true, docType: type, action: 'approve', reason: '' })}
                       >
-                        Approve document
+                        Approve Document
                       </button>
                       <button
                         type="button"
                         className="btn btn-sm"
-                        disabled={actionLoading}
+                        disabled={actionLoading || document.status === 'rejected'}
                         onClick={() => setDocumentModal({ open: true, docType: type, action: 'reject', reason: '' })}
                         style={{ background: '#fee2e2', color: '#991b1b' }}
                       >
-                        Reject with reason
+                        Reject with Reason
                       </button>
                     </div>
                   ) : null}
                 </div>
-              );
-            })}
-          </div>
-        </section>
-      </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
 
       {agency.approvalStatus === 'approved' && docs.ownerAadhaar?.status !== 'approved' ? (
         <section className="card" role="status" style={{ borderColor: '#fcd34d', background: '#fffbeb', color: '#92400e' }}>
@@ -516,23 +648,39 @@ export default function AgencyDetails() {
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
           background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
         }}>
-          <div className="card" role="dialog" aria-modal="true" aria-labelledby="agency-document-review-title" style={{ width: '100%', maxWidth: 440 }}>
-            <h3 id="agency-document-review-title">{documentModal.action === 'approve' ? 'Approve agency document' : 'Reject agency document'}</h3>
+          <div className="card" role="dialog" aria-modal="true" aria-labelledby="agency-document-review-title" style={{ width: '100%', maxWidth: 460 }}>
+            <h3 id="agency-document-review-title" style={{ marginTop: 0 }}>
+              {documentModal.action === 'approve' ? 'Approve Agency Document' : 'Reject Agency Document'}
+            </h3>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 12 }}>
+              Document: <strong>{allAgencyDocuments.find((d) => d.type === documentModal.docType)?.label || documentModal.docType}</strong>
+            </p>
             {documentModal.action === 'reject' ? (
               <>
-                <label htmlFor="agency-document-rejection-reason">Reason (required)</label>
+                <label htmlFor="agency-document-rejection-reason" style={{ fontWeight: 600, fontSize: 13 }}>
+                  Reason for rejection (required, 1-500 characters):
+                </label>
                 <textarea
                   id="agency-document-rejection-reason"
                   maxLength={500}
                   required
+                  placeholder="e.g. Incomplete certificate or mismatched business address."
                   value={documentModal.reason}
                   onChange={(event) => setDocumentModal({ ...documentModal, reason: event.target.value })}
-                  style={{ width: '100%', minHeight: 90, marginTop: 8 }}
+                  style={{ width: '100%', minHeight: 90, marginTop: 8, padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
                 />
               </>
-            ) : <p>This records the document review decision only; agency approval status is unchanged.</p>}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-              <button type="button" className="btn" onClick={() => setDocumentModal({ open: false, docType: '', action: '', reason: '' })}>
+            ) : (
+              <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                This marks the document as verified and approved by Super Admin. The agency account approval status is unchanged.
+              </p>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setDocumentModal({ open: false, docType: '', action: '', reason: '' })}
+              >
                 Cancel
               </button>
               <button
@@ -540,9 +688,9 @@ export default function AgencyDetails() {
                 className="btn"
                 disabled={actionLoading || (documentModal.action === 'reject' && !documentModal.reason.trim())}
                 onClick={handleAgencyDocumentReview}
-                style={documentModal.action === 'reject' ? { background: '#991b1b', color: '#fff' } : undefined}
+                style={documentModal.action === 'reject' ? { background: '#991b1b', color: '#fff' } : { background: 'var(--primary)', color: '#fff' }}
               >
-                {actionLoading ? 'Saving…' : `Confirm ${documentModal.action}`}
+                {actionLoading ? 'Saving…' : `Confirm ${documentModal.action === 'approve' ? 'Approval' : 'Rejection'}`}
               </button>
             </div>
           </div>

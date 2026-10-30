@@ -124,17 +124,20 @@ export default function ApiListPage({ title, endpoint, collection, columns, rowK
                             Details
                           </button>
                         )}
-                        {(actions || []).map((action) => (
-                          <button
-                            key={action.label}
-                            type="button"
-                            className="btn"
-                            disabled={loading || action.disabled?.(item)}
-                            onClick={() => runAction(action, item)}
-                          >
-                            {action.label}
-                          </button>
-                        ))}
+                        {(actions || []).map((action, actionIdx) => {
+                          const actionLabel = typeof action.label === 'function' ? action.label(item) : action.label;
+                          return (
+                            <button
+                              key={actionLabel || actionIdx}
+                              type="button"
+                              className="btn"
+                              disabled={loading || action.disabled?.(item)}
+                              onClick={() => runAction(action, item)}
+                            >
+                              {actionLabel}
+                            </button>
+                          );
+                        })}
                       </div>
                     </td>
                   )}

@@ -14,7 +14,7 @@ import {
   uploadVehicleDocument
 } from "../src/controllers/documentController.js";
 import { reviewAdminDriverDocument } from "../src/controllers/adminDriverController.js";
-import { reviewAdminAgencyDocument } from "../src/controllers/adminAgencyController.js";
+import { reviewAdminAgencyDocument, sanitizeAgencyForList } from "../src/controllers/adminAgencyController.js";
 import { assignVehicleDriver } from "../src/controllers/agencyController.js";
 import { handleUploadSingle } from "../src/middleware/uploadMiddleware.js";
 
@@ -246,6 +246,98 @@ test("agency document approval requires a securely stored document", async (t) =
     user: { _id: new mongoose.Types.ObjectId() }
   }, res);
   assert.equal(res.statusCode, 409);
+});
+
+test("agency document review supports tradeLicense and gstCertificate", async (t) => {
+  const agencyId = new mongoose.Types.ObjectId();
+  const reviewerId = new mongoose.Types.ObjectId();
+  const agency = {
+    _id: agencyId,
+    approvalStatus: "pending",
+    reviewHistory: [],
+    documents: {
+      tradeLicense: {
+        url: privateAsset.secure_url,
+        publicId: privateAsset.public_id,
+        status: "pending"
+      },
+      gstCertificate: {
+        url: privateAsset.secure_url,
+        publicId: privateAsset.public_id,
+        status: "pending"
+      }
+    },
+    markModified() {},
+    async save() { return this; }
+  };
+  t.mock.method(Agency, "findById", async () => agency);
+
+  // Approve tradeLicense
+  const res1 = response();
+  await reviewAdminAgencyDocument({
+    params: { id: agencyId.toString(), docType: "tradeLicense", action: "approve" },
+    body: {},
+    user: { _id: reviewerId }
+  }, res1);
+  assert.equal(res1.statusCode, 200);
+  assert.equal(agency.documents.tradeLicense.status, "approved");
+
+  // Reject gstCertificate with reason
+  const res2 = response();
+  await reviewAdminAgencyDocument({
+    params: { id: agencyId.toString(), docType: "gstCertificate", action: "reject" },
+    body: { reason: "GSTIN number mismatch" },
+    user: { _id: reviewerId }
+  }, res2);
+  assert.equal(res2.statusCode, 200);
+  assert.equal(agency.documents.gstCertificate.status, "rejected");
+  assert.equal(agency.documents.gstCertificate.rejectionReason, "GSTIN number mismatch");
+});
+
+test("sanitizeAgencyForList creates safe document summary without leaking private URLs or IDs", () => {
+  const rawAgency = {
+    _id: new mongoose.Types.ObjectId(),
+    agencyName: "Express Logistics",
+    documents: {
+      ownerAadhaar: {
+        url: "https://private.cloudinary.com/secret/aadhaar.pdf",
+        publicId: "loadbalbin_kyc/secret_aadhaar",
+        maskedNumber: "XXXX-XXXX-1234",
+        status: "pending",
+        submittedAt: new Date("2026-01-01")
+      },
+      businessRegistration: {
+        url: "https://private.cloudinary.com/secret/reg.pdf",
+        publicId: "loadbalbin_kyc/secret_reg",
+        status: "approved",
+        submittedAt: new Date("2026-01-02")
+      }
+    }
+  };
+
+  const sanitized = sanitizeAgencyForList(rawAgency);
+
+  assert.equal(sanitized.submittedDocumentCount, 2);
+  assert.equal(sanitized.submittedDocumentsSummary.length, 5);
+
+  const aadhaarSummary = sanitized.submittedDocumentsSummary.find((d) => d.key === "ownerAadhaar");
+  assert.equal(aadhaarSummary.status, "pending");
+  assert.equal(aadhaarSummary.isSubmitted, true);
+
+  const regSummary = sanitized.submittedDocumentsSummary.find((d) => d.key === "businessRegistration");
+  assert.equal(regSummary.status, "approved");
+  assert.equal(regSummary.isSubmitted, true);
+
+  const tradeSummary = sanitized.submittedDocumentsSummary.find((d) => d.key === "tradeLicense");
+  assert.equal(tradeSummary.status, "missing");
+  assert.equal(tradeSummary.isSubmitted, false);
+
+  // Crucial security verification: ensure no private URLs or publicIds leaked
+  assert.equal(sanitized.documents.ownerAadhaar.url, undefined);
+  assert.equal(sanitized.documents.ownerAadhaar.publicId, undefined);
+  assert.equal(sanitized.documents.ownerAadhaar.maskedNumber, undefined);
+  assert.equal(JSON.stringify(sanitized).includes("https://private.cloudinary.com"), false);
+  assert.equal(JSON.stringify(sanitized).includes("loadbalbin_kyc/secret"), false);
 });
 
 test("driver upload stores private document metadata as pending", async (t) => {

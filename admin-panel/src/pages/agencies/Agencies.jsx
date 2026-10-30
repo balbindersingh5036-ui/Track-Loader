@@ -54,6 +54,82 @@ export default function Agencies() {
     );
   };
 
+  const getDocumentStatusBadge = (status) => {
+    const map = {
+      approved: { bg: '#dcfce7', color: '#166534', label: 'Approved' },
+      pending: { bg: '#fef9c3', color: '#854d0e', label: 'Pending' },
+      rejected: { bg: '#fee2e2', color: '#991b1b', label: 'Rejected' },
+      missing: { bg: '#f3f4f6', color: '#6b7280', label: 'Missing' },
+      not_uploaded: { bg: '#f3f4f6', color: '#6b7280', label: 'Missing' }
+    };
+    const s = map[status] || { bg: '#f3f4f6', color: '#6b7280', label: 'Missing' };
+    return (
+      <span style={{
+        background: s.bg,
+        color: s.color,
+        padding: '2px 6px',
+        borderRadius: '10px',
+        fontSize: '11px',
+        fontWeight: '600',
+        textTransform: 'capitalize',
+        whiteSpace: 'nowrap'
+      }}>
+        {s.label}
+      </span>
+    );
+  };
+
+  const renderSubmittedDocuments = (item) => {
+    const summary = item.submittedDocumentsSummary || [];
+    let docList = summary;
+    if (!docList.length && item.documents) {
+      const standard = [
+        { key: 'ownerAadhaar', label: 'Owner Aadhaar' },
+        { key: 'businessRegistration', label: 'Business Registration' },
+        { key: 'tradeLicense', label: 'Trade Licence' },
+        { key: 'gstCertificate', label: 'GST Certificate' },
+        { key: 'taxId', label: 'Tax ID' }
+      ];
+      docList = standard.map(({ key, label }) => {
+        const doc = item.documents[key];
+        const isSubmitted = Boolean(doc && doc.status !== 'not_uploaded' && doc.status !== 'missing');
+        return {
+          key,
+          label,
+          isSubmitted,
+          status: isSubmitted ? (doc?.status || 'pending') : 'missing'
+        };
+      });
+    }
+
+    const totalSubmitted = item.submittedDocumentCount ?? docList.filter((d) => d.isSubmitted).length;
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '11px', minWidth: '175px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontWeight: '700', color: '#1f2937', marginBottom: '2px' }}>
+          <span>Total: {totalSubmitted} Submitted</span>
+        </div>
+        {docList.map((doc) => (
+          <div key={doc.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <span style={{ color: doc.isSubmitted ? '#111827' : '#9ca3af' }}>{doc.label}:</span>
+            {getDocumentStatusBadge(doc.status)}
+          </div>
+        ))}
+        <button
+          type="button"
+          className="btn btn-sm"
+          style={{ marginTop: '4px', fontSize: '11px', padding: '2px 6px', alignSelf: 'flex-start', color: 'var(--primary)' }}
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/agencies/${item._id}#documents`);
+          }}
+        >
+          View Documents &rarr;
+        </button>
+      </div>
+    );
+  };
+
   return (
     <>
       <ApiListPage
@@ -72,9 +148,14 @@ export default function Agencies() {
           { label: 'Phone', path: 'phone' },
           { label: 'City', path: 'city' },
           { label: 'Verification', render: (item) => getStatusBadge(item.approvalStatus) },
-          { label: 'Active', render: (item) => item.isActive ? 'Active' : 'Inactive' }
+          { label: 'Active', render: (item) => item.isActive ? 'Active' : 'Inactive' },
+          { label: 'Submitted Documents', render: renderSubmittedDocuments }
         ]}
         actions={[
+          {
+            label: 'View Documents',
+            run: (item) => navigate(`/agencies/${item._id}#documents`)
+          },
           {
             label: 'Approve',
             disabled: (item) => item.approvalStatus === 'approved',

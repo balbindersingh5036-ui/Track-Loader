@@ -12,6 +12,79 @@ import {
   isSuperAdminConfigured
 } from "../utils/superAdmin.js";
 
+export const SUPPORTED_AGENCY_DOCUMENTS = [
+  { key: "ownerAadhaar", label: "Owner Aadhaar", mandatory: true },
+  { key: "businessRegistration", label: "Business Registration", mandatory: false },
+  { key: "tradeLicense", label: "Trade Licence", mandatory: false },
+  { key: "gstCertificate", label: "GST Certificate", mandatory: false },
+  { key: "taxId", label: "Tax ID / PAN", mandatory: false }
+];
+
+export const sanitizeAgencyForList = (agency) => {
+  const docs = agency.documents || {};
+  let submittedCount = 0;
+  const docsSummary = [];
+  const sanitizedDocs = {};
+
+  const knownKeys = new Set(SUPPORTED_AGENCY_DOCUMENTS.map((d) => d.key));
+
+  for (const { key, label, mandatory } of SUPPORTED_AGENCY_DOCUMENTS) {
+    const doc = docs[key];
+    const isSubmitted = Boolean(doc && (doc.publicId || doc.url || (doc.status && doc.status !== "not_uploaded" && doc.status !== "missing")));
+    const status = isSubmitted ? (doc?.status || "pending") : "missing";
+    if (isSubmitted) {
+      submittedCount++;
+    }
+    docsSummary.push({
+      key,
+      label,
+      mandatory,
+      isSubmitted,
+      status,
+      submittedAt: doc?.submittedAt || null
+    });
+    sanitizedDocs[key] = {
+      isSubmitted,
+      status,
+      submittedAt: doc?.submittedAt || null,
+      reviewedAt: doc?.reviewedAt || null
+    };
+  }
+
+  // Dynamic extra documents in documents object if any
+  for (const [key, doc] of Object.entries(docs)) {
+    if (knownKeys.has(key)) continue;
+    if (doc && typeof doc === "object") {
+      const isSubmitted = Boolean(doc.publicId || doc.url || (doc.status && doc.status !== "not_uploaded" && doc.status !== "missing"));
+      if (isSubmitted) {
+        submittedCount++;
+        const dynamicLabel = key.replace(/([A-Z])/g, " $1").replace(/^./, (str) => str.toUpperCase());
+        docsSummary.push({
+          key,
+          label: dynamicLabel,
+          mandatory: false,
+          isSubmitted: true,
+          status: doc.status || "pending",
+          submittedAt: doc.submittedAt || null
+        });
+        sanitizedDocs[key] = {
+          isSubmitted: true,
+          status: doc.status || "pending",
+          submittedAt: doc.submittedAt || null,
+          reviewedAt: doc.reviewedAt || null
+        };
+      }
+    }
+  }
+
+  return {
+    ...agency,
+    documents: sanitizedDocs,
+    submittedDocumentsSummary: docsSummary,
+    submittedDocumentCount: submittedCount
+  };
+};
+
 export const getAdminAgencies = async (req, res) => {
   try {
     let pagination;
@@ -39,7 +112,6 @@ export const getAdminAgencies = async (req, res) => {
 
     const [agencies, total] = await Promise.all([
       Agency.find(query)
-        .select("-documents")
         .populate("owner", "name phone email profileImage")
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -48,10 +120,12 @@ export const getAdminAgencies = async (req, res) => {
       Agency.countDocuments(query)
     ]);
 
+    const sanitizedAgencies = agencies.map((agency) => sanitizeAgencyForList(agency));
+
     return successResponse(
       res,
       {
-        agencies,
+        agencies: sanitizedAgencies,
         pagination: {
           page,
           limit,
@@ -81,6 +155,13 @@ export const getAdminAgencyById = async (req, res) => {
       .populate("documents.ownerAadhaar.reviewedBy", "name role")
       .populate("documents.businessRegistration.reviewedBy", "name role")
       .populate("documents.taxId.reviewedBy", "name role")
+      .populate("documents.tradeLicense.reviewedBy", "name role")
+      .populate("documents.gstCertificate.reviewedBy", "name role")
+      .populate("documents.ownerAadhaar.uploadedBy", "name role")
+      .populate("documents.businessRegistration.uploadedBy", "name role")
+      .populate("documents.taxId.uploadedBy", "name role")
+      .populate("documents.tradeLicense.uploadedBy", "name role")
+      .populate("documents.gstCertificate.uploadedBy", "name role")
       .populate("reviewHistory.reviewedBy", "name role");
     if (!agency) {
       return errorResponse(res, "Agency not found", 404);
@@ -118,8 +199,11 @@ export const getAdminAgencyById = async (req, res) => {
           ? generateSignedDocumentUrl(publicId, format, 300, doc.resourceType || "image")
           : null;
         doc.status = hasDocument ? doc.status || "pending" : "not_uploaded";
-        doc.uploadedBy = doc.uploadedBy?.name || null;
-        doc.reviewedBy = doc.reviewedBy?.name || null;
+        const reviewerName = doc.reviewedBy?.name || (typeof doc.reviewedBy === "string" ? doc.reviewedBy : null);
+        const uploaderName = doc.uploadedBy?.name || (typeof doc.uploadedBy === "string" ? doc.uploadedBy : null);
+        doc.uploadedBy = uploaderName;
+        doc.reviewedBy = reviewerName;
+        doc.reviewerName = reviewerName;
         delete doc.url;
         delete doc.publicId;
       }
@@ -267,7 +351,7 @@ export const reviewAdminAgencyDocument = async (req, res) => {
   try {
     const { id, docType, action } = req.params;
     if (!mongoose.isValidObjectId(id)) return errorResponse(res, "Invalid agency ID", 400);
-    if (!["ownerAadhaar", "businessRegistration", "taxId"].includes(docType)) {
+    if (!["ownerAadhaar", "businessRegistration", "taxId", "tradeLicense", "gstCertificate"].includes(docType)) {
       return errorResponse(res, "Invalid agency document type", 400);
     }
     if (!["approve", "reject"].includes(action)) {

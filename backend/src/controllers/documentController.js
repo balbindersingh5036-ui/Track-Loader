@@ -6,8 +6,8 @@ import cloudinary from "../config/cloudinary.js";
 import { env } from "../config/env.js";
 import { errorResponse, successResponse } from "../utils/response.js";
 
-const driverDocumentTypes = new Set(["idProof", "drivingLicense"]);
-const agencyDocumentTypes = new Set(["ownerAadhaar", "businessRegistration", "taxId"]);
+const driverDocumentTypes = new Set(["idProof", "drivingLicense", "vehicleRegistration", "insurance"]);
+const agencyDocumentTypes = new Set(["ownerAadhaar", "businessRegistration", "taxId", "tradeLicense", "gstCertificate"]);
 const vehicleDocumentFields = {
   registration: "registration",
   insurance: "insurance"

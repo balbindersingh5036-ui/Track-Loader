@@ -132,6 +132,64 @@ const agencySchema = new mongoose.Schema(
         reviewedAt: { type: Date, default: null },
         reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
         rejectionReason: { type: String, default: "", trim: true }
+      },
+
+      tradeLicense: {
+        url: {
+          type: String,
+          default: ""
+        },
+        publicId: {
+          type: String,
+          default: ""
+        },
+        resourceType: {
+          type: String,
+          default: "image"
+        },
+        format: {
+          type: String,
+          default: ""
+        },
+        status: {
+          type: String,
+          enum: ["pending", "approved", "rejected"],
+          default: "pending"
+        },
+        submittedAt: { type: Date, default: null },
+        uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+        reviewedAt: { type: Date, default: null },
+        reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+        rejectionReason: { type: String, default: "", trim: true }
+      },
+
+      gstCertificate: {
+        url: {
+          type: String,
+          default: ""
+        },
+        publicId: {
+          type: String,
+          default: ""
+        },
+        resourceType: {
+          type: String,
+          default: "image"
+        },
+        format: {
+          type: String,
+          default: ""
+        },
+        status: {
+          type: String,
+          enum: ["pending", "approved", "rejected"],
+          default: "pending"
+        },
+        submittedAt: { type: Date, default: null },
+        uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+        reviewedAt: { type: Date, default: null },
+        reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+        rejectionReason: { type: String, default: "", trim: true }
       }
     },
 
@@ -166,7 +224,7 @@ const agencySchema = new mongoose.Schema(
       },
       documentType: {
         type: String,
-        enum: ["ownerAadhaar", "businessRegistration", "taxId"],
+        enum: ["ownerAadhaar", "businessRegistration", "taxId", "tradeLicense", "gstCertificate"],
         default: null
       },
       reason: { type: String, default: "", trim: true },
