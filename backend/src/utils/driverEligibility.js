@@ -29,6 +29,100 @@ export const isDriverVehicleEligibleForBookings = (driver, vehicle) =>
   isDriverEligibleForAssignment(driver) &&
   isVehicleEligibleForBookings(vehicle);
 
+export const checkDriverAssignableToVehicle = (driver, vehicle, agency = null) => {
+  if (!driver) {
+    return { eligible: false, message: "Driver not found" };
+  }
+  if (!driver.isActive || driver.approvalStatus !== "approved") {
+    return {
+      eligible: false,
+      message: "Driver must be active and approved by Super Admin before assignment"
+    };
+  }
+  if (!hasApprovedDriverIdentityDocuments(driver)) {
+    return {
+      eligible: false,
+      message: "Driver Aadhaar and Driving Licence must both be approved by Super Admin before assignment"
+    };
+  }
+  if (driver.agency) {
+    if (agency && String(driver.agency?._id || driver.agency) !== String(agency?._id || agency)) {
+      return {
+        eligible: false,
+        message: "Driver belongs to another agency"
+      };
+    }
+    if (driver.agencyAssociation?.status !== "approved") {
+      return {
+        eligible: false,
+        message: "Driver agency association must be accepted before assignment"
+      };
+    }
+  }
+
+  if (!vehicle) {
+    return { eligible: false, message: "Vehicle not found" };
+  }
+  if (!vehicle.isActive) {
+    return {
+      eligible: false,
+      message: "Vehicle must be active before assigning a driver"
+    };
+  }
+  if (agency && vehicle.agency && String(vehicle.agency?._id || vehicle.agency) !== String(agency?._id || agency)) {
+    return {
+      eligible: false,
+      message: "Vehicle belongs to another agency"
+    };
+  }
+  if (driver.agency && vehicle.agency && String(driver.agency?._id || driver.agency) !== String(vehicle.agency?._id || vehicle.agency)) {
+    return {
+      eligible: false,
+      message: "Driver and vehicle must belong to the same agency"
+    };
+  }
+  if (!hasApprovedVehicleDocuments(vehicle)) {
+    return {
+      eligible: false,
+      message: "Vehicle registration and insurance must both be approved before assigning a driver"
+    };
+  }
+
+  return { eligible: true };
+};
+
+export const isDriverAssignableToVehicle = (driver, vehicle, agency = null) =>
+  checkDriverAssignableToVehicle(driver, vehicle, agency).eligible;
+
+export const checkDriverEligibleForDispatch = (driver, vehicle, agency = null) => {
+  const assignCheck = checkDriverAssignableToVehicle(driver, vehicle, agency);
+  if (!assignCheck.eligible) {
+    return assignCheck;
+  }
+  if (!vehicle.isAvailable) {
+    return {
+      eligible: false,
+      message: "Vehicle is currently on a trip or unavailable"
+    };
+  }
+  if (!vehicle.driver || String(vehicle.driver?._id || vehicle.driver) !== String(driver._id)) {
+    return {
+      eligible: false,
+      message: "An approved and available vehicle must be assigned to the driver before dispatch"
+    };
+  }
+  if (agency && (agency.approvalStatus !== "approved" || !agency.isActive)) {
+    return {
+      eligible: false,
+      message: "Agency must be active and approved before dispatch"
+    };
+  }
+  return { eligible: true };
+};
+
+export const isDriverEligibleForDispatch = (driver, vehicle, agency = null) =>
+  checkDriverEligibleForDispatch(driver, vehicle, agency).eligible;
+
 export const checkDriverOnlineEligibility = (driver, vehicles = [], agency = null) => {
   if (!driver) {
     return { eligible: false, message: "Driver profile not found" };

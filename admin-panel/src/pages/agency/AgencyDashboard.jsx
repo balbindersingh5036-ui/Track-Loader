@@ -163,7 +163,14 @@ export default function AgencyDashboard() {
     isActive: true,
     saving: false
   });
-  const [assignModal, setAssignModal] = useState({ open: false, vehicleId: null, driverId: '', assigning: false });
+  const [assignModal, setAssignModal] = useState({
+    open: false,
+    vehicle: null,
+    vehicleId: null,
+    driverId: '',
+    assigning: false,
+    error: ''
+  });
   const [uploadingDoc, setUploadingDoc] = useState('');
 
   // Profile update form state
@@ -324,6 +331,13 @@ export default function AgencyDashboard() {
       const loadedBookings = bRes.data.data.bookings || [];
       setVehicles(loadedVehicles);
       setBookings(loadedBookings);
+      setAssignModal(prev => {
+        if (prev.open && prev.vehicleId) {
+          const fresh = loadedVehicles.find(v => v._id === prev.vehicleId);
+          return fresh ? { ...prev, vehicle: fresh } : prev;
+        }
+        return prev;
+      });
       setBookingCount(bRes.data.data.pagination?.total ?? loadedBookings.length);
       if (statsRes.data?.data?.counts) {
         setStats(statsRes.data.data.counts);
@@ -606,15 +620,35 @@ export default function AgencyDashboard() {
   };
 
   const handleAssignVehicle = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
+    if (!assignModal.vehicleId || !assignModal.driverId) return;
     try {
-      setAssignModal(prev => ({ ...prev, assigning: true }));
+      setAssignModal(prev => ({ ...prev, assigning: true, error: '' }));
       await agencyService.assignVehicleDriver(assignModal.vehicleId, assignModal.driverId);
-      setAssignModal({ open: false, vehicleId: null, driverId: '', assigning: false });
-      await loadData();
+      await loadData(true);
+      setAssignModal({ open: false, vehicle: null, vehicleId: null, driverId: '', assigning: false, error: '' });
     } catch (err) {
-      alert(err.response?.data?.message || err.message || 'Failed to assign driver');
-      setAssignModal(prev => ({ ...prev, assigning: false }));
+      setAssignModal(prev => ({
+        ...prev,
+        assigning: false,
+        error: err.response?.data?.message || err.message || 'Failed to assign driver'
+      }));
+    }
+  };
+
+  const handleUnassignVehicle = async () => {
+    if (!assignModal.vehicleId) return;
+    try {
+      setAssignModal(prev => ({ ...prev, assigning: true, error: '' }));
+      await agencyService.assignVehicleDriver(assignModal.vehicleId, null);
+      await loadData(true);
+      setAssignModal({ open: false, vehicle: null, vehicleId: null, driverId: '', assigning: false, error: '' });
+    } catch (err) {
+      setAssignModal(prev => ({
+        ...prev,
+        assigning: false,
+        error: err.response?.data?.message || err.message || 'Failed to unassign driver'
+      }));
     }
   };
 
@@ -1632,16 +1666,21 @@ export default function AgencyDashboard() {
                           <button
                             type="button"
                             className="btn btn-outline btn-sm"
-                            disabled={v.documents?.registration?.status !== 'approved' || v.documents?.insurance?.status !== 'approved'}
-                            title="Both vehicle documents must be approved before assignment."
-                            onClick={() => setAssignModal({ open: true, vehicleId: v._id, driverId: v.driver?._id || '', assigning: false })}
+                            onClick={() => setAssignModal({
+                              open: true,
+                              vehicle: v,
+                              vehicleId: v._id,
+                              driverId: v.driver?._id || '',
+                              assigning: false,
+                              error: ''
+                            })}
                           >
-                            Assign Driver
+                            {v.driver ? 'Change Driver' : 'Assign Driver'}
                           </button>
                         </div>
                         {(v.documents?.registration?.status !== 'approved' || v.documents?.insurance?.status !== 'approved') ? (
-                          <div style={{ marginTop: 5, fontSize: 10, color: 'var(--text-secondary)' }}>
-                            Assignment unlocks after RC and insurance approval.
+                          <div style={{ marginTop: 5, fontSize: 10, color: '#b45309' }}>
+                            RC or Insurance pending verification.
                           </div>
                         ) : null}
                       </td>
@@ -2423,50 +2462,247 @@ export default function AgencyDashboard() {
         </div>
       )}
 
-      {/* Modal: Reassign Driver */}
-      {assignModal.open && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
-        }}>
-          <div style={{ background: '#fff', padding: 24, borderRadius: 12, width: '100%', maxWidth: 420 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <h3 style={{ margin: 0, fontSize: 17 }}>Assign Driver to Vehicle</h3>
-              <button type="button" onClick={() => setAssignModal({ open: false, vehicleId: null, driverId: '', assigning: false })} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6b7280' }}>&times;</button>
-            </div>
-            <form onSubmit={handleAssignVehicle} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div className="form-group">
-                <label>Select Agency Driver *</label>
-                <select
-                  required
-                  value={assignModal.driverId}
-                  onChange={(e) => setAssignModal({ ...assignModal, driverId: e.target.value })}
-                  style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+      {/* Modal: Assign Driver to Fleet Vehicle */}
+      {assignModal.open && assignModal.vehicle && (() => {
+        const v = assignModal.vehicle;
+        const isRcApproved = v.documents?.registration?.status === 'approved';
+        const isInsApproved = v.documents?.insurance?.status === 'approved';
+        const vehicleDocsReady = isRcApproved && isInsApproved;
+
+        const isDriverAssignable = (d) => {
+          const assocStatus = d.agencyAssociation?.status || (d.agency ? (d.approvalStatus === 'approved' ? 'approved' : 'pending') : 'none');
+          return (
+            d.isActive !== false &&
+            d.approvalStatus === 'approved' &&
+            assocStatus === 'approved' &&
+            d.documents?.idProof?.status === 'approved' &&
+            d.documents?.drivingLicense?.status === 'approved'
+          );
+        };
+
+        const eligibleDrivers = drivers.filter(isDriverAssignable);
+        const currentAssignedDriver = v.driver;
+
+        return (
+          <div className="modal-backdrop" onClick={() => setAssignModal({ open: false, vehicle: null, vehicleId: null, driverId: '', assigning: false, error: '' })}>
+            <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 540 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 17 }}>Assign Driver to Fleet Vehicle</h3>
+                  <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>
+                    <strong>{v.vehicleNumber}</strong> &bull; {v.vehicleModel} ({v.vehicleType})
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-icon"
+                  onClick={() => setAssignModal({ open: false, vehicle: null, vehicleId: null, driverId: '', assigning: false, error: '' })}
                 >
-                  <option value="">Choose driver...</option>
-                  {drivers.map(d => (
-                    <option
-                      key={d._id}
-                      value={d._id}
-                      disabled={d.approvalStatus !== 'approved' || d.documents?.idProof?.status !== 'approved' || d.documents?.drivingLicense?.status !== 'approved'}
-                    >
-                      {d.fullName || d.user?.name} ({d.approvalStatus})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setAssignModal({ open: false, vehicleId: null, driverId: '', assigning: false })}>
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary" disabled={assignModal.assigning}>
-                  {assignModal.assigning ? 'Saving...' : 'Save Assignment'}
+                  <X size={18} />
                 </button>
               </div>
-            </form>
+
+              {assignModal.error && (
+                <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', padding: '10px 14px', borderRadius: 8, fontSize: 13, marginBottom: 14 }}>
+                  {assignModal.error}
+                </div>
+              )}
+
+              {/* Vehicle Compliance Section */}
+              <div style={{ padding: '12px 14px', background: vehicleDocsReady ? '#f0fdf4' : '#fffbeb', border: `1px solid ${vehicleDocsReady ? '#bbf7d0' : '#fde68a'}`, borderRadius: 8, marginBottom: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, fontSize: 13, color: vehicleDocsReady ? '#166534' : '#92400e', marginBottom: 6 }}>
+                  {vehicleDocsReady ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                  Vehicle Verification &amp; Compliance
+                </div>
+                <div style={{ fontSize: 12, color: vehicleDocsReady ? '#166534' : '#78350f', lineHeight: 1.5 }}>
+                  {vehicleDocsReady ? (
+                    'Registration Certificate (RC) and Insurance are verified and approved by Super Admin.'
+                  ) : (
+                    'Upload Required: Both RC and Insurance must be approved by Super Admin before driver assignment can be finalized.'
+                  )}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10, fontSize: 12 }}>
+                  <div style={{ background: '#fff', padding: 8, borderRadius: 6, border: '1px solid var(--border)' }}>
+                    <div style={{ fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Registration (RC):</span>
+                      <span className={`badge ${isRcApproved ? 'success' : 'warning'}`} style={{ fontSize: 10 }}>
+                        {v.documents?.registration?.status?.replace('_', ' ') || 'missing'}
+                      </span>
+                    </div>
+                    {!isRcApproved && (
+                      <div style={{ marginTop: 6 }}>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,application/pdf"
+                          disabled={uploadingDoc === `vehicle-${v._id}-registration`}
+                          onChange={(e) => handleVehicleDocumentUpload(e, v._id, 'registration')}
+                          style={{ fontSize: 11, width: '100%' }}
+                        />
+                        {uploadingDoc === `vehicle-${v._id}-registration` && <div style={{ fontSize: 10, color: 'var(--primary)', marginTop: 2 }}>Uploading...</div>}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ background: '#fff', padding: 8, borderRadius: 6, border: '1px solid var(--border)' }}>
+                    <div style={{ fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Insurance:</span>
+                      <span className={`badge ${isInsApproved ? 'success' : 'warning'}`} style={{ fontSize: 10 }}>
+                        {v.documents?.insurance?.status?.replace('_', ' ') || 'missing'}
+                      </span>
+                    </div>
+                    {!isInsApproved && (
+                      <div style={{ marginTop: 6 }}>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,application/pdf"
+                          disabled={uploadingDoc === `vehicle-${v._id}-insurance`}
+                          onChange={(e) => handleVehicleDocumentUpload(e, v._id, 'insurance')}
+                          style={{ fontSize: 11, width: '100%' }}
+                        />
+                        {uploadingDoc === `vehicle-${v._id}-insurance` && <div style={{ fontSize: 10, color: 'var(--primary)', marginTop: 2 }}>Uploading...</div>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Current Assigned Driver Information */}
+              {currentAssignedDriver && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 14px', marginBottom: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Currently Assigned Driver:</div>
+                    <div style={{ fontWeight: 600, fontSize: 13 }}>{currentAssignedDriver.fullName || 'Driver'}</div>
+                    {currentAssignedDriver.phone && <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{currentAssignedDriver.phone}</div>}
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    style={{ borderColor: '#ef4444', color: '#ef4444', fontSize: 12, padding: '4px 10px' }}
+                    disabled={assignModal.assigning}
+                    onClick={handleUnassignVehicle}
+                  >
+                    Unassign Driver
+                  </button>
+                </div>
+              )}
+
+              {/* Driver Selection Section */}
+              <form onSubmit={handleAssignVehicle}>
+                <div className="form-group" style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                    Select Eligible Driver from Your Agency *
+                  </label>
+
+                  {eligibleDrivers.length === 0 ? (
+                    <div style={{ padding: 14, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 13, color: '#991b1b', lineHeight: 1.5 }}>
+                      <div style={{ fontWeight: 600, marginBottom: 4 }}>No Eligible Drivers Available</div>
+                      <div>None of your agency drivers currently meet all assignment requirements:</div>
+                      <ul style={{ margin: '6px 0 10px 0', paddingLeft: 20, fontSize: 12 }}>
+                        <li>Agency Joining: <strong>Accepted</strong> by you (Agency Admin)</li>
+                        <li>KYC Documents: <strong>Aadhaar &amp; Driving Licence</strong> approved by Super Admin</li>
+                        <li>Account Status: <strong>Approved &amp; Active</strong> by Super Admin</li>
+                      </ul>
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        style={{ fontSize: 12 }}
+                        onClick={() => {
+                          setAssignModal({ open: false, vehicle: null, vehicleId: null, driverId: '', assigning: false, error: '' });
+                          setActiveTab('drivers');
+                        }}
+                      >
+                        Go to Drivers Tab to Review &rarr;
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 220, overflowY: 'auto' }}>
+                      {eligibleDrivers.map((d) => {
+                        const conflictingVeh = vehicles.find(veh => String(veh._id) !== String(v._id) && String(veh.driver?._id || veh.driver) === String(d._id));
+                        const isCurrentlyAssignedToThis = String(v.driver?._id || v.driver) === String(d._id);
+                        const isSelected = assignModal.driverId === d._id;
+
+                        return (
+                          <div
+                            key={d._id}
+                            onClick={() => {
+                              if (!conflictingVeh && !isCurrentlyAssignedToThis) {
+                                setAssignModal(prev => ({ ...prev, driverId: d._id, error: '' }));
+                              }
+                            }}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '10px 12px',
+                              borderRadius: 8,
+                              border: `2px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`,
+                              background: isSelected ? 'rgba(22, 119, 255, 0.04)' : conflictingVeh || isCurrentlyAssignedToThis ? '#f9fafb' : '#fff',
+                              cursor: conflictingVeh || isCurrentlyAssignedToThis ? 'not-allowed' : 'pointer',
+                              opacity: conflictingVeh ? 0.65 : 1
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <input
+                                type="radio"
+                                name="assignedDriver"
+                                checked={isSelected}
+                                disabled={Boolean(conflictingVeh) || isCurrentlyAssignedToThis}
+                                onChange={() => setAssignModal(prev => ({ ...prev, driverId: d._id, error: '' }))}
+                              />
+                              <div>
+                                <div style={{ fontWeight: 600, fontSize: 13 }}>{d.fullName || d.user?.name}</div>
+                                <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                                  {d.phone || d.user?.phone} &bull; KYC Verified
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              {isCurrentlyAssignedToThis && (
+                                <span className="badge success" style={{ fontSize: 10 }}>Currently Assigned</span>
+                              )}
+                              {conflictingVeh && (
+                                <span className="badge warning" style={{ fontSize: 10 }} title={`Assigned to ${conflictingVeh.vehicleNumber}`}>
+                                  Assigned to {conflictingVeh.vehicleNumber}
+                                </span>
+                              )}
+                              {!isCurrentlyAssignedToThis && !conflictingVeh && (
+                                <span className="badge success" style={{ fontSize: 10 }}>Eligible</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-sm"
+                    disabled={assignModal.assigning}
+                    onClick={() => setAssignModal({ open: false, vehicle: null, vehicleId: null, driverId: '', assigning: false, error: '' })}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary btn-sm"
+                    disabled={
+                      !vehicleDocsReady ||
+                      !assignModal.driverId ||
+                      assignModal.assigning ||
+                      eligibleDrivers.length === 0 ||
+                      assignModal.driverId === (v.driver?._id || v.driver)
+                    }
+                  >
+                    {assignModal.assigning ? 'Assigning...' : 'Confirm Assignment'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Driver Joining Request Approve Modal */}
       {approveModal.open && (

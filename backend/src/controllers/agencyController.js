@@ -9,7 +9,10 @@ import { parsePagination } from "../utils/pagination.js";
 import { hashPassword } from "../utils/password.js";
 import {
   isDriverEligibleForAssignment,
-  isVehicleEligibleForBookings
+  isVehicleEligibleForBookings,
+  checkDriverAssignableToVehicle,
+  isDriverAssignableToVehicle,
+  isDriverEligibleForDispatch
 } from "../utils/driverEligibility.js";
 import { sanitizeVehicleDocumentResponse } from "../utils/vehicleDocumentResponse.js";
 import { sanitizeDriverDocumentResponse } from "../utils/driverDocumentResponse.js";
@@ -450,47 +453,100 @@ export const assignVehicleDriver = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { driverId } = req.body;
+    const { driverId, unassign } = req.body || {};
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return errorResponse(res, "Invalid vehicle ID", 400);
     }
+
+    const vehicle = await Vehicle.findOne({ _id: id });
+    if (!vehicle) {
+      return errorResponse(res, "Vehicle not found", 404);
+    }
+    if (!vehicle.agency || String(vehicle.agency._id || vehicle.agency) !== String(agency._id)) {
+      return errorResponse(res, "You are not authorized to assign drivers to vehicles of another agency", 403);
+    }
+
+    // Support unassigning driver
+    if (unassign || driverId === null || driverId === "") {
+      vehicle.driver = null;
+      await vehicle.save();
+      let populated = vehicle;
+      if (typeof vehicle.populate === "function") {
+        try {
+          await vehicle.populate("driver", "fullName phone rating approvalStatus isActive documents.idProof.status documents.drivingLicense.status");
+          populated = vehicle;
+        } catch (_) {
+          populated = vehicle;
+        }
+      }
+
+      return successResponse(
+        res,
+        { vehicle: sanitizeVehicleDocumentResponse(toPlainObject(populated || vehicle)) },
+        "Driver unassigned from vehicle successfully"
+      );
+    }
+
     if (!driverId || !mongoose.Types.ObjectId.isValid(driverId)) {
       return errorResponse(res, "Valid driver ID is required", 400);
     }
 
-    const vehicle = await Vehicle.findOne({ _id: id, agency: agency._id });
-    if (!vehicle) {
-      return errorResponse(res, "Vehicle not found in your agency", 404);
+    const driver = await Driver.findOne({ _id: driverId });
+    if (!driver) {
+      return errorResponse(res, "Driver not found", 404);
+    }
+    if (!driver.agency || String(driver.agency._id || driver.agency) !== String(agency._id)) {
+      return errorResponse(res, "You are not authorized to assign drivers belonging to another agency", 403);
     }
 
-    const driver = await Driver.findOne({ _id: driverId, agency: agency._id });
-    if (!driver) {
-      return errorResponse(res, "Driver not found in your agency", 404);
+    // Resolve association status reliably (handles legacy records)
+    driver.agencyAssociation = resolveAgencyAssociation(driver);
+
+    // Validate assignment conditions
+    const assignCheck = checkDriverAssignableToVehicle(driver, vehicle, agency);
+    if (!assignCheck.eligible) {
+      return errorResponse(res, assignCheck.message, 403);
     }
-    if (!isDriverEligibleForAssignment(driver)) {
+
+    // Prevent duplicate assignment to this exact vehicle
+    if (vehicle.driver && String(vehicle.driver._id || vehicle.driver) === String(driver._id)) {
+      return errorResponse(res, "Driver is already assigned to this vehicle", 400);
+    }
+
+    // Prevent one driver from being assigned to conflicting vehicles
+    const conflictingVehicle = await Vehicle.findOne({
+      agency: agency._id,
+      driver: driver._id,
+      _id: { $ne: vehicle._id }
+    });
+    if (conflictingVehicle && String(conflictingVehicle._id) !== String(vehicle._id)) {
       return errorResponse(
         res,
-        "Driver must be active, approved, and have approved identity documents before assignment",
-        403
-      );
-    }
-    if (!isVehicleEligibleForBookings(vehicle)) {
-      return errorResponse(
-        res,
-        "Vehicle registration and insurance must both be approved before assigning a driver",
-        403
+        `Driver is already assigned to vehicle ${conflictingVehicle.vehicleNumber || 'another vehicle'}. Unassign that vehicle first.`,
+        409
       );
     }
 
     vehicle.driver = driver._id;
     await vehicle.save();
 
+    let populated = vehicle;
+    if (typeof vehicle.populate === "function") {
+      try {
+        await vehicle.populate("driver", "fullName phone rating approvalStatus isActive documents.idProof.status documents.drivingLicense.status");
+        populated = vehicle;
+      } catch (_) {
+        populated = vehicle;
+      }
+    }
+
     return successResponse(
       res,
-      { vehicle: sanitizeVehicleDocumentResponse(toPlainObject(vehicle)) },
+      { vehicle: sanitizeVehicleDocumentResponse(toPlainObject(populated || vehicle)) },
       "Vehicle assigned to driver successfully"
     );
   } catch (error) {
+    console.error("Assign vehicle driver error:", error);
     return errorResponse(res, "Failed to assign vehicle", 500);
   }
 };
