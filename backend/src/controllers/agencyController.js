@@ -231,9 +231,17 @@ export const createAgencyDriver = async (req, res) => {
       role: "driver"
     });
 
+    const now = new Date();
     const driver = await Driver.create({
       user: createdUser._id,
       agency: agency._id,
+      agencyAssociation: {
+        status: "approved",
+        rejectionReason: "",
+        decidedAt: now,
+        decisionAt: now,
+        reviewedBy: req.user._id
+      },
       fullName: fullName.trim(),
       phone: phone.trim(),
       email: email ? email.trim().toLowerCase() : "",
@@ -496,5 +504,208 @@ export const getAgencyBookings = async (req, res) => {
     );
   } catch (error) {
     return errorResponse(res, "Failed to fetch agency bookings", 500);
+  }
+};
+
+export const getAgencyJoiningRequests = async (req, res) => {
+  try {
+    const agency = await getAgencyForUser(req.user._id);
+    if (!agency) {
+      return errorResponse(res, "Agency not found", 404);
+    }
+
+    const { status } = req.query;
+    const query = { agency: agency._id };
+    if (status) {
+      query["agencyAssociation.status"] = status;
+    } else {
+      query["agencyAssociation.status"] = { $in: ["pending", "rejected", "approved"] };
+    }
+
+    const drivers = await Driver.find(query)
+      .populate("user", "name phone email profileImage createdAt")
+      .populate("agencyAssociation.reviewedBy", "name role")
+      .sort({ createdAt: -1 });
+
+    const requests = drivers.map((driver) => {
+      const d = driver.toObject();
+      return {
+        id: d._id,
+        fullName: d.fullName || d.user?.name || "",
+        phone: d.phone || d.user?.phone || "",
+        email: d.email || d.user?.email || "",
+        createdAt: d.createdAt,
+        registeredAt: d.createdAt,
+        agencyAssociation: d.agencyAssociation || {
+          status: "pending",
+          rejectionReason: "",
+          decidedAt: null,
+          decisionAt: null,
+          reviewedBy: null
+        },
+        approvalStatus: d.approvalStatus,
+        documents: {
+          idProof: {
+            status: d.documents?.idProof?.status || "not_uploaded"
+          },
+          drivingLicense: {
+            status: d.documents?.drivingLicense?.status || "not_uploaded"
+          }
+        }
+      };
+    });
+
+    return successResponse(res, { requests }, "Driver joining requests fetched");
+  } catch (error) {
+    console.error("Get joining requests error:", error);
+    return errorResponse(res, "Failed to fetch driver joining requests", 500);
+  }
+};
+
+export const acceptAgencyDriverRequest = async (req, res) => {
+  try {
+    const agency = await getAgencyForUser(req.user._id);
+    if (!agency) {
+      return errorResponse(res, "Agency not found", 404);
+    }
+
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return errorResponse(res, "Invalid driver request ID", 400);
+    }
+
+    const driver = await Driver.findById(id);
+    if (!driver) {
+      return errorResponse(res, "Driver request not found", 404);
+    }
+
+    if (!driver.agency || String(driver.agency) !== String(agency._id)) {
+      return errorResponse(res, "You are not authorized to act on drivers registered with another agency", 403);
+    }
+
+    if (driver.agencyAssociation?.status === "approved") {
+      return errorResponse(res, "Driver joining request has already been accepted", 400);
+    }
+
+    const now = new Date();
+    driver.agencyAssociation = {
+      status: "approved",
+      rejectionReason: "",
+      decidedAt: now,
+      decisionAt: now,
+      reviewedBy: req.user._id
+    };
+
+    // Agency acceptance only updates association status; does NOT approve KYC or final driver approval
+    await driver.save();
+
+    return successResponse(res, {
+      driver: {
+        id: driver._id,
+        fullName: driver.fullName,
+        agencyAssociation: driver.agencyAssociation,
+        approvalStatus: driver.approvalStatus
+      }
+    }, "Driver joining request accepted successfully");
+  } catch (error) {
+    console.error("Accept driver request error:", error);
+    return errorResponse(res, "Failed to accept driver joining request", 500);
+  }
+};
+
+export const rejectAgencyDriverRequest = async (req, res) => {
+  try {
+    const agency = await getAgencyForUser(req.user._id);
+    if (!agency) {
+      return errorResponse(res, "Agency not found", 404);
+    }
+
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return errorResponse(res, "Invalid driver request ID", 400);
+    }
+
+    const reason = (req.body?.reason || req.body?.rejectionReason || "").trim();
+    if (!reason) {
+      return errorResponse(res, "A rejection reason is required", 400);
+    }
+
+    const driver = await Driver.findById(id);
+    if (!driver) {
+      return errorResponse(res, "Driver request not found", 404);
+    }
+
+    if (!driver.agency || String(driver.agency) !== String(agency._id)) {
+      return errorResponse(res, "You are not authorized to act on drivers registered with another agency", 403);
+    }
+
+    if (driver.agencyAssociation?.status === "rejected") {
+      return errorResponse(res, "Driver joining request has already been rejected", 400);
+    }
+
+    const now = new Date();
+    driver.agencyAssociation = {
+      status: "rejected",
+      rejectionReason: reason,
+      decidedAt: now,
+      decisionAt: now,
+      reviewedBy: req.user._id
+    };
+
+    await driver.save();
+
+    return successResponse(res, {
+      driver: {
+        id: driver._id,
+        fullName: driver.fullName,
+        agencyAssociation: driver.agencyAssociation,
+        approvalStatus: driver.approvalStatus
+      }
+    }, "Driver joining request rejected");
+  } catch (error) {
+    console.error("Reject driver request error:", error);
+    return errorResponse(res, "Failed to reject driver joining request", 500);
+  }
+};
+
+export const getAgencyStats = async (req, res) => {
+  try {
+    const agency = await getAgencyForUser(req.user._id);
+    if (!agency) {
+      return errorResponse(res, "Agency not found", 404);
+    }
+
+    const allDrivers = await Driver.find({ agency: agency._id }).lean();
+    const total = allDrivers.length;
+    const pendingAgency = allDrivers.filter(
+      (d) => d.agencyAssociation?.status === "pending"
+    ).length;
+    const acceptedPendingSuperAdmin = allDrivers.filter(
+      (d) => (d.agencyAssociation?.status === "approved" || !d.agencyAssociation) && d.approvalStatus === "pending"
+    ).length;
+    const superAdminApprovedAndEligible = allDrivers.filter(
+      (d) => (d.agencyAssociation?.status === "approved" || !d.agencyAssociation) &&
+             d.approvalStatus === "approved" &&
+             d.isActive !== false &&
+             d.documents?.idProof?.status === "approved" &&
+             d.documents?.drivingLicense?.status === "approved"
+    ).length;
+    const rejectedOrSuspended = allDrivers.filter(
+      (d) => d.agencyAssociation?.status === "rejected" ||
+             d.approvalStatus === "rejected" ||
+             d.approvalStatus === "suspended"
+    ).length;
+
+    return successResponse(res, {
+      counts: {
+        total,
+        pendingAgency,
+        acceptedPendingSuperAdmin,
+        superAdminApprovedAndEligible,
+        rejectedOrSuspended
+      }
+    }, "Agency driver stats fetched");
+  } catch (error) {
+    return errorResponse(res, "Failed to fetch agency stats", 500);
   }
 };

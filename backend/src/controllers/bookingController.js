@@ -377,9 +377,15 @@ export const getDriverRequests = async (req, res) => {
     if (agency && (agency.approvalStatus !== "approved" || !agency.isActive)) {
       return errorResponse(res, "Your agency is not active or approved", 403);
     }
+    if (driver.agency && driver.agencyAssociation?.status && driver.agencyAssociation.status !== "approved") {
+      return errorResponse(res, "Agency association is pending or rejected", 403);
+    }
 
     const driverVehicles = await Vehicle.find({ driver: driver._id, isActive: true, isAvailable: true });
     const eligibleVehicles = driverVehicles.filter((vehicle) => isEligibleDriverVehicle(driver, vehicle));
+    if (eligibleVehicles.length === 0) {
+      return errorResponse(res, "No eligible active vehicle assigned with approved documents", 403);
+    }
     const vehicleTypes = eligibleVehicles.map((vehicle) => vehicle.vehicleType);
 
     const query = {
@@ -431,6 +437,9 @@ export const acceptBooking = async (req, res) => {
     const agency = await getActiveApprovedAgency(driver.agency);
     if (agency && (agency.approvalStatus !== "approved" || !agency.isActive)) {
       return errorResponse(res, "Your agency is not active or approved", 403);
+    }
+    if (driver.agency && driver.agencyAssociation?.status && driver.agencyAssociation.status !== "approved") {
+      return errorResponse(res, "Agency association is pending or rejected", 403);
     }
 
     const booking = await Booking.findById(id);

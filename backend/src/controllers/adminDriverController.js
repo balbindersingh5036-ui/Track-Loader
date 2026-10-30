@@ -8,49 +8,71 @@ import { hasApprovedDriverIdentityDocuments } from "../utils/driverEligibility.j
 import { extractCloudinaryAssetInfo } from "../utils/documentSigner.js";
 import { isDesignatedSuperAdmin } from "../utils/superAdmin.js";
 
-const safeDriver = (driver, vehicles = [], canApproveDriver = false) => ({
-  id: driver._id,
-  name: driver.user?.name || driver.fullName,
-  phone: driver.user?.phone || driver.phone,
-  email: driver.user?.email || driver.email || "",
-  profileImage: driver.user?.profileImage || driver.profileImage || "",
-  rating: driver.rating,
-  totalTrips: driver.totalTrips,
-  approvalStatus: driver.approvalStatus,
-  rejectionReason: driver.rejectionReason || "",
-  isOnline: driver.isOnline,
-  isActive: driver.isActive,
-  createdAt: driver.createdAt,
-  agency: driver.agency
-    ? {
-        id: driver.agency._id || driver.agency,
-        agencyName: driver.agency.agencyName || "",
-        city: driver.agency.city || ""
+const safeDriver = (driver, vehicles = [], canApproveDriver = false) => {
+  const isAgencyLinked = Boolean(driver.agency);
+  const agencyAccepted = !isAgencyLinked || driver.agencyAssociation?.status === "approved";
+  const hasApprovedDocs = hasApprovedDriverIdentityDocuments(driver);
+  const eligibleForSuperAdminApproval = canApproveDriver && hasApprovedDocs && agencyAccepted && driver.approvalStatus !== "approved";
+
+  return {
+    id: driver._id,
+    name: driver.user?.name || driver.fullName,
+    phone: driver.user?.phone || driver.phone,
+    email: driver.user?.email || driver.email || "",
+    profileImage: driver.user?.profileImage || driver.profileImage || "",
+    rating: driver.rating,
+    totalTrips: driver.totalTrips,
+    approvalStatus: driver.approvalStatus,
+    rejectionReason: driver.rejectionReason || "",
+    isOnline: driver.isOnline,
+    isActive: driver.isActive,
+    createdAt: driver.createdAt,
+    agency: driver.agency
+      ? {
+          id: driver.agency._id || driver.agency,
+          agencyName: driver.agency.agencyName || "",
+          city: driver.agency.city || ""
+        }
+      : null,
+    agencyAssociation: driver.agency
+      ? {
+          status: driver.agencyAssociation?.status || "pending",
+          rejectionReason: driver.agencyAssociation?.rejectionReason || "",
+          decidedAt: driver.agencyAssociation?.decidedAt || null,
+          decisionAt: driver.agencyAssociation?.decisionAt || driver.agencyAssociation?.decidedAt || null,
+          reviewedBy: driver.agencyAssociation?.reviewedBy || null
+        }
+      : {
+          status: "none",
+          rejectionReason: "",
+          decidedAt: null,
+          decisionAt: null,
+          reviewedBy: null
+        },
+    canApproveDriver: eligibleForSuperAdminApproval,
+    documents: {
+      idProof: {
+        status: driver.documents?.idProof?.url || driver.documents?.idProof?.publicId
+          ? driver.documents.idProof.status || "pending"
+          : "not_uploaded"
+      },
+      drivingLicense: {
+        status: driver.documents?.drivingLicense?.url || driver.documents?.drivingLicense?.publicId
+          ? driver.documents.drivingLicense.status || "pending"
+          : "not_uploaded"
       }
-    : null,
-  canApproveDriver,
-  documents: {
-    idProof: {
-      status: driver.documents?.idProof?.url || driver.documents?.idProof?.publicId
-        ? driver.documents.idProof.status || "pending"
-        : "not_uploaded"
     },
-    drivingLicense: {
-      status: driver.documents?.drivingLicense?.url || driver.documents?.drivingLicense?.publicId
-        ? driver.documents.drivingLicense.status || "pending"
-        : "not_uploaded"
-    }
-  },
-  vehicles: vehicles.map((vehicle) => ({
-    id: vehicle._id,
-    vehicleNumber: vehicle.vehicleNumber,
-    vehicleModel: vehicle.vehicleModel,
-    vehicleType: vehicle.vehicleType,
-    loadCapacity: vehicle.loadCapacity,
-    isAvailable: vehicle.isAvailable,
-    isActive: vehicle.isActive
-  }))
-});
+    vehicles: (vehicles || []).map((vehicle) => ({
+      id: vehicle._id,
+      vehicleNumber: vehicle.vehicleNumber,
+      vehicleModel: vehicle.vehicleModel,
+      vehicleType: vehicle.vehicleType,
+      loadCapacity: vehicle.loadCapacity,
+      isAvailable: vehicle.isAvailable,
+      isActive: vehicle.isActive
+    }))
+  };
+};
 
 const loadVehiclesByDriver = async (drivers) => {
   const ids = drivers.map((driver) => driver._id);
@@ -80,6 +102,49 @@ export const getAdminDrivers = async (req, res) => {
         return errorResponse(res, "Invalid approvalStatus", 400);
       }
       query.approvalStatus = req.query.approvalStatus;
+    }
+    if (req.query.filter !== undefined) {
+      const f = req.query.filter;
+      if (f === "pending_agency") {
+        query.agency = { $ne: null };
+        query["agencyAssociation.status"] = "pending";
+      } else if (f === "agency_accepted_pending_super_admin") {
+        query.agency = { $ne: null };
+        query["agencyAssociation.status"] = "approved";
+        query.approvalStatus = "pending";
+      } else if (f === "pending_kyc") {
+        query.approvalStatus = { $nin: ["rejected", "suspended"] };
+        query.$or = [
+          { "documents.idProof.status": { $ne: "approved" } },
+          { "documents.drivingLicense.status": { $ne: "approved" } }
+        ];
+      } else if (f === "pending_final_approval") {
+        query["documents.idProof.status"] = "approved";
+        query["documents.drivingLicense.status"] = "approved";
+        query.approvalStatus = "pending";
+        query.$or = [
+          { agency: null },
+          { "agencyAssociation.status": "approved" }
+        ];
+      } else if (f === "fully_approved") {
+        query.approvalStatus = "approved";
+        query.isActive = true;
+        query["documents.idProof.status"] = "approved";
+        query["documents.drivingLicense.status"] = "approved";
+        query.$or = [
+          { agency: null },
+          { "agencyAssociation.status": "approved" }
+        ];
+      } else if (f === "rejected") {
+        query.$or = [
+          { approvalStatus: "rejected" },
+          { "agencyAssociation.status": "rejected" }
+        ];
+      } else if (f === "suspended") {
+        query.approvalStatus = "suspended";
+      } else if (f !== "all" && f !== "") {
+        return errorResponse(res, "Invalid filter", 400);
+      }
     }
     if (req.query.isOnline !== undefined) {
       if (!["true", "false"].includes(req.query.isOnline)) {
@@ -137,7 +202,8 @@ export const getAdminDriverById = async (req, res) => {
     if (!mongoose.isValidObjectId(req.params.id)) return errorResponse(res, "Invalid driver ID", 400);
     const driver = await Driver.findById(req.params.id)
       .populate("user", "name phone email profileImage")
-      .populate("agency", "agencyName phone email address city")
+      .populate("agency", "agencyName phone email address city approvalStatus isActive")
+      .populate("agencyAssociation.reviewedBy", "name role")
       .populate("documents.idProof.uploadedBy", "name role")
       .populate("documents.idProof.reviewedBy", "name role")
       .populate("documents.drivingLicense.uploadedBy", "name role")
@@ -199,11 +265,19 @@ const updateApproval = (approvalStatus) => async (req, res) => {
     }
 
     const updateDoc = { approvalStatus };
-    if (
-      approvalStatus === "approved" &&
-      !hasApprovedDriverIdentityDocuments(await Driver.findById(req.params.id).select("documents").lean())
-    ) {
-      return errorResponse(res, "Both identity documents must be approved before approving this driver", 400);
+    if (approvalStatus === "approved") {
+      const targetDriver = await Driver.findById(req.params.id).select("documents agency agencyAssociation").lean();
+      if (!hasApprovedDriverIdentityDocuments(targetDriver)) {
+        return errorResponse(res, "Both identity documents must be approved before approving this driver", 400);
+      }
+      if (targetDriver?.agency) {
+        if (targetDriver.agencyAssociation?.status === "rejected") {
+          return errorResponse(res, "Cannot approve driver: Agency has rejected the driver association", 400);
+        }
+        if (targetDriver.agencyAssociation?.status !== "approved") {
+          return errorResponse(res, "Cannot approve driver: Agency association has not been accepted by the agency admin", 400);
+        }
+      }
     }
     if (approvalStatus === "rejected" && (req.body?.reason || req.body?.rejectionReason)) {
       updateDoc.rejectionReason = req.body?.reason || req.body?.rejectionReason;

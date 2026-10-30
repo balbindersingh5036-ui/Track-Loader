@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { 
+import {
   LayoutDashboard, Users, Car, Truck, Map, CreditCard,
   Settings, Bell, AlertTriangle, FileText, TrendingUp, Star, Image, Building2,
   UserPlus, PlusCircle, ShieldCheck, MapPin
@@ -13,7 +13,7 @@ export default function Sidebar() {
   const location = useLocation();
   const isAgency = user?.role === 'agency';
   const [agencyTab, setAgencyTab] = useState('overview');
-  const [agencyCounts, setAgencyCounts] = useState({ drivers: null, vehicles: null, trips: null });
+  const [agencyCounts, setAgencyCounts] = useState({ requests: null, drivers: null, vehicles: null, trips: null });
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const adminMenuItems = [
@@ -35,10 +35,12 @@ export default function Sidebar() {
 
   useEffect(() => {
     const handleAgencyTabChange = (event) => {
-      if (event.detail?.tab) setAgencyTab(event.detail.tab);
+      if (typeof event.detail?.tab === 'string') {
+        setAgencyTab(event.detail.tab);
+      }
     };
     const handleAgencyCountsChange = (event) => {
-      setAgencyCounts(event.detail || { drivers: null, vehicles: null, trips: null });
+      setAgencyCounts(event.detail || { requests: null, drivers: null, vehicles: null, trips: null });
     };
     const handleSidebarToggle = () => setMobileOpen(open => !open);
 
@@ -82,6 +84,7 @@ export default function Sidebar() {
 
   const agencyTabs = [
     { id: 'overview', name: 'Overview', icon: <LayoutDashboard /> },
+    { id: 'requests', name: 'Driver Joining Requests', icon: <UserPlus />, count: agencyCounts.requests },
     { id: 'drivers', name: 'Drivers', icon: <Users />, count: agencyCounts.drivers },
     { id: 'vehicles', name: 'Fleet Vehicles', icon: <Truck />, count: agencyCounts.vehicles },
     { id: 'bookings', name: 'Fleet Trips', icon: <MapPin />, count: agencyCounts.trips },
@@ -134,31 +137,29 @@ export default function Sidebar() {
           ))}
 
           {isAgency && (
-            <div style={{ marginTop: '12px', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '8px' }}>
-              <div className="sidebar-section-title">Quick Actions</div>
-
+            <>
+              <div className="sidebar-section-title" style={{ marginTop: '20px' }}>Quick Actions</div>
               <button
                 type="button"
-                className="sidebar-action-btn"
+                className="nav-item action-btn"
                 onClick={() => handleQuickAction('register-driver')}
-                title="Register a new commercial driver"
+                style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer' }}
               >
-                <UserPlus color="#38bdf8" />
-                <span>Register Driver</span>
+                <UserPlus size={16} />
+                <span>+ Register Driver</span>
               </button>
-
               <button
                 type="button"
-                className="sidebar-action-btn"
+                className="nav-item action-btn"
                 onClick={() => handleQuickAction('add-vehicle')}
-                title="Add a new commercial vehicle to fleet"
+                style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', cursor: 'pointer' }}
               >
-                <PlusCircle color="#4ade80" />
-                <span>Add Fleet Vehicle</span>
+                <PlusCircle size={16} />
+                <span>+ Add Vehicle</span>
               </button>
-            </div>
+            </>
           )}
-          </div>
+        </div>
       </div>
     </>
   );

@@ -39,6 +39,33 @@ const driverSchema = new mongoose.Schema(
       index: true
     },
 
+    agencyAssociation: {
+      status: {
+        type: String,
+        enum: ["none", "pending", "approved", "rejected"],
+        default: "none",
+        index: true
+      },
+      rejectionReason: {
+        type: String,
+        default: "",
+        trim: true
+      },
+      decidedAt: {
+        type: Date,
+        default: null
+      },
+      decisionAt: {
+        type: Date,
+        default: null
+      },
+      reviewedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null
+      }
+    },
+
     fullName: {
       type: String,
       required: true,

@@ -1,6 +1,9 @@
 import express from "express";
+import mongoose from "mongoose";
 
 import Driver from "../models/Driver.js";
+import Agency from "../models/Agency.js";
+import Vehicle from "../models/Vehicle.js";
 
 import {
   protect
@@ -26,6 +29,7 @@ import {
   completeTrip
 } from "../controllers/bookingController.js";
 import { sanitizeDriverDocumentResponse } from "../utils/driverDocumentResponse.js";
+import { checkDriverOnlineEligibility } from "../utils/driverEligibility.js";
 
 const router = express.Router();
 
@@ -66,11 +70,16 @@ router.patch("/status", protect, driverOnly, async (req, res) => {
       });
     }
 
-    if (isOnline && (driver.approvalStatus !== "approved" || !driver.isActive)) {
-      return res.status(403).json({
-        success: false,
-        message: "Your account is not approved or inactive. Only approved drivers can go online."
-      });
+    if (isOnline) {
+      const agency = driver.agency ? await Agency.findById(driver.agency) : null;
+      const vehicles = await Vehicle.find({ driver: driver._id, isActive: true, isAvailable: true });
+      const eligibility = checkDriverOnlineEligibility(driver, vehicles, agency);
+      if (!eligibility.eligible) {
+        return res.status(403).json({
+          success: false,
+          message: eligibility.message
+        });
+      }
     }
 
     driver.isOnline = isOnline;
@@ -85,6 +94,80 @@ router.patch("/status", protect, driverOnly, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to update driver status"
+    });
+  }
+});
+
+router.patch("/agency-request", protect, driverOnly, async (req, res) => {
+  try {
+    const { agencyId } = req.body;
+    const driver = await Driver.findOne({ user: req.user._id });
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: "Driver profile not found"
+      });
+    }
+
+    if (agencyId) {
+      if (!mongoose.Types.ObjectId.isValid(agencyId)) {
+        return res.status(400).json({
+          success: false,
+          message: "A valid agency must be selected"
+        });
+      }
+
+      const agency = await Agency.findOne({
+        _id: agencyId,
+        approvalStatus: "approved",
+        isActive: true
+      });
+
+      if (!agency) {
+        return res.status(400).json({
+          success: false,
+          message: "The selected agency is unavailable. Refresh the agency list and try again."
+        });
+      }
+
+      driver.agency = agency._id;
+      driver.agencyAssociation = {
+        status: "pending",
+        rejectionReason: "",
+        decidedAt: null,
+        decisionAt: null,
+        reviewedBy: null
+      };
+    } else {
+      driver.agency = null;
+      driver.agencyAssociation = {
+        status: "none",
+        rejectionReason: "",
+        decidedAt: null,
+        decisionAt: null,
+        reviewedBy: null
+      };
+    }
+
+    await driver.save();
+
+    const populated = await Driver.findById(driver._id)
+      .populate("user", "name phone email profileImage role")
+      .populate("agency", "agencyName phone email address city approvalStatus isActive");
+
+    const driverObj = populated.toObject();
+    sanitizeDriverDocumentResponse(driverObj, { includeSignedUrls: true });
+
+    return res.status(200).json({
+      success: true,
+      message: agencyId ? "Agency association requested successfully and pending review" : "Switched to independent driver successfully",
+      data: { driver: driverObj }
+    });
+  } catch (error) {
+    console.error("Agency request error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to request agency association"
     });
   }
 });

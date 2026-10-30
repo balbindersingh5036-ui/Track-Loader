@@ -24,7 +24,7 @@ import earningsService from './src/services/earningsService';
 import notificationService from './src/services/notificationService';
 import { connectSocket, disconnectSocket, joinBookingRoom, subscribeToSocketEvents } from './src/services/socketService';
 import { getToken, removeToken, saveToken } from './src/utils/authStorage';
-import { getDriverBookingEligibility } from './src/utils/driverBookingEligibility.mjs';
+import { getDriverBookingEligibility, getDriverStatusIndicators } from './src/utils/driverBookingEligibility.mjs';
 import LoadBalbinLogo from './src/components/LoadBalbinLogo';
 import BannerCarousel from './src/components/BannerCarousel';
 import RegisterScreen from './src/screens/auth/RegisterScreen';
@@ -221,6 +221,11 @@ export default function App() {
   const [documentUploadProgress, setDocumentUploadProgress] = useState(0);
   const [documentUploadLoading, setDocumentUploadLoading] = useState(false);
   const [documentUploadError, setDocumentUploadError] = useState('');
+  const [changeAgencyModalOpen, setChangeAgencyModalOpen] = useState(false);
+  const [agenciesList, setAgenciesList] = useState([]);
+  const [agenciesLoading, setAgenciesLoading] = useState(false);
+  const [changeAgencySubmitting, setChangeAgencySubmitting] = useState(false);
+  const [changeAgencyError, setChangeAgencyError] = useState('');
 
   const logout = useCallback(async () => {
     disconnectSocket();
@@ -441,6 +446,35 @@ export default function App() {
     setRefreshKey((key) => key + 1);
   };
 
+  const openChangeAgencyModal = async () => {
+    setChangeAgencyModalOpen(true);
+    setAgenciesLoading(true);
+    setChangeAgencyError('');
+    try {
+      const res = await authService.getVerifiedAgencies();
+      setAgenciesList(res.data?.data?.agencies || []);
+    } catch (e) {
+      setChangeAgencyError('Could not load available agencies.');
+    } finally {
+      setAgenciesLoading(false);
+    }
+  };
+
+  const submitChangeAgency = async (newAgencyId) => {
+    setChangeAgencySubmitting(true);
+    setChangeAgencyError('');
+    try {
+      await driverService.requestAgencyAssociation(newAgencyId);
+      setChangeAgencyModalOpen(false);
+      setNotice(newAgencyId ? 'Agency association requested. Awaiting agency review.' : 'Switched to Independent Driver.');
+      setRefreshKey((k) => k + 1);
+    } catch (e) {
+      setChangeAgencyError(messageFor(e));
+    } finally {
+      setChangeAgencySubmitting(false);
+    }
+  };
+
   const chooseDocument = async (document) => {
     setError('');
     setDocumentUploadError('');
@@ -600,44 +634,150 @@ export default function App() {
   const driverNameDisplay = (driver?.fullName || user?.name || "DRIVER").toUpperCase();
   const hasVehicle = profile?.vehicles && profile.vehicles.length > 0;
   const renderBookingEligibility = () => {
-    if (!bookingEligibility || bookingEligibility.eligible) return null;
+    const indicators = getDriverStatusIndicators(driver, profile?.vehicles || []);
+    const isAgencyLinked = Boolean(driver?.agency);
+    const agencyRejected = isAgencyLinked && indicators.agencyAssociation.status === 'rejected';
+
+    const getBadgeStyle = (status) => {
+      if (status === 'approved' || status === 'eligible') {
+        return { bg: 'rgba(34, 197, 94, 0.15)', text: colors.green, border: colors.green };
+      }
+      if (status === 'rejected') {
+        return { bg: 'rgba(239, 68, 68, 0.15)', text: colors.danger, border: colors.danger };
+      }
+      return { bg: 'rgba(245, 158, 11, 0.15)', text: colors.warning, border: colors.warning };
+    };
+
     return (
-      <View style={[cardStyle, { borderColor: colors.warning, borderWidth: 1, gap: 8 }]}>
-        <Text style={{ color: colors.warning, fontSize: 15, fontWeight: '800' }}>
-          {bookingEligibility.title}
-        </Text>
-        <Text style={[mutedText, { fontSize: 12, lineHeight: 18 }]}>
-          {bookingEligibility.message}
-        </Text>
-        <Text style={[mutedText, { fontSize: 11 }]}>
-          Account: {driver?.approvalStatus || 'Profile unavailable'}{driver?.isActive === false ? ' · Inactive' : ''}
-        </Text>
-        {[
-          { label: 'Identity Proof (Aadhaar)', key: 'idProof' },
-          { label: 'Driving Licence', key: 'drivingLicense' }
-        ].map(({ label, key }) => {
-          const document = driver?.documents?.[key];
-          const status = document?.status || 'not_uploaded';
-          return (
-            <View key={key} style={{ gap: 2 }}>
-              <Text style={[mutedText, { fontSize: 11 }]}>
-                {label}: {documentStatusLabel(status)}
-              </Text>
-              {status === 'rejected' && document?.rejectionReason ? (
-                <Text style={{ color: colors.danger, fontSize: 11 }}>
-                  Reason: {document.rejectionReason}
-                </Text>
-              ) : null}
-            </View>
-          );
-        })}
-        <ActionButton
-          label="Open Profile"
-          secondary
-          onPress={() => setActiveTab('Profile')}
-          style={{ alignSelf: 'flex-start', paddingVertical: 9 }}
-          textStyle={{ fontSize: 12 }}
-        />
+      <View style={[cardStyle, { gap: 14, borderWidth: 1, borderColor: colors.border }]}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ color: colors.ink, fontSize: 16, fontWeight: '800' }}>
+            Verification &amp; Approval Status
+          </Text>
+          <Text style={{ color: colors.muted, fontSize: 11 }}>Dual Approval</Text>
+        </View>
+
+        {/* Selected Agency Information */}
+        {isAgencyLinked ? (
+          <View style={{ backgroundColor: colors.surface, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ color: colors.muted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' }}>Selected Transport Agency</Text>
+            <Text style={{ color: colors.ink, fontWeight: '800', fontSize: 15, marginTop: 2 }}>
+              {driver.agency?.agencyName || 'Agency Fleet'}
+            </Text>
+            {driver.agency?.city ? (
+              <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>City: {driver.agency.city}</Text>
+            ) : null}
+            {driver.agency?.phone ? (
+              <Text style={{ color: colors.muted, fontSize: 12 }}>Contact: {driver.agency.phone}</Text>
+            ) : null}
+          </View>
+        ) : (
+          <View style={{ backgroundColor: colors.surface, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ color: colors.muted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' }}>Selected Transport Agency</Text>
+            <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 14, marginTop: 2 }}>
+              Independent Driver (No agency approval required)
+            </Text>
+          </View>
+        )}
+
+        {/* 5 Status Indicators */}
+        <View style={{ gap: 8 }}>
+          {[
+            {
+              title: '1. Agency Association',
+              indicator: indicators.agencyAssociation,
+              note: !isAgencyLinked ? 'Skipped for Independent Driver' : (indicators.agencyAssociation.status === 'pending' ? 'Pending agency admin approval' : '')
+            },
+            {
+              title: '2. Identity Proof (Aadhaar)',
+              indicator: indicators.aadhaar,
+              note: indicators.aadhaar.status === 'not_uploaded' ? 'Upload required in Profile' : ''
+            },
+            {
+              title: '3. Driving Licence',
+              indicator: indicators.drivingLicense,
+              note: indicators.drivingLicense.status === 'not_uploaded' ? 'Upload required in Profile' : ''
+            },
+            {
+              title: '4. Super Admin Account Approval',
+              indicator: indicators.superAdminApproval,
+              note: indicators.superAdminApproval.status === 'pending' ? 'Pending Super Admin approval' : ''
+            },
+            {
+              title: '5. Vehicle Assignment',
+              indicator: indicators.vehicleAssignment,
+              note: indicators.vehicleAssignment.status === 'pending' ? 'Active vehicle with approved RC & Insurance needed' : ''
+            }
+          ].map(({ title, indicator, note }) => {
+            const badge = getBadgeStyle(indicator.status);
+            return (
+              <View key={title} style={{ padding: 10, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ color: colors.ink, fontSize: 13, fontWeight: '700' }}>{title}</Text>
+                  <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, backgroundColor: badge.bg, borderWidth: 1, borderColor: badge.border }}>
+                    <Text style={{ color: badge.text, fontSize: 11, fontWeight: '800' }}>{indicator.label}</Text>
+                  </View>
+                </View>
+                {indicator.rejectionReason ? (
+                  <Text style={{ color: colors.danger, fontSize: 11, marginTop: 4, fontWeight: '600' }}>
+                    Rejection reason: {indicator.rejectionReason}
+                  </Text>
+                ) : note ? (
+                  <Text style={{ color: colors.muted, fontSize: 11, marginTop: 3 }}>{note}</Text>
+                ) : null}
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Agency rejection alert & Request Another Agency action */}
+        {agencyRejected && (
+          <View style={{ padding: 12, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 10, borderWidth: 1, borderColor: colors.danger, gap: 8 }}>
+            <Text style={{ color: colors.danger, fontWeight: '800', fontSize: 13 }}>
+              Agency Request Rejected
+            </Text>
+            <Text style={{ color: colors.ink, fontSize: 12, lineHeight: 18 }}>
+              {indicators.agencyAssociation.rejectionReason || 'The selected agency rejected your joining request.'} You may choose another verified agency or switch to an independent driver.
+            </Text>
+            <ActionButton
+              label="Request Another Agency"
+              onPress={openChangeAgencyModal}
+              style={{ paddingVertical: 10 }}
+              textStyle={{ fontSize: 13 }}
+            />
+          </View>
+        )}
+
+        {/* Summary note when not fully eligible */}
+        {bookingEligibility && !bookingEligibility.eligible && (
+          <View style={{ padding: 10, backgroundColor: 'rgba(245, 158, 11, 0.1)', borderRadius: 8, borderWidth: 1, borderColor: colors.warning }}>
+            <Text style={{ color: colors.warning, fontSize: 12, fontWeight: '700' }}>
+              {bookingEligibility.title}
+            </Text>
+            <Text style={[mutedText, { fontSize: 11, marginTop: 2 }]}>
+              {bookingEligibility.message}
+            </Text>
+          </View>
+        )}
+
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+          <ActionButton
+            label="Upload KYC Documents"
+            secondary
+            onPress={() => setActiveTab('Profile')}
+            style={{ flex: 1, paddingVertical: 10 }}
+            textStyle={{ fontSize: 12 }}
+          />
+          {isAgencyLinked && !agencyRejected && (
+            <ActionButton
+              label="Change Agency"
+              secondary
+              onPress={openChangeAgencyModal}
+              style={{ flex: 1, paddingVertical: 10 }}
+              textStyle={{ fontSize: 12 }}
+            />
+          )}
+        </View>
       </View>
     );
   };
@@ -1125,6 +1265,52 @@ export default function App() {
           </>
         )}
       </ScrollView>
+
+      {/* CHANGE AGENCY MODAL */}
+      <Modal visible={changeAgencyModalOpen} transparent animationType="fade" onRequestClose={() => setChangeAgencyModalOpen(false)}>
+        <Pressable onPress={() => setChangeAgencyModalOpen(false)} style={{ flex: 1, backgroundColor: '#0009', justifyContent: 'center', padding: 20 }}>
+          <Pressable onPress={(event) => event.stopPropagation()} style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 20, maxHeight: '80%', borderWidth: 1, borderColor: colors.border, gap: 12 }}>
+            <Text style={{ color: colors.ink, fontSize: 18, fontWeight: '800' }}>Request Agency Association</Text>
+            <Text style={{ color: colors.muted, fontSize: 12 }}>
+              Choose a verified transport agency to submit a new association request, or select Independent Driver.
+            </Text>
+            {changeAgencyError ? (
+              <Text style={{ color: colors.danger, fontSize: 12 }}>{changeAgencyError}</Text>
+            ) : null}
+            {agenciesLoading ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <ScrollView style={{ maxHeight: 260 }}>
+                <Pressable
+                  onPress={() => submitChangeAgency('')}
+                  disabled={changeAgencySubmitting}
+                  style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}
+                >
+                  <Text style={{ color: colors.primary, fontWeight: '800' }}>Independent Driver / No Agency</Text>
+                  <Text style={{ color: colors.muted, fontSize: 11, marginTop: 2 }}>Self-managed vehicle and dispatches</Text>
+                </Pressable>
+                {agenciesList.map((ag) => (
+                  <Pressable
+                    key={ag._id}
+                    onPress={() => submitChangeAgency(String(ag._id))}
+                    disabled={changeAgencySubmitting}
+                    style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.border }}
+                  >
+                    <Text style={{ color: colors.ink, fontWeight: '700' }}>{ag.agencyName}</Text>
+                    {ag.city ? <Text style={{ color: colors.muted, fontSize: 11, marginTop: 2 }}>{ag.city}</Text> : null}
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+            <ActionButton
+              label="Cancel"
+              secondary
+              onPress={() => setChangeAgencyModalOpen(false)}
+              disabled={changeAgencySubmitting}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* NOTIFICATIONS MODAL */}
       <Modal

@@ -3,6 +3,7 @@ import api from './api';
 export const driverService = {
   getProfile: () => api.get('/driver/profile'),
   updateStatus: (isOnline) => api.patch('/driver/status', { isOnline }),
+  requestAgencyAssociation: (agencyId) => api.patch('/driver/agency-request', { agencyId }),
   getVehicles: () => api.get('/driver/vehicles'),
   getDocument: (driverId, docType) => api.get(`/documents/driver/${driverId}/${docType}`),
   getVehicleDocument: (vehicleId, docType) => api.get(`/documents/vehicle/${vehicleId}/${docType}`),

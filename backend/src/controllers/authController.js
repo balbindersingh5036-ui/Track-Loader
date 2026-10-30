@@ -184,9 +184,17 @@ export const registerDriver = async (req, res) => {
       role: "driver"
     });
 
+    const isAgencyDriver = Boolean(agency?._id);
     const driver = await Driver.create({
       user: createdUser._id,
       agency: agency?._id || null,
+      agencyAssociation: {
+        status: isAgencyDriver ? "pending" : "none",
+        rejectionReason: "",
+        decidedAt: null,
+        decisionAt: null,
+        reviewedBy: null
+      },
       fullName: fullName.trim(),
       phone: normalizedPhone,
       email: email ? String(email).trim().toLowerCase() : "",
@@ -194,15 +202,29 @@ export const registerDriver = async (req, res) => {
       approvalStatus: "pending"
     });
 
+    const token = generateToken({
+      userId: createdUser._id.toString(),
+      role: "driver"
+    });
+
     return res.status(201).json({
       success: true,
       message: "Driver registration submitted and pending Super Admin approval",
       data: {
+        token,
         driver: {
           id: driver._id,
           fullName: driver.fullName,
           agency: driver.agency,
-          approvalStatus: driver.approvalStatus
+          approvalStatus: driver.approvalStatus,
+          agencyAssociation: driver.agencyAssociation
+        },
+        user: {
+          id: createdUser._id,
+          name: createdUser.name,
+          phone: createdUser.phone,
+          email: createdUser.email || "",
+          role: createdUser.role
         }
       }
     });
@@ -425,17 +447,10 @@ export const driverLogin = async (req, res) => {
       });
     }
 
-    if (driver.approvalStatus === "pending") {
+    if (!driver.isActive) {
       return res.status(403).json({
         success: false,
-        message: "Driver account is pending approval"
-      });
-    }
-
-    if (driver.approvalStatus === "rejected") {
-      return res.status(403).json({
-        success: false,
-        message: "Driver application has been rejected"
+        message: "Driver account is inactive"
       });
     }
 
@@ -470,7 +485,10 @@ export const driverLogin = async (req, res) => {
         driver: {
           id: driver._id,
           fullName: driver.fullName,
+          agency: driver.agency,
+          agencyAssociation: driver.agencyAssociation,
           approvalStatus: driver.approvalStatus,
+          rejectionReason: driver.rejectionReason || "",
           isOnline: driver.isOnline,
           rating: driver.rating,
           totalTrips: driver.totalTrips

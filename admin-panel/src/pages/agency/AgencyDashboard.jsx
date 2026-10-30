@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import agencyService from '../../services/agencyService';
-import { 
-  Building2, Users, Car, MapPin, RefreshCw, PlusCircle, 
-  UploadCloud, AlertCircle, CheckCircle2, XCircle, Clock, 
+import {
+  Building2, Users, Car, MapPin, RefreshCw, PlusCircle,
+  UploadCloud, AlertCircle, CheckCircle2, XCircle, Clock,
   Search, ShieldCheck, Phone, Mail, FileText, ArrowRight,
-  ChevronRight, Calendar, Info, Check, Eye
+  ChevronRight, Calendar, Info, Check, Eye, UserPlus, X
 } from 'lucide-react';
 
 const isVehicleDispatchReady = (vehicle, agency) => Boolean(
@@ -29,9 +29,57 @@ export default function AgencyDashboard() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('overview'); // overview, drivers, vehicles, bookings, profile
+  const [activeTab, setActiveTab] = useState('overview'); // overview, requests, drivers, vehicles, bookings, profile
+
+  // Joining requests & stats state
+  const [joiningRequests, setJoiningRequests] = useState([]);
+  const [requestFilter, setRequestFilter] = useState('all');
+  const [requestSearch, setRequestSearch] = useState('');
+  const [acceptingRequestId, setAcceptingRequestId] = useState(null);
+  const [rejectModal, setRejectModal] = useState({
+    open: false,
+    requestId: null,
+    driverName: '',
+    reason: '',
+    processing: false
+  });
+  const [stats, setStats] = useState({
+    total: 0,
+    pendingAgency: 0,
+    acceptedPendingSuperAdmin: 0,
+    superAdminApprovedAndEligible: 0,
+    rejectedOrSuspended: 0
+  });
 
   // Search & filter states
+  const handleAcceptRequest = async (requestId) => {
+    try {
+      setAcceptingRequestId(requestId);
+      await agencyService.acceptAgencyDriverRequest(requestId);
+      await loadData(true);
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Failed to accept driver request');
+    } finally {
+      setAcceptingRequestId(null);
+    }
+  };
+
+  const handleRejectRequest = async () => {
+    if (!rejectModal.reason.trim()) {
+      alert('Please provide a reason for rejecting this driver request.');
+      return;
+    }
+    try {
+      setRejectModal(prev => ({ ...prev, processing: true }));
+      await agencyService.rejectAgencyDriverRequest(rejectModal.requestId, rejectModal.reason.trim());
+      setRejectModal({ open: false, requestId: null, driverName: '', reason: '', processing: false });
+      await loadData(true);
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || 'Failed to reject driver request');
+      setRejectModal(prev => ({ ...prev, processing: false }));
+    }
+  };
+
   const [driverSearch, setDriverSearch] = useState('');
   const [driverFilter, setDriverFilter] = useState('all');
   const [vehicleSearch, setVehicleSearch] = useState('');
@@ -240,18 +288,34 @@ export default function AgencyDashboard() {
         throw err;
       }
 
-      const [drRes, vRes, bRes] = await Promise.all([
+      const [drRes, vRes, bRes, reqRes, statsRes] = await Promise.all([
         agencyService.getAgencyDrivers(),
         agencyService.getAgencyVehicles(),
-        agencyService.getAgencyBookings()
+        agencyService.getAgencyBookings(),
+        agencyService.getAgencyDriverRequests().catch(() => ({ data: { data: { requests: [] } } })),
+        agencyService.getAgencyStats().catch(() => ({ data: { data: { counts: null } } }))
       ]);
 
-      setDrivers(drRes.data.data.drivers || []);
+      const loadedDrivers = drRes.data.data.drivers || [];
+      const loadedRequests = reqRes.data?.data?.requests || [];
+      setDrivers(loadedDrivers);
+      setJoiningRequests(loadedRequests);
       const loadedVehicles = vRes.data.data.vehicles || [];
       const loadedBookings = bRes.data.data.bookings || [];
       setVehicles(loadedVehicles);
       setBookings(loadedBookings);
       setBookingCount(bRes.data.data.pagination?.total ?? loadedBookings.length);
+      if (statsRes.data?.data?.counts) {
+        setStats(statsRes.data.data.counts);
+      } else {
+        setStats({
+          total: loadedDrivers.length,
+          pendingAgency: loadedRequests.filter(r => r.agencyAssociation?.status === 'pending').length,
+          acceptedPendingSuperAdmin: loadedDrivers.filter(d => d.approvalStatus === 'pending').length,
+          superAdminApprovedAndEligible: loadedDrivers.filter(d => d.approvalStatus === 'approved' && d.isActive !== false).length,
+          rejectedOrSuspended: loadedDrivers.filter(d => d.approvalStatus === 'rejected' || d.approvalStatus === 'suspended').length
+        });
+      }
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'Failed to load agency dashboard data');
     } finally {
@@ -266,12 +330,13 @@ export default function AgencyDashboard() {
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('agency-tab-change', { detail: { tab: activeTab } }));
+    const pendingReqCount = joiningRequests.filter(r => r.agencyAssociation?.status === 'pending').length;
     window.dispatchEvent(new CustomEvent('agency-dashboard-counts', {
       detail: loading
-        ? { drivers: null, vehicles: null, trips: null }
-        : { drivers: drivers.length, vehicles: vehicles.length, trips: bookingCount }
+        ? { requests: null, drivers: null, vehicles: null, trips: null }
+        : { requests: pendingReqCount, drivers: drivers.length, vehicles: vehicles.length, trips: bookingCount }
     }));
-  }, [activeTab, bookingCount, drivers.length, loading, vehicles.length]);
+  }, [activeTab, bookingCount, drivers.length, joiningRequests, loading, vehicles.length]);
 
   useEffect(() => {
     const handleCustomQuickAction = (e) => {
@@ -290,7 +355,7 @@ export default function AgencyDashboard() {
 
     const handleAgencyTabSelect = (e) => {
       const tab = e.detail?.tab;
-      if (['overview', 'drivers', 'vehicles', 'bookings', 'profile'].includes(tab)) {
+      if (['overview', 'requests', 'drivers', 'vehicles', 'bookings', 'profile'].includes(tab)) {
         setActiveTab(tab);
       }
     };
@@ -688,10 +753,10 @@ export default function AgencyDashboard() {
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button 
-            type="button" 
+          <button
+            type="button"
             className="btn btn-secondary btn-sm"
-            onClick={() => loadData(true)} 
+            onClick={() => loadData(true)}
             disabled={refreshing}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
           >
@@ -736,68 +801,70 @@ export default function AgencyDashboard() {
         </div>
       )}
 
-      {/* 3. Metric Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+      {/* 3. Metric Summary Cards - Agency Driver Counts */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14 }}>
         <div className="metric-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>Registered Drivers</span>
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(22, 119, 255, 0.1)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Users size={18} />
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>Total Registered</span>
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(22, 119, 255, 0.1)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Users size={17} />
             </div>
           </div>
-          <div style={{ marginTop: 12 }}>
-            <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text-primary)' }}>{drivers.length}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-              {pendingDriversCount} pending Super Admin verification
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-primary)' }}>{stats.total ?? drivers.length}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>Total drivers associated</div>
+          </div>
+        </div>
+
+        <div className="metric-card" style={{ cursor: 'pointer' }} onClick={() => setActiveTab('requests')}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>Pending Agency Approval</span>
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <UserPlus size={17} />
             </div>
-            <button type="button" className="btn btn-outline btn-sm" onClick={() => setActiveTab('drivers')} style={{ marginTop: 8 }}>
-              View agency drivers
-            </button>
+          </div>
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 26, fontWeight: 700, color: '#f59e0b' }}>{stats.pendingAgency}</div>
+            <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 4, fontWeight: 600 }}>Action required &rarr;</div>
           </div>
         </div>
 
         <div className="metric-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>Fleet Vehicles</span>
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Car size={18} />
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>Accepted, Pending Admin</span>
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Clock size={17} />
             </div>
           </div>
-          <div style={{ marginTop: 12 }}>
-            <div style={{ fontSize: 28, fontWeight: 700, color: '#10b981' }}>{vehicles.length}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-              {`${availableFleetCount} available · ${dispatchReadyFleetCount} dispatch-ready · ${vehicles.length - dispatchReadyFleetCount} not eligible`}
-            </div>
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 26, fontWeight: 700, color: '#6366f1' }}>{stats.acceptedPendingSuperAdmin}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>Awaiting Super Admin</div>
           </div>
         </div>
 
         <div className="metric-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>Approved Drivers</span>
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <ShieldCheck size={18} />
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>Approved &amp; Eligible</span>
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ShieldCheck size={17} />
             </div>
           </div>
-          <div style={{ marginTop: 12 }}>
-            <div style={{ fontSize: 28, fontWeight: 700, color: '#f59e0b' }}>{approvedDriversCount}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-              Active with approved identity documents
-            </div>
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 26, fontWeight: 700, color: '#10b981' }}>{stats.superAdminApprovedAndEligible}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>Active &amp; verified KYC</div>
           </div>
         </div>
 
         <div className="metric-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>Fleet Trips</span>
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: 'rgba(99, 102, 241, 0.1)', color: '#6366f1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <MapPin size={18} />
+            <span style={{ fontSize: 13, color: 'var(--text-secondary)', fontWeight: 500 }}>Rejected / Suspended</span>
+            <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <XCircle size={17} />
             </div>
           </div>
-          <div style={{ marginTop: 12 }}>
-            <div style={{ fontSize: 28, fontWeight: 700, color: '#6366f1' }}>{bookingCount}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 4 }}>
-              Commercial client dispatches
-            </div>
+          <div style={{ marginTop: 10 }}>
+            <div style={{ fontSize: 26, fontWeight: 700, color: '#ef4444' }}>{stats.rejectedOrSuspended}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>Excluded from dispatch</div>
           </div>
         </div>
       </div>
@@ -930,6 +997,175 @@ export default function AgencyDashboard() {
               <li><strong>Agency Data Boundaries:</strong> All vehicle assignments, driver profiles, and trip records remain strictly isolated to your verified transport agency.</li>
             </ul>
           </div>
+        </div>
+      )}
+
+            {/* TAB: DRIVER JOINING REQUESTS */}
+      {activeTab === 'requests' && (
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <UserPlus size={18} color="var(--primary)" />
+                Driver Joining Requests
+                {joiningRequests.filter(r => r.agencyAssociation?.status === 'pending').length > 0 && (
+                  <span className="badge warning" style={{ fontSize: 11 }}>
+                    {joiningRequests.filter(r => r.agencyAssociation?.status === 'pending').length} Action Required
+                  </span>
+                )}
+              </h3>
+              <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                Only you as this agency admin can accept or reject driver joining requests. Acceptance associates the driver with your agency for Super Admin KYC verification.
+              </div>
+            </div>
+            <button type="button" className="btn btn-outline btn-sm" onClick={() => loadData(true)}>
+              <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} /> Refresh Requests
+            </button>
+          </div>
+
+          {/* Filters & Search */}
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
+            <div style={{ position: 'relative', flex: '1 1 240px' }}>
+              <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
+              <input
+                type="text"
+                placeholder="Search requests by driver name, phone, or email..."
+                value={requestSearch}
+                onChange={(e) => setRequestSearch(e.target.value)}
+                style={{ paddingLeft: 32, width: '100%', fontSize: 13 }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {['all', 'pending', 'approved', 'rejected'].map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  className={`btn btn-sm ${requestFilter === f ? 'btn-primary' : 'btn-outline'}`}
+                  style={{ textTransform: 'capitalize' }}
+                  onClick={() => setRequestFilter(f)}
+                >
+                  {f === 'all' ? 'All Requests' : f === 'pending' ? 'Pending Agency' : f === 'approved' ? 'Accepted' : 'Rejected'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Requests Table */}
+          {(() => {
+            const filtered = joiningRequests.filter((r) => {
+              const statusMatch = requestFilter === 'all' || (r.agencyAssociation?.status || 'pending') === requestFilter;
+              const searchMatch = !requestSearch.trim() ||
+                (r.fullName || '').toLowerCase().includes(requestSearch.toLowerCase()) ||
+                (r.phone || '').includes(requestSearch) ||
+                (r.email || '').toLowerCase().includes(requestSearch.toLowerCase());
+              return statusMatch && searchMatch;
+            });
+
+            if (filtered.length === 0) {
+              return (
+                <div style={{ textAlign: 'center', padding: '36px 16px', color: 'var(--text-secondary)' }}>
+                  <UserPlus size={36} style={{ margin: '0 auto 10px', opacity: 0.35 }} />
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>No driver joining requests found</div>
+                  <div style={{ fontSize: 12, marginTop: 4 }}>
+                    {requestFilter !== 'all' ? `No ${requestFilter} requests match your filter.` : 'Drivers registering with your agency will appear here for review.'}
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div className="table-container">
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid var(--border)', textAlign: 'left', color: 'var(--text-secondary)' }}>
+                      <th style={{ padding: '10px 12px' }}>Driver Name</th>
+                      <th style={{ padding: '10px 12px' }}>Contact</th>
+                      <th style={{ padding: '10px 12px' }}>Registered Date</th>
+                      <th style={{ padding: '10px 12px' }}>Aadhaar (ID)</th>
+                      <th style={{ padding: '10px 12px' }}>Driving Licence</th>
+                      <th style={{ padding: '10px 12px' }}>Agency Status</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((req) => {
+                      const assocStatus = req.agencyAssociation?.status || 'pending';
+                      const aadhaarStatus = req.documents?.idProof?.status || 'not_uploaded';
+                      const dlStatus = req.documents?.drivingLicense?.status || 'not_uploaded';
+                      const isPending = assocStatus === 'pending';
+
+                      return (
+                        <tr key={req.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '12px' }}>
+                            <div style={{ fontWeight: 600 }}>{req.fullName}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>ID: {req.id}</div>
+                          </td>
+                          <td style={{ padding: '12px' }}>
+                            <div>{req.phone || '—'}</div>
+                            {req.email ? <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{req.email}</div> : null}
+                          </td>
+                          <td style={{ padding: '12px', color: 'var(--text-secondary)' }}>
+                            {req.createdAt ? new Date(req.createdAt).toLocaleDateString() : '—'}
+                          </td>
+                          <td style={{ padding: '12px' }}>
+                            <span className={`badge ${aadhaarStatus === 'approved' ? 'success' : aadhaarStatus === 'rejected' ? 'danger' : 'warning'}`} style={{ fontSize: 11 }}>
+                              {aadhaarStatus.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px' }}>
+                            <span className={`badge ${dlStatus === 'approved' ? 'success' : dlStatus === 'rejected' ? 'danger' : 'warning'}`} style={{ fontSize: 11 }}>
+                              {dlStatus.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px' }}>
+                            <span className={`badge ${assocStatus === 'approved' ? 'success' : assocStatus === 'rejected' ? 'danger' : 'warning'}`}>
+                              {assocStatus === 'approved' ? 'Accepted' : assocStatus === 'rejected' ? 'Rejected' : 'Pending Agency'}
+                            </span>
+                            {assocStatus === 'rejected' && req.agencyAssociation?.rejectionReason && (
+                              <div style={{ fontSize: 11, color: '#dc2626', marginTop: 3 }}>
+                                Reason: {req.agencyAssociation.rejectionReason}
+                              </div>
+                            )}
+                          </td>
+                          <td style={{ padding: '12px', textAlign: 'right' }}>
+                            {isPending ? (
+                              <div style={{ display: 'inline-flex', gap: 6 }}>
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-primary"
+                                  disabled={acceptingRequestId === req.id}
+                                  onClick={() => handleAcceptRequest(req.id)}
+                                  style={{ padding: '4px 10px', fontSize: 12 }}
+                                >
+                                  {acceptingRequestId === req.id ? 'Accepting...' : 'Accept'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="btn btn-sm btn-outline"
+                                  style={{ padding: '4px 10px', fontSize: 12, borderColor: '#ef4444', color: '#ef4444' }}
+                                  onClick={() => setRejectModal({ open: true, requestId: req.id, driverName: req.fullName, reason: '', processing: false })}
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            ) : assocStatus === 'approved' ? (
+                              <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
+                                Accepted &bull; Pending Super Admin
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: 11, color: '#dc2626' }}>
+                                Rejected
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -1749,7 +1985,7 @@ export default function AgencyDashboard() {
                 <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 8 }}>
                   🛡️ <strong>UIDAI Notice:</strong> Please submit a <strong>Masked Aadhaar</strong> (first 8 digits hidden).
                 </div>
-                
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <input
                     type="file"
@@ -1758,7 +1994,7 @@ export default function AgencyDashboard() {
                     disabled={uploadingDoc === 'aadhaarUrl' || docModal.updating}
                     style={{ fontSize: 13 }}
                   />
-                  
+
                   {uploadingDoc === 'aadhaarUrl' && (
                     <div style={{ fontSize: 12, color: 'var(--primary)', fontWeight: 600 }}>
                       ⏳ Encrypting and uploading to private KYC vault...
@@ -2117,6 +2353,58 @@ export default function AgencyDashboard() {
           </div>
         </div>
       )}
+
+      {/* Driver Joining Request Reject Modal */}
+      {rejectModal.open && (
+        <div className="modal-backdrop" onClick={() => setRejectModal({ open: false, requestId: null, driverName: '', reason: '', processing: false })}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <h3 style={{ margin: 0, fontSize: 16 }}>Reject Driver Joining Request</h3>
+              <button
+                type="button"
+                className="btn-icon"
+                onClick={() => setRejectModal({ open: false, requestId: null, driverName: '', reason: '', processing: false })}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '0 0 14px 0' }}>
+              You are rejecting the joining request from <strong>{rejectModal.driverName}</strong>. A mandatory reason is required to explain this decision to the driver.
+            </p>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                Rejection Reason <span style={{ color: '#ef4444' }}>*</span>
+              </label>
+              <textarea
+                rows={3}
+                style={{ width: '100%', fontSize: 13, padding: 8, borderRadius: 6, border: '1px solid var(--border)' }}
+                placeholder="Explain why this request is rejected (e.g. fleet capacity reached, invalid qualifications, contact mismatch)..."
+                value={rejectModal.reason}
+                onChange={(e) => setRejectModal(prev => ({ ...prev, reason: e.target.value }))}
+              />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                disabled={rejectModal.processing}
+                onClick={() => setRejectModal({ open: false, requestId: null, driverName: '', reason: '', processing: false })}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-sm btn-danger"
+                disabled={rejectModal.processing || !rejectModal.reason.trim()}
+                onClick={handleRejectRequest}
+              >
+                {rejectModal.processing ? 'Rejecting...' : 'Confirm Rejection'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
