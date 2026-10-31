@@ -106,6 +106,8 @@ test("admin customer list paginates, searches, filters, and returns safe fields"
     return resultChain;
   });
   t.mock.method(User, "countDocuments", async () => 1);
+  t.mock.method(Booking, "distinct", async () => []);
+  t.mock.method(Booking, "aggregate", async () => []);
   const res = createResponse();
 
   await getAdminCustomers({ query: { page: "1", limit: "5", search: "cust", isActive: "true" } }, res);
