@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import mongoose from "mongoose";
 import User from "../src/models/User.js";
 import Driver from "../src/models/Driver.js";
 import Vehicle from "../src/models/Vehicle.js";
@@ -149,6 +150,10 @@ test("admin customer details and status updates are customer-scoped and safe", a
 
 test("admin driver filters, paginates, and returns only driver KYC status summaries", async (t) => {
   let driverQuery;
+  t.mock.method(User, "find", () => ({
+    select() { return this; },
+    lean() { return Promise.resolve([{ _id: new mongoose.Types.ObjectId() }]); }
+  }));
   t.mock.method(Driver, "find", (query) => {
     driverQuery = query;
     return chain([{

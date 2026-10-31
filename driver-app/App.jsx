@@ -18,6 +18,7 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import api, { setAuthenticationExpiredHandler } from './src/services/api';
 import authService from './src/services/authService';
+import agencyService from './src/services/agencyService';
 import bookingService from './src/services/bookingService';
 import driverService from './src/services/driverService';
 import earningsService from './src/services/earningsService';
@@ -28,6 +29,8 @@ import { getDriverBookingEligibility, getDriverStatusIndicators } from './src/ut
 import LoadBalbinLogo from './src/components/LoadBalbinLogo';
 import BannerCarousel from './src/components/BannerCarousel';
 import RegisterScreen from './src/screens/auth/RegisterScreen';
+import AgencyRegistrationScreen from './src/screens/auth/AgencyRegistrationScreen';
+import AgencyOwnerDashboard from './src/screens/agency/AgencyOwnerDashboard';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
@@ -64,7 +67,7 @@ const messageFor = (error) => {
 
 const documentStatusLabel = (status) => ({
   not_uploaded: 'Upload Required',
-  pending: 'Pending Admin Verification',
+  pending: 'Pending Super Admin Verification',
   approved: 'Verified',
   rejected: 'Rejected'
 }[status] || 'Upload Required');
@@ -94,9 +97,10 @@ function ActionButton({ label, onPress, secondary = false, disabled = false, dan
   );
 }
 
-function Login({ onLogin, onRetry, onRegister, initialError, initialNotice }) {
+function Login({ onLogin, onRetry, onRegister, onAgencyRegister, initialError, initialNotice }) {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [accountRole, setAccountRole] = useState('driver');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(initialError || '');
@@ -115,7 +119,7 @@ function Login({ onLogin, onRetry, onRegister, initialError, initialNotice }) {
     setLoading(true);
     setError('');
     try {
-      await onLogin({ identifier: cleanId, password });
+      await onLogin({ identifier: cleanId, password, role: accountRole });
     } catch (loginError) {
       setError(messageFor(loginError));
     } finally {
@@ -127,9 +131,24 @@ function Login({ onLogin, onRetry, onRegister, initialError, initialNotice }) {
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', padding: 24 }}>
       <View style={{ backgroundColor: colors.surface, padding: 24, borderRadius: 16, gap: 16, borderColor: colors.border, borderWidth: 1 }}>
         <LoadBalbinLogo width={180} height={50} style={{ alignSelf: 'center', marginBottom: 16 }} />
-        <Text style={{ fontSize: 24, fontWeight: '800', color: colors.ink }}>Driver sign in</Text>
-        <Text style={{ color: colors.muted, fontSize: 13 }}>Use the phone number or email registered with your driver account.</Text>
+        <Text style={{ fontSize: 24, fontWeight: '800', color: colors.ink }}>Sign in</Text>
+        <Text style={{ color: colors.muted, fontSize: 13 }}>Choose your account type. Access is determined by your authenticated account role.</Text>
         {initialNotice ? <Text accessibilityRole="status" style={{ color: colors.green, fontSize: 13 }}>{initialNotice}</Text> : null}
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {[
+            { value: 'driver', label: 'Driver' },
+            { value: 'agency', label: 'Agency Owner' }
+          ].map((option) => (
+            <Pressable
+              key={option.value}
+              accessibilityRole="button"
+              onPress={() => setAccountRole(option.value)}
+              style={{ flex: 1, padding: 11, borderRadius: 9, alignItems: 'center', backgroundColor: accountRole === option.value ? colors.primary : colors.card, borderWidth: 1, borderColor: accountRole === option.value ? colors.primary : colors.border }}
+            >
+              <Text style={{ color: colors.ink, fontWeight: '800' }}>{option.label}</Text>
+            </Pressable>
+          ))}
+        </View>
         
         <TextInput
           accessibilityLabel="Phone number or email"
@@ -171,8 +190,11 @@ function Login({ onLogin, onRetry, onRegister, initialError, initialNotice }) {
           disabled={loading || !identifier.trim() || !password} 
           style={{ backgroundColor: colors.primary, borderColor: colors.primary }} 
         />
-        <Pressable accessibilityRole="button" onPress={onRegister} style={{ padding: 8, alignItems: 'center' }}>
+        <Pressable accessibilityRole="button" onPress={onRegister} style={{ padding: 6, alignItems: 'center' }}>
           <Text style={{ color: colors.primary, fontWeight: '700' }}>Register as a driver</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" onPress={onAgencyRegister} style={{ padding: 6, alignItems: 'center' }}>
+          <Text style={{ color: colors.primary, fontWeight: '700' }}>Register as an Agency Owner</Text>
         </Pressable>
         
         {initialError && onRetry ? (
@@ -196,12 +218,14 @@ const inputStyle = {
 export default function App() {
   const [user, setUser] = useState(null);
   const [showDriverRegistration, setShowDriverRegistration] = useState(false);
+  const [showAgencyRegistration, setShowAgencyRegistration] = useState(false);
   const [registrationNotice, setRegistrationNotice] = useState('');
   const [token, setToken] = useState(null);
   const [ready, setReady] = useState(false);
   const [activeTab, setActiveTab] = useState('Home');
   const [driver, setDriver] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [agencyProfile, setAgencyProfile] = useState(null);
   const [bookingEligibility, setBookingEligibility] = useState(null);
   const [requests, setRequests] = useState([]);
   const [trips, setTrips] = useState([]);
@@ -234,6 +258,7 @@ export default function App() {
     setUser(null);
     setDriver(null);
     setProfile(null);
+    setAgencyProfile(null);
     setBookingEligibility(null);
     setRequests([]);
     setTrips([]);
@@ -243,15 +268,33 @@ export default function App() {
     setUnreadCount(0);
     setError('');
     setNotice('');
+    setActiveTab('Home');
   }, []);
 
   const establish = useCallback(async (newToken) => {
     await saveToken(newToken);
     const response = await authService.getMe();
     const currentUser = response.data?.data?.user;
-    if (currentUser?.role !== 'driver') {
+    if (currentUser?.role === 'driver') {
+      const profileResponse = await driverService.getProfile();
+      const currentDriver = profileResponse.data?.data?.driver;
+      if (!currentDriver?._id) throw new Error('The authenticated Driver profile was not returned by the service.');
+      setDriver(currentDriver);
+      setProfile(currentDriver);
+      setBookingEligibility(getDriverBookingEligibility(currentDriver));
+      setAgencyProfile(null);
+      setActiveTab('Home');
+    } else if (currentUser?.role === 'agency') {
+      const agencyResponse = await agencyService.getMyAgency();
+      const currentAgency = agencyResponse.data?.data?.agency;
+      if (!currentAgency?._id) throw new Error('The authenticated Agency profile was not returned by the service.');
+      setAgencyProfile(currentAgency);
+      setDriver(null);
+      setProfile(null);
+      setActiveTab('Overview');
+    } else {
       await removeToken();
-      throw new Error('This account is not authorized for the driver application.');
+      throw new Error('This mobile app supports Driver and Agency Owner accounts only. Use the Super Admin Web Admin Panel for admin accounts.');
     }
     setToken(newToken);
     setUser(currentUser);
@@ -277,6 +320,9 @@ export default function App() {
       disconnectSocket();
       setToken(null);
       setUser(null);
+      setDriver(null);
+      setProfile(null);
+      setAgencyProfile(null);
       setError('Your session expired. Please sign in again.');
     });
     restoreSession();
@@ -302,7 +348,7 @@ export default function App() {
   }, []);
 
   const loadData = useCallback(async () => {
-    if (!user) return;
+    if (!user || user.role !== 'driver') return;
     setLoading(true);
     setError('');
     try {
@@ -344,16 +390,11 @@ export default function App() {
         setEarningsSummary(summary.data?.data || null);
         setEarnings(list.data?.data?.earnings || []);
       } else if (activeTab === 'Profile') {
-        const [driverResponse, vehicleResponse] = await Promise.all([
-          driverService.getProfile().catch(() => ({ data: { data: null } })),
-          driverService.getVehicles().catch(() => ({ data: { data: null } }))
-        ]);
+        const driverResponse = await driverService.getProfile();
         const driverProfile = driverResponse.data?.data?.driver || null;
         setDriver(driverProfile);
         setBookingEligibility(getDriverBookingEligibility(driverProfile));
-        setProfile(driverProfile
-          ? { ...driverProfile, vehicles: vehicleResponse.data?.data?.vehicles || [] }
-          : null);
+        setProfile(driverProfile);
       }
     } catch (loadError) {
       setError(messageFor(loadError));
@@ -606,6 +647,18 @@ export default function App() {
   }
   
   if (!user) {
+    if (showAgencyRegistration) {
+      return (
+        <AgencyRegistrationScreen
+          onCancel={() => setShowAgencyRegistration(false)}
+          onRegistered={async (newToken) => {
+            await establish(newToken);
+            setShowAgencyRegistration(false);
+            setRegistrationNotice('Agency registration submitted. Its status and document reviews are available in Profile & KYC.');
+          }}
+        />
+      );
+    }
     if (showDriverRegistration) {
       return (
         <RegisterScreen
@@ -625,14 +678,47 @@ export default function App() {
           setRegistrationNotice('');
           setShowDriverRegistration(true);
         }}
+        onAgencyRegister={() => {
+          setRegistrationNotice('');
+          setShowAgencyRegistration(true);
+        }}
         initialError={error}
         initialNotice={registrationNotice}
       />
     );
   }
 
+  if (user.role === 'agency') {
+    return (
+      <AgencyOwnerDashboard
+        user={user}
+        initialAgency={agencyProfile}
+        refreshKey={refreshKey}
+        onLogout={logout}
+      />
+    );
+  }
+
   const driverNameDisplay = (driver?.fullName || user?.name || "DRIVER").toUpperCase();
   const hasVehicle = profile?.vehicles && profile.vehicles.length > 0;
+  const hasAgency = Boolean(profile?.agency);
+  const agencyAssociationStatus = hasAgency ? profile?.agencyAssociation?.status || 'pending' : 'none';
+  const identityDocumentsApproved = profile?.documents?.idProof?.status === 'approved'
+    && profile?.documents?.drivingLicense?.status === 'approved';
+  const personalKycMessage = hasAgency && agencyAssociationStatus === 'pending'
+    ? 'Awaiting Agency Admin approval.'
+    : hasAgency && agencyAssociationStatus === 'rejected'
+      ? 'Your agency association was rejected. Contact your Agency Admin.'
+      : identityDocumentsApproved && profile?.approvalStatus === 'approved'
+        ? 'Identity verification completed.'
+        : identityDocumentsApproved && profile?.approvalStatus === 'pending'
+          ? 'Awaiting final Super Admin approval.'
+          : hasAgency && agencyAssociationStatus === 'approved'
+            ? 'Your agency has accepted your request. Your Aadhaar and Driving Licence are awaiting Super Admin verification.'
+            : 'Your Aadhaar and Driving Licence are awaiting Super Admin verification.';
+  const vehicleDocumentsPending = (profile?.vehicles || []).some((vehicle) =>
+    ['registration', 'insurance'].some((key) => vehicle.documents?.[key]?.status !== 'approved')
+  );
   const renderBookingEligibility = () => {
     const indicators = getDriverStatusIndicators(driver, profile?.vehicles || []);
     const isAgencyLinked = Boolean(driver?.agency);
@@ -1122,7 +1208,7 @@ export default function App() {
                   KYC DOCUMENTS
                 </Text>
                 <Text style={[mutedText, { fontSize: 12, lineHeight: 18, marginBottom: 4 }]}>
-                  Your documents must be approved by the administrator before you can be assigned to an agency, subject to all other eligibility requirements.
+                  {personalKycMessage}
                 </Text>
                 <View style={{ gap: 8 }}>
                   {[
@@ -1175,6 +1261,11 @@ export default function App() {
                     );
                   })}
                 </View>
+                {vehicleDocumentsPending && profile.vehicles?.length > 0 ? (
+                  <Text style={{ color: colors.warning, fontSize: 12, lineHeight: 18, marginTop: 10 }}>
+                    Your assigned vehicle&apos;s RC and Insurance need verification.
+                  </Text>
+                ) : null}
 
                 {/* Vehicle-owned KYC */}
                 <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 24, marginBottom: 4 }}>

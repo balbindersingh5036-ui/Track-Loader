@@ -87,7 +87,7 @@ test("agency registration requires owner Aadhaar before any mutation", async (t)
 
 test("registration accepts Aadhaar with optional documents omitted and serializes private metadata safely", async (t) => {
   let created;
-  let roleUpdated = false;
+  let roleUpdate;
   const ownerId = new mongoose.Types.ObjectId();
   const uploaded = [];
   mockCloudinary(t, uploaded);
@@ -96,8 +96,8 @@ test("registration accepts Aadhaar with optional documents omitted and serialize
     created = data;
     return { _id: new mongoose.Types.ObjectId(), ...data, toObject() { return this; } };
   });
-  t.mock.method(User, "findByIdAndUpdate", async () => {
-    roleUpdated = true;
+  t.mock.method(User, "findByIdAndUpdate", async (_id, update) => {
+    roleUpdate = update;
     return {};
   });
 
@@ -107,7 +107,8 @@ test("registration accepts Aadhaar with optional documents omitted and serialize
   await registerAgency(req, res);
 
   assert.equal(res.statusCode, 201);
-  assert.equal(roleUpdated, true);
+  assert.deepEqual(roleUpdate, { role: "agency" });
+  assert.equal(created.owner.toString(), ownerId.toString());
   assert.deepEqual(Object.keys(created.documents), ["ownerAadhaar"]);
   assert.equal(created.documents.ownerAadhaar.status, "pending");
   assert.equal(created.documents.ownerAadhaar.uploadedBy.toString(), ownerId.toString());
@@ -119,6 +120,20 @@ test("registration accepts Aadhaar with optional documents omitted and serialize
     assert.equal(Object.hasOwn(doc, "url"), false);
     assert.equal(Object.hasOwn(doc, "publicId"), false);
   }
+});
+
+test("non-customer accounts cannot register an Agency profile", async (t) => {
+  const uploaded = [];
+  mockCloudinary(t, uploaded);
+  t.mock.method(Agency, "findOne", async () => assert.fail("Wrong-role account must not query or create an Agency"));
+
+  const req = registrationRequest({ ownerAadhaar: file() });
+  req.user.role = "driver";
+  const res = createResponse();
+  await registerAgency(req, res);
+
+  assert.equal(res.statusCode, 403);
+  assert.equal(uploaded.length, 0);
 });
 
 test("registration persists every submitted document with pending status and uploader metadata", async (t) => {
@@ -193,6 +208,29 @@ test("duplicate registration remains rejected without uploading or changing the 
   assert.match(res.body.message, /already exists/i);
   assert.equal(uploaded.length, 0);
   assert.equal(roleUpdated, false);
+});
+
+test("duplicate Agency email is rejected before document upload", async (t) => {
+  const uploaded = [];
+  const req = registrationRequest({ ownerAadhaar: file() });
+  req.body.phone = "9876543210";
+  req.body.email = " Agency@Example.com ";
+  mockCloudinary(t, uploaded);
+  t.mock.method(Agency, "findOne", async (query) => {
+    assert.deepEqual(query.$or, [
+      { owner: req.user._id },
+      { phone: "9876543210" },
+      { email: "agency@example.com" }
+    ]);
+    return { _id: new mongoose.Types.ObjectId() };
+  });
+  t.mock.method(Agency, "create", async () => assert.fail("Duplicate Agency email must not create an Agency"));
+
+  const res = createResponse();
+  await registerAgency(req, res);
+
+  assert.equal(res.statusCode, 409);
+  assert.equal(uploaded.length, 0);
 });
 
 test("user-role update failure rolls back the agency and uploaded private assets", async (t) => {

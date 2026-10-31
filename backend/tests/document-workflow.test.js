@@ -392,7 +392,7 @@ test("sanitizeAgencyForList creates safe document summary without leaking privat
   assert.equal(JSON.stringify(sanitized).includes("loadbalbin_kyc/secret"), false);
 });
 
-test("driver upload stores private document metadata as pending", async (t) => {
+test("driver Aadhaar and Driving Licence uploads are stored against the Driver as pending", async (t) => {
   useTestCloudinaryConfig(t);
   const driverId = new mongoose.Types.ObjectId();
   const userId = new mongoose.Types.ObjectId();
@@ -404,27 +404,53 @@ test("driver upload stores private document metadata as pending", async (t) => {
     markModified() {},
     async save() { return this; }
   };
-  t.mock.method(Driver, "findById", async () => driver);
-  t.mock.method(cloudinary.uploader, "upload", async (_data, options) => {
+  const agencyOwnerAadhaar = {
+    publicId: "loadbalbin_kyc/agency-owner-aadhaar",
+    status: "approved"
+  };
+  t.mock.method(Driver, "findById", async (requestedDriverId) => {
+    assert.equal(requestedDriverId.toString(), driverId.toString());
+    return driver;
+  });
+  const upload = t.mock.method(cloudinary.uploader, "upload", async (_data, options) => {
     uploadOptions = options;
     return privateAsset;
   });
 
-  const res = response();
-  await uploadDriverDocument({
-    params: { driverId: driverId.toString(), docType: "idProof" },
-    user: { _id: userId, role: "driver" },
-    file: pngFile()
-  }, res);
+  for (const docType of ["idProof", "drivingLicense"]) {
+    const res = response();
+    await uploadDriverDocument({
+      params: { driverId: driverId.toString(), docType },
+      user: { _id: userId, role: "driver" },
+      file: pngFile()
+    }, res);
 
-  assert.equal(res.statusCode, 201);
-  assert.equal(res.body.data.document.status, "pending");
-  assert.equal(driver.documents.idProof.uploadedBy.toString(), userId.toString());
-  assert.ok(driver.documents.idProof.submittedAt instanceof Date);
-  assert.equal(driver.documents.idProof.publicId, privateAsset.public_id);
+    assert.equal(res.statusCode, 201);
+    assert.equal(res.body.data.document.status, "pending");
+    assert.equal(driver.documents[docType].uploadedBy.toString(), userId.toString());
+    assert.ok(driver.documents[docType].submittedAt instanceof Date);
+    assert.equal(driver.documents[docType].publicId, privateAsset.public_id);
+  }
+  assert.notEqual(driver.documents.idProof.publicId, agencyOwnerAadhaar.publicId);
+  assert.equal(agencyOwnerAadhaar.status, "approved");
   assert.equal(uploadOptions.type, "authenticated");
   assert.equal(uploadOptions.folder, "loadbalbin_kyc");
-  assert.equal("url" in res.body.data.document, false);
+  assert.equal(upload.mock.calls.length, 2);
+});
+
+test("driver upload rejects vehicle-owned document types", async (t) => {
+  const driverId = new mongoose.Types.ObjectId();
+  const upload = t.mock.method(cloudinary.uploader, "upload", async () => privateAsset);
+  for (const docType of ["vehicleRegistration", "insurance"]) {
+    const res = response();
+    await uploadDriverDocument({
+      params: { driverId: driverId.toString(), docType },
+      user: { _id: new mongoose.Types.ObjectId(), role: "driver" },
+      file: pngFile()
+    }, res);
+    assert.equal(res.statusCode, 400);
+  }
+  assert.equal(upload.mock.calls.length, 0);
 });
 
 test("driver upload rejects mismatched file signature and another driver's document", async (t) => {
@@ -633,6 +659,7 @@ test("agency assignment requires approved driver identity and vehicle documents"
   const vehicleId = new mongoose.Types.ObjectId();
   const driver = {
     _id: driverId,
+    user: { role: "driver" },
     agency: agencyId,
     isActive: true,
     approvalStatus: "approved",

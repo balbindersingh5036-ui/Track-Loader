@@ -18,7 +18,8 @@ export const setAuthenticationExpiredHandler = (handler) => {
 
 api.interceptors.request.use(async (config) => {
   const token = await getToken();
-  if (token) {
+  const explicitAuthorization = config.headers?.Authorization || config.headers?.authorization;
+  if (token && !explicitAuthorization) {
     config.headers.Authorization = "Bearer " + token;
   }
 

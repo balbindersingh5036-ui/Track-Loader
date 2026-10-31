@@ -30,6 +30,7 @@ import {
 } from "../controllers/bookingController.js";
 import { sanitizeDriverDocumentResponse } from "../utils/driverDocumentResponse.js";
 import { checkDriverOnlineEligibility } from "../utils/driverEligibility.js";
+import { sanitizeVehicleDocumentResponse } from "../utils/vehicleDocumentResponse.js";
 
 const router = express.Router();
 
@@ -172,7 +173,7 @@ router.patch("/agency-request", protect, driverOnly, async (req, res) => {
   }
 });
 
-router.get("/profile", protect, driverOnly, async (req, res) => {
+export const getDriverProfile = async (req, res) => {
   try {
     const driver = await Driver.findOne({
       user: req.user._id
@@ -187,14 +188,19 @@ router.get("/profile", protect, driverOnly, async (req, res) => {
       });
     }
 
+    const vehicles = await Vehicle.find({ driver: driver._id })
+      .select("vehicleNumber vehicleModel vehicleType agency isActive isAvailable documents.registration documents.insurance")
+      .sort({ createdAt: -1 })
+      .lean();
     const driverObj = driver.toObject();
     sanitizeDriverDocumentResponse(driverObj, { includeSignedUrls: true });
+    const safeVehicles = vehicles.map((vehicle) => sanitizeVehicleDocumentResponse(vehicle));
 
     return res.status(200).json({
       success: true,
       message: "Driver profile fetched successfully",
       data: {
-        driver: driverObj
+        driver: { ...driverObj, vehicles: safeVehicles }
       }
     });
   } catch (error) {
@@ -205,6 +211,8 @@ router.get("/profile", protect, driverOnly, async (req, res) => {
       message: "Failed to fetch driver profile"
     });
   }
-});
+};
+
+router.get("/profile", protect, driverOnly, getDriverProfile);
 
 export default router;

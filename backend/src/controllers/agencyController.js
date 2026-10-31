@@ -16,6 +16,7 @@ import {
 } from "../utils/driverEligibility.js";
 import { sanitizeVehicleDocumentResponse } from "../utils/vehicleDocumentResponse.js";
 import { sanitizeDriverDocumentResponse } from "../utils/driverDocumentResponse.js";
+import { getActualDriverUserFilter, isActualDriverProfile } from "../utils/actualDriver.js";
 import { notifyCustomer, notifyDriver } from "../services/notificationService.js";
 import { emitToUser } from "../sockets/socket.js";
 import { extractCloudinaryAssetInfo, generateSignedDocumentUrl } from "../utils/documentSigner.js";
@@ -92,6 +93,10 @@ export const registerAgency = async (req, res) => {
   let roleUpdateAttempted = false;
   let uploadInProgress = false;
   try {
+    if (req.user?.role !== "customer") {
+      return errorResponse(res, "Only customer accounts can apply to register an agency", 403);
+    }
+
     const { agencyName, phone, email, address, city } = req.body;
 
     if (Object.hasOwn(req.body || {}, "documents")) {
@@ -113,9 +118,14 @@ export const registerAgency = async (req, res) => {
       if (files[docType]?.[0]) validatePrivateDocument(files[docType][0]);
     }
 
-    const existing = await Agency.findOne({ $or: [{ owner: req.user._id }, { phone: phone.trim() }] });
+    const emailQuery = typeof email === "string" && email.trim()
+      ? [{ email: email.trim().toLowerCase() }]
+      : [];
+    const existing = await Agency.findOne({
+      $or: [{ owner: req.user._id }, { phone: phone.trim() }, ...emailQuery]
+    });
     if (existing) {
-      return errorResponse(res, "Agency with this owner or phone number already exists", 409);
+      return errorResponse(res, "Agency with this owner, phone number, or email already exists", 409);
     }
 
     const documents = {};
@@ -281,7 +291,11 @@ export const getAgencyDrivers = async (req, res) => {
       return errorResponse(res, "Agency not found", 404);
     }
 
-    const drivers = await Driver.find({ agency: agency._id })
+    const actualDriverUserFilter = await getActualDriverUserFilter();
+    const drivers = await Driver.find({
+      agency: agency._id,
+      ...actualDriverUserFilter
+    })
       .populate("user", "name phone email profileImage isActive")
       .populate("documents.idProof.uploadedBy", "name")
       .populate("documents.drivingLicense.uploadedBy", "name")
@@ -331,16 +345,19 @@ export const createAgencyDriver = async (req, res) => {
       return errorResponse(res, "Driver full name, phone number, and password are required", 400);
     }
 
-    const existingUser = await User.findOne({ phone: phone.trim() });
+    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    const duplicateCriteria = [{ phone: phone.trim() }];
+    if (normalizedEmail) duplicateCriteria.push({ email: normalizedEmail });
+    const existingUser = await User.findOne({ $or: duplicateCriteria });
     if (existingUser) {
-      return errorResponse(res, "User with this phone number already exists", 409);
+      return errorResponse(res, "User with this phone number or email already exists", 409);
     }
 
     const hashedPassword = await hashPassword(password);
     createdUser = await User.create({
       name: fullName.trim(),
       phone: phone.trim(),
-      email: email ? email.trim().toLowerCase() : undefined,
+      email: normalizedEmail || undefined,
       password: hashedPassword,
       role: "driver"
     });
@@ -358,7 +375,7 @@ export const createAgencyDriver = async (req, res) => {
       },
       fullName: fullName.trim(),
       phone: phone.trim(),
-      email: email ? email.trim().toLowerCase() : "",
+      email: normalizedEmail,
       address: address ? address.trim() : "",
       emergencyContact: emergencyContact || { name: "", phone: "" },
       approvalStatus: "pending" // Preserving Super Admin approval authority
@@ -374,7 +391,7 @@ export const createAgencyDriver = async (req, res) => {
       }
     }
     if (error.code === 11000) {
-      return errorResponse(res, "User with this phone number already exists", 409);
+      return errorResponse(res, "User with this phone number or email already exists", 409);
     }
     console.error("Agency driver creation error:", error);
     return errorResponse(res, "Failed to create driver", 500);
@@ -579,6 +596,9 @@ export const assignVehicleDriver = async (req, res) => {
     if (!driver) {
       return errorResponse(res, "Driver not found", 404);
     }
+    if (!await isActualDriverProfile(driver)) {
+      return errorResponse(res, "Only genuine driver accounts may be assigned to vehicles", 403);
+    }
     if (!driver.agency || String(driver.agency._id || driver.agency) !== String(agency._id)) {
       return errorResponse(res, "You are not authorized to assign drivers belonging to another agency", 403);
     }
@@ -643,9 +663,13 @@ export const getAgencyBookings = async (req, res) => {
     }
 
     // Find agency vehicles and drivers
+    const actualDriverUserFilter = await getActualDriverUserFilter();
     const [vehicles, drivers] = await Promise.all([
       Vehicle.find({ agency: agency._id }).select("_id"),
-      Driver.find({ agency: agency._id }).select("_id")
+      Driver.find({
+        agency: agency._id,
+        ...actualDriverUserFilter
+      }).select("_id")
     ]);
 
     const vehicleIds = vehicles.map((v) => v._id);
@@ -718,6 +742,9 @@ export const assignAgencyBooking = async (req, res) => {
     const driver = await Driver.findOne({ _id: driverId, agency: agency._id });
     if (!driver || driver.agencyAssociation?.status !== "approved") {
       return errorResponse(res, "Driver must belong to this agency and have an approved agency association", 403);
+    }
+    if (!await isActualDriverProfile(driver)) {
+      return errorResponse(res, "Only genuine driver accounts may be assigned to bookings", 403);
     }
 
     const vehicle = await Vehicle.findOne({
@@ -825,7 +852,11 @@ export const getAgencyJoiningRequests = async (req, res) => {
     }
 
     const { status } = req.query;
-    const drivers = await Driver.find({ agency: agency._id })
+    const actualDriverUserFilter = await getActualDriverUserFilter();
+    const drivers = await Driver.find({
+      agency: agency._id,
+      ...actualDriverUserFilter
+    })
       .populate("user", "name phone email profileImage createdAt")
       .populate("agencyAssociation.reviewedBy", "name role")
       .sort({ createdAt: -1 });
@@ -978,7 +1009,11 @@ export const getAgencyStats = async (req, res) => {
       return errorResponse(res, "Agency not found", 404);
     }
 
-    const allDrivers = await Driver.find({ agency: agency._id }).lean();
+    const actualDriverUserFilter = await getActualDriverUserFilter();
+    const allDrivers = await Driver.find({
+      agency: agency._id,
+      ...actualDriverUserFilter
+    }).lean();
     const total = allDrivers.length;
 
     const resolvedDrivers = allDrivers.map((d) => ({

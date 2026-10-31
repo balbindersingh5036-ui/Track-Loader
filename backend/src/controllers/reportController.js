@@ -7,6 +7,7 @@ import Rating from "../models/Rating.js";
 import Complaint from "../models/Complaint.js";
 import { successResponse, errorResponse } from "../utils/response.js";
 import { parseDateRange } from "../utils/dateParser.js";
+import { getActualDriverUserFilter } from "../utils/actualDriver.js";
 
 const getPagination = (req) => {
   const pageValue = req.query.page;
@@ -31,6 +32,7 @@ const getPagination = (req) => {
 
 export const getDashboardSummary = async (req, res) => {
   try {
+    const actualDriverFilter = await getActualDriverUserFilter();
     const [
       totalCustomers, activeCustomers,
       totalDrivers, approvedDrivers, pendingDrivers,
@@ -42,9 +44,9 @@ export const getDashboardSummary = async (req, res) => {
     ] = await Promise.all([
       User.countDocuments({ role: "customer" }),
       User.countDocuments({ role: "customer", isActive: true }),
-      Driver.countDocuments(),
-      Driver.countDocuments({ approvalStatus: "approved" }),
-      Driver.countDocuments({ approvalStatus: "pending" }),
+      Driver.countDocuments(actualDriverFilter),
+      Driver.countDocuments({ ...actualDriverFilter, approvalStatus: "approved" }),
+      Driver.countDocuments({ ...actualDriverFilter, approvalStatus: "pending" }),
       Vehicle.countDocuments(),
       Vehicle.countDocuments({ isActive: true }),
       Vehicle.countDocuments({ isAvailable: true }),
@@ -211,10 +213,11 @@ export const getDriverReport = async (req, res) => {
     
     const driverMatch = {};
     if (Object.keys(dateFilter.match).length > 0) driverMatch.createdAt = dateFilter.match;
+    const actualDriverFilter = await getActualDriverUserFilter();
 
     const [driverCounts, totalCompletedTrips] = await Promise.all([
       Driver.aggregate([
-        { $match: driverMatch },
+        { $match: { ...actualDriverFilter, ...driverMatch } },
         { $group: { _id: "$approvalStatus", count: { $sum: 1 } } }
       ]),
       Booking.countDocuments({ bookingStatus: "completed" })
@@ -226,7 +229,10 @@ export const getDriverReport = async (req, res) => {
       return acc;
     }, { total: 0 });
 
-    const topDrivers = await Driver.find().sort({ totalTrips: -1 }).limit(10).select("fullName phone totalTrips rating");
+    const topDrivers = await Driver.find(actualDriverFilter)
+      .sort({ totalTrips: -1 })
+      .limit(10)
+      .select("fullName phone totalTrips rating");
 
     return successResponse(res, {
       totalDrivers: counts.total,

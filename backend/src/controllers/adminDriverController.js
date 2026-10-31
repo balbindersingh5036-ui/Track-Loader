@@ -8,6 +8,7 @@ import { parsePagination } from "../utils/pagination.js";
 import { hasApprovedDriverIdentityDocuments } from "../utils/driverEligibility.js";
 import { extractCloudinaryAssetInfo } from "../utils/documentSigner.js";
 import { isDesignatedSuperAdmin } from "../utils/superAdmin.js";
+import { getActualDriverUserFilter } from "../utils/actualDriver.js";
 
 const safeDriver = (driver, vehicles = [], canApproveDriver = false) => {
   const isAgencyLinked = Boolean(driver.agency);
@@ -18,9 +19,7 @@ const safeDriver = (driver, vehicles = [], canApproveDriver = false) => {
   const docs = driver.documents || {};
   const docConfig = [
     { key: "idProof", label: "Aadhaar / Identity Proof", mandatory: true },
-    { key: "drivingLicense", label: "Driving Licence", mandatory: true },
-    { key: "vehicleRegistration", label: "Vehicle RC", mandatory: false },
-    { key: "insurance", label: "Insurance", mandatory: false }
+    { key: "drivingLicense", label: "Driving Licence", mandatory: true }
   ];
 
   const sanitizedDocs = {};
@@ -91,7 +90,16 @@ const safeDriver = (driver, vehicles = [], canApproveDriver = false) => {
       vehicleType: vehicle.vehicleType,
       loadCapacity: vehicle.loadCapacity,
       isAvailable: vehicle.isAvailable,
-      isActive: vehicle.isActive
+      isActive: vehicle.isActive,
+      documents: Object.fromEntries(["registration", "insurance"].map((key) => {
+        const document = vehicle.documents?.[key] || {};
+        return [key, {
+          status: document.url || document.publicId ? document.status || "pending" : document.status || "not_uploaded",
+          submittedAt: document.submittedAt || null,
+          reviewedAt: document.reviewedAt || null,
+          rejectionReason: document.rejectionReason || ""
+        }];
+      }))
     }))
   };
 };
@@ -100,7 +108,7 @@ const loadVehiclesByDriver = async (drivers) => {
   const ids = drivers.map((driver) => driver._id);
   const vehicles = ids.length
     ? await Vehicle.find({ driver: { $in: ids } })
-      .select("driver vehicleNumber vehicleModel vehicleType loadCapacity isAvailable isActive")
+      .select("driver vehicleNumber vehicleModel vehicleType loadCapacity isAvailable isActive documents.registration documents.insurance")
       .lean()
     : [];
   return new Map(ids.map((id) => [
@@ -119,6 +127,7 @@ export const getAdminDrivers = async (req, res) => {
     }
 
     const query = {};
+    Object.assign(query, await getActualDriverUserFilter());
 
     if (req.query.approvalStatus !== undefined) {
       if (!["pending", "approved", "rejected", "suspended"].includes(req.query.approvalStatus)) {
@@ -269,10 +278,6 @@ export const getAdminDriverById = async (req, res) => {
       .populate("documents.idProof.reviewedBy", "name role")
       .populate("documents.drivingLicense.uploadedBy", "name role")
       .populate("documents.drivingLicense.reviewedBy", "name role")
-      .populate("documents.vehicleRegistration.uploadedBy", "name role")
-      .populate("documents.vehicleRegistration.reviewedBy", "name role")
-      .populate("documents.insurance.uploadedBy", "name role")
-      .populate("documents.insurance.reviewedBy", "name role")
       .lean();
     if (!driver) return errorResponse(res, "Driver not found", 404);
     const vehiclesByDriver = await loadVehiclesByDriver([driver]);
@@ -280,10 +285,15 @@ export const getAdminDriverById = async (req, res) => {
     const driverData = safeDriver(driver, vehiclesByDriver.get(driver._id.toString()), canReviewDocuments);
 
     // Allow authorized admin in detail view to inspect driver KYC documents with short-lived signed URLs
-    const docs = driver.documents ? JSON.parse(JSON.stringify(driver.documents)) : {};
+    const docs = Object.fromEntries(
+      ["idProof", "drivingLicense"].map((key) => [
+        key,
+        driver.documents?.[key] ? JSON.parse(JSON.stringify(driver.documents[key])) : { status: "not_uploaded" }
+      ])
+    );
     const { generateSignedDocumentUrl, extractCloudinaryAssetInfo } = await import("../utils/documentSigner.js");
 
-    const supportedDocKeys = ["idProof", "drivingLicense", "vehicleRegistration", "insurance"];
+    const supportedDocKeys = ["idProof", "drivingLicense"];
     for (const key of supportedDocKeys) {
       const doc = docs[key];
       if (!doc) continue;
@@ -372,7 +382,7 @@ const updateApproval = (approvalStatus) => async (req, res) => {
 export const reviewAdminDriverDocument = async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return errorResponse(res, "Invalid driver ID", 400);
-    if (!["idProof", "drivingLicense", "vehicleRegistration", "insurance"].includes(req.params.docType)) {
+    if (!["idProof", "drivingLicense"].includes(req.params.docType)) {
       return errorResponse(res, "Invalid driver document type", 400);
     }
     if (!["approve", "reject"].includes(req.params.action)) {

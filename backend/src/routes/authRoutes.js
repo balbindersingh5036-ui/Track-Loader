@@ -5,6 +5,7 @@ import {
   registerDriver,
   login,
   driverLogin,
+  agencyLogin,
   adminLogin,
   getMe
 } from "../controllers/authController.js";
@@ -22,6 +23,7 @@ router.post("/login", login);
 /* Driver */
 router.post("/driver/register", registerDriver);
 router.post("/driver/login", driverLogin);
+router.post("/agency/login", agencyLogin);
 
 /* Admin */
 router.post("/admin/login", adminLogin);

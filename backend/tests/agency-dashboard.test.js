@@ -4,10 +4,13 @@ import mongoose from "mongoose";
 import Agency from "../src/models/Agency.js";
 import Booking from "../src/models/Booking.js";
 import Driver from "../src/models/Driver.js";
+import User from "../src/models/User.js";
 import Vehicle from "../src/models/Vehicle.js";
 import {
+  assignAgencyBooking,
   getAgencyBookings,
   getAgencyDrivers,
+  getAgencyStats,
   getMyAgency,
   updateMyAgency
 } from "../src/controllers/agencyController.js";
@@ -38,7 +41,12 @@ test("agency dashboard reads drivers only through the authenticated agency relat
   const agencyId = new mongoose.Types.ObjectId();
   const ownerId = new mongoose.Types.ObjectId();
   const driverId = new mongoose.Types.ObjectId();
+  const driverUserId = new mongoose.Types.ObjectId();
   let driverFilter;
+  t.mock.method(User, "find", () => ({
+    select() { return this; },
+    lean() { return Promise.resolve([{ _id: driverUserId }]); }
+  }));
   t.mock.method(Agency, "findOne", async (filter) => {
     assert.deepEqual(filter, { owner: ownerId });
     return { _id: agencyId };
@@ -47,6 +55,7 @@ test("agency dashboard reads drivers only through the authenticated agency relat
     driverFilter = filter;
     return query([{
       _id: driverId,
+      user: driverUserId,
       fullName: "Agency Driver",
       approvalStatus: "pending",
       isActive: true,
@@ -65,7 +74,7 @@ test("agency dashboard reads drivers only through the authenticated agency relat
   const res = response();
   await getAgencyDrivers({ user: { _id: ownerId } }, res);
 
-  assert.deepEqual(driverFilter, { agency: agencyId });
+  assert.deepEqual(driverFilter, { agency: agencyId, user: { $in: [driverUserId] } });
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.data.drivers.length, 1);
   assert.equal(res.body.data.drivers[0]._id, driverId);
@@ -77,8 +86,13 @@ test("agency dashboard returns the real scoped booking count even when only rece
   const ownerId = new mongoose.Types.ObjectId();
   const vehicleId = new mongoose.Types.ObjectId();
   const driverId = new mongoose.Types.ObjectId();
+  const driverUserId = new mongoose.Types.ObjectId();
   const bookings = [{ _id: new mongoose.Types.ObjectId() }];
   let bookingFilter;
+  t.mock.method(User, "find", () => ({
+    select() { return this; },
+    lean() { return Promise.resolve([{ _id: driverUserId }]); }
+  }));
   t.mock.method(Agency, "findOne", async () => ({ _id: agencyId }));
   t.mock.method(Vehicle, "find", () => ({
     select() { return query([{ _id: vehicleId }]); }
@@ -107,6 +121,81 @@ test("agency dashboard returns the real scoped booking count even when only rece
   });
   assert.equal(res.body.data.bookings.length, 1);
   assert.deepEqual(res.body.data.pagination, { total: 73, returned: 1 });
+});
+
+test("agency driver statistics count only genuine agency-linked driver profiles", async (t) => {
+  const agencyId = new mongoose.Types.ObjectId();
+  const ownerId = new mongoose.Types.ObjectId();
+  const ownerUserId = new mongoose.Types.ObjectId();
+  const driverUserId = new mongoose.Types.ObjectId();
+  let driverFilter;
+  t.mock.method(Agency, "findOne", async () => ({ _id: agencyId }));
+  t.mock.method(User, "find", () => ({
+    select() { return this; },
+    lean() { return Promise.resolve([{ _id: driverUserId }]); }
+  }));
+  t.mock.method(Driver, "find", (filter) => {
+    driverFilter = filter;
+    return query([{
+      _id: new mongoose.Types.ObjectId(),
+      user: driverUserId,
+      approvalStatus: "pending",
+      isActive: true,
+      documents: { idProof: {}, drivingLicense: {} }
+    }]);
+  });
+
+  const res = response();
+  await getAgencyStats({ user: { _id: ownerId } }, res);
+
+  assert.deepEqual(driverFilter, { agency: agencyId, user: { $in: [driverUserId] } });
+  assert.equal(driverFilter.user.$in.includes(ownerUserId), false);
+  assert.equal(res.body.data.counts.total, 1);
+  assert.equal(res.body.data.counts.pendingAgency, 1);
+});
+
+test("agency owner account cannot be assigned to an agency booking", async (t) => {
+  const agencyId = new mongoose.Types.ObjectId();
+  const ownerId = new mongoose.Types.ObjectId();
+  const bookingId = new mongoose.Types.ObjectId();
+  const driverId = new mongoose.Types.ObjectId();
+  const vehicleId = new mongoose.Types.ObjectId();
+  t.mock.method(Agency, "findOne", async () => ({
+    _id: agencyId,
+    owner: ownerId,
+    approvalStatus: "approved",
+    isActive: true
+  }));
+  t.mock.method(Booking, "findById", async () => ({
+    _id: bookingId,
+    bookingStatus: "pending",
+    driver: null,
+    agency: agencyId
+  }));
+  t.mock.method(Driver, "findOne", async () => ({
+    _id: driverId,
+    user: { role: "agency" },
+    agency: agencyId,
+    agencyAssociation: { status: "approved" }
+  }));
+  const vehicleLookup = t.mock.method(Vehicle, "findOne", async () => ({
+    _id: vehicleId,
+    agency: agencyId,
+    driver: driverId,
+    isActive: true,
+    isAvailable: true
+  }));
+
+  const res = response();
+  await assignAgencyBooking({
+    params: { id: bookingId.toString() },
+    body: { driverId: driverId.toString(), vehicleId: vehicleId.toString() },
+    user: { _id: ownerId }
+  }, res);
+
+  assert.equal(res.statusCode, 403);
+  assert.match(res.body.message, /genuine driver accounts/i);
+  assert.equal(vehicleLookup.mock.calls.length, 0);
 });
 
 test("agency profile reports missing Owner Aadhaar from the document reference, without leaking private URLs", async (t) => {

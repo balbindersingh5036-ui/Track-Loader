@@ -106,7 +106,7 @@ router.get("/driver/:driverId/:docType", protect, async (req, res) => {
       return errorResponse(res, "Invalid driver ID", 400);
     }
 
-    const validTypes = ["idProof", "drivingLicense", "vehicleRegistration", "insurance"];
+    const validTypes = ["idProof", "drivingLicense"];
     if (!validTypes.includes(docType)) {
       return errorResponse(res, "Invalid driver document type requested", 400);
     }

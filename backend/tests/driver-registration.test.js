@@ -157,6 +157,7 @@ test("driver registration links both records to the selected eligible agency and
       email: "ramesh@example.com",
       password: "secure-password",
       agencyId: agencyId.toString(),
+      role: "agency",
       approvalStatus: "approved",
       isActive: true
     }
@@ -173,7 +174,85 @@ test("driver registration links both records to the selected eligible agency and
   assert.equal(driverData.user.toString(), userId.toString());
   assert.equal(driverData.agency.toString(), agencyId.toString());
   assert.equal(driverData.approvalStatus, "pending");
+  assert.equal(driverData.agencyAssociation.status, "pending");
   assert.equal(res.body.data.driver.id, driverId);
+});
+
+test("independent registration controls role and initializes a genuine standalone Driver profile", async (t) => {
+  let userData;
+  let driverData;
+  t.mock.method(User, "findOne", async () => null);
+  t.mock.method(User, "create", async (data) => {
+    userData = data;
+    return { _id: new mongoose.Types.ObjectId(), ...data };
+  });
+  t.mock.method(Driver, "create", async (data) => {
+    driverData = data;
+    return { _id: new mongoose.Types.ObjectId(), ...data };
+  });
+
+  const res = createResponse();
+  await registerDriver({
+    body: {
+      fullName: "Standalone Driver",
+      phone: "9811122234",
+      password: "password1",
+      role: "agency",
+      approvalStatus: "approved",
+      agency: new mongoose.Types.ObjectId().toString()
+    }
+  }, res);
+
+  assert.equal(res.statusCode, 201);
+  assert.equal(userData.role, "driver");
+  assert.equal(res.body.data.user.role, "driver");
+  assert.equal(driverData.agency, null);
+  assert.equal(driverData.agencyAssociation.status, "none");
+  assert.equal(driverData.approvalStatus, "pending");
+});
+
+test("driver registration rejects duplicate email without creating a User or Driver", async (t) => {
+  const userQueries = [];
+  t.mock.method(User, "findOne", async (query) => {
+    userQueries.push(query);
+    return query.email ? { _id: new mongoose.Types.ObjectId() } : null;
+  });
+  t.mock.method(User, "create", async () => assert.fail("Duplicate email must not create User"));
+  t.mock.method(Driver, "create", async () => assert.fail("Duplicate email must not create Driver"));
+
+  const res = createResponse();
+  await registerDriver({
+    body: {
+      fullName: "Duplicate Email",
+      phone: "9811122235",
+      email: "  existing@example.com ",
+      password: "password1"
+    }
+  }, res);
+
+  assert.equal(res.statusCode, 409);
+  assert.match(res.body.message, /email address already registered/i);
+  assert.deepEqual(userQueries[1], { email: "existing@example.com" });
+});
+
+test("driver registration rejects duplicate phone without creating a Driver profile", async (t) => {
+  t.mock.method(User, "findOne", async (query) =>
+    query.phone ? { _id: new mongoose.Types.ObjectId() } : null
+  );
+  t.mock.method(User, "create", async () => assert.fail("Duplicate phone must not create User"));
+  t.mock.method(Driver, "create", async () => assert.fail("Duplicate phone must not create Driver"));
+
+  const res = createResponse();
+  await registerDriver({
+    body: {
+      fullName: "Duplicate Phone Driver",
+      phone: "9811122235",
+      password: "password1"
+    }
+  }, res);
+
+  assert.equal(res.statusCode, 409);
+  assert.match(res.body.message, /phone number already registered/i);
 });
 
 test("driver registration rejects malformed, pending, rejected, suspended, and inactive agencies", async (t) => {

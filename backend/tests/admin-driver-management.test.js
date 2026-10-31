@@ -65,7 +65,9 @@ test("Admin Driver 1: getAdminDriverById returns driver with vehicles, agency, a
     },
     documents: {
       idProof: { status: "pending", publicId: "loadbalbin_kyc/driver_aadhaar", format: "jpg" },
-      drivingLicense: { status: "approved", publicId: "loadbalbin_kyc/driver_dl", format: "pdf" }
+      drivingLicense: { status: "approved", publicId: "loadbalbin_kyc/driver_dl", format: "pdf" },
+      vehicleRegistration: { status: "approved", publicId: "loadbalbin_kyc/legacy_driver_rc" },
+      insurance: { status: "approved", publicId: "loadbalbin_kyc/legacy_driver_insurance" }
     }
   };
 
@@ -82,7 +84,20 @@ test("Admin Driver 1: getAdminDriverById returns driver with vehicles, agency, a
       vehicleType: "mini_truck",
       loadCapacity: 1000,
       isAvailable: true,
-      isActive: true
+      isActive: true,
+      documents: {
+        registration: {
+          url: "https://private.example/vehicle-rc",
+          publicId: "loadbalbin_kyc/vehicle-rc",
+          status: "pending",
+          submittedAt: new Date("2026-02-01T10:00:00Z")
+        },
+        insurance: {
+          url: "https://private.example/vehicle-insurance",
+          publicId: "loadbalbin_kyc/vehicle-insurance",
+          status: "approved"
+        }
+      }
     }
   ]));
 
@@ -99,6 +114,10 @@ test("Admin Driver 1: getAdminDriverById returns driver with vehicles, agency, a
   assert.equal(res.body.data.driver.agencyAssociation.status, "approved");
   assert.equal(res.body.data.driver.vehicles.length, 1);
   assert.equal(res.body.data.driver.vehicles[0].vehicleNumber, "MH01AB1234");
+  assert.deepEqual(Object.keys(res.body.data.driver.documents).sort(), ["drivingLicense", "idProof"]);
+  assert.equal(res.body.data.driver.vehicles[0].documents.registration.status, "pending");
+  assert.equal(res.body.data.driver.vehicles[0].documents.registration.submittedAt.toISOString(), "2026-02-01T10:00:00.000Z");
+  assert.equal(res.body.data.driver.vehicles[0].documents.insurance.status, "approved");
 });
 
 test("Admin Driver 2: Search filters drivers correctly by name, phone, email, and agency", async (t) => {
@@ -139,6 +158,10 @@ test("Admin Driver 3: All workflow filters construct appropriate queries", async
     "rejected",
     "suspended"
   ];
+  t.mock.method(User, "find", () => ({
+    select() { return this; },
+    lean() { return Promise.resolve([{ _id: new mongoose.Types.ObjectId() }]); }
+  }));
 
   for (const filter of filters) {
     let capturedQuery = null;
@@ -147,7 +170,6 @@ test("Admin Driver 3: All workflow filters construct appropriate queries", async
       return chain([]);
     });
     t.mock.method(Driver, "countDocuments", async () => 0);
-
     const res = createResponse();
     await getAdminDrivers({
       query: { filter },
@@ -381,7 +403,7 @@ test("Admin Driver 9: Account deactivation toggles isActive to false and takes d
   assert.equal(capturedUpdate.$set.isOnline, false);
 });
 
-test("Admin Driver 10: Document review supports idProof, drivingLicense, and vehicle documents", async (t) => {
+test("Admin Driver 10: Driver document review is limited to Aadhaar and Driving Licence", async (t) => {
   const driverId = new mongoose.Types.ObjectId();
   const reviewerId = new mongoose.Types.ObjectId();
   const mockDriver = {
@@ -420,6 +442,14 @@ test("Admin Driver 10: Document review supports idProof, drivingLicense, and veh
   assert.equal(resReject.statusCode, 200);
   assert.equal(mockDriver.documents.idProof.status, "rejected");
   assert.equal(mockDriver.documents.idProof.rejectionReason, "Blurred scan");
+
+  const legacyVehicleDocument = createResponse();
+  await reviewAdminDriverDocument({
+    params: { id: driverId.toString(), docType: "vehicleRegistration", action: "approve" },
+    body: {},
+    user: { _id: reviewerId }
+  }, legacyVehicleDocument);
+  assert.equal(legacyVehicleDocument.statusCode, 400);
 });
 
 test("Admin Driver 11: Missing documents do not produce signed preview links", async (t) => {
@@ -451,11 +481,24 @@ test("Admin Driver 11: Missing documents do not produce signed preview links", a
 });
 
 test("Admin Driver 12: Driver list pagination returns accurate page count and totals", async (t) => {
-  t.mock.method(Driver, "find", () => chain([
+  const driverUserId = new mongoose.Types.ObjectId();
+  let listQuery;
+  let countQuery;
+  t.mock.method(User, "find", () => ({
+    select() { return this; },
+    lean() { return Promise.resolve([{ _id: driverUserId }]); }
+  }));
+  t.mock.method(Driver, "find", (query) => {
+    listQuery = query;
+    return chain([
     { _id: new mongoose.Types.ObjectId(), fullName: "Driver 1", approvalStatus: "approved" },
     { _id: new mongoose.Types.ObjectId(), fullName: "Driver 2", approvalStatus: "pending" }
-  ]));
-  t.mock.method(Driver, "countDocuments", async () => 45);
+    ]);
+  });
+  t.mock.method(Driver, "countDocuments", async (query) => {
+    countQuery = query;
+    return 45;
+  });
   t.mock.method(Vehicle, "find", () => chain([]));
 
   const res = createResponse();
@@ -469,6 +512,50 @@ test("Admin Driver 12: Driver list pagination returns accurate page count and to
   assert.equal(res.body.data.pagination.limit, 20);
   assert.equal(res.body.data.pagination.total, 45);
   assert.equal(res.body.data.pagination.totalPages, 3);
+  assert.deepEqual(listQuery.user.$in, [driverUserId]);
+  assert.deepEqual(countQuery, listQuery);
+});
+
+test("Admin Driver list filters owners and admins while retaining linked and independent drivers", async (t) => {
+  const agencyOwnerId = new mongoose.Types.ObjectId();
+  const agencyDriverId = new mongoose.Types.ObjectId();
+  const independentDriverId = new mongoose.Types.ObjectId();
+  const adminId = new mongoose.Types.ObjectId();
+  const superAdminId = new mongoose.Types.ObjectId();
+  let listQuery;
+  let countQuery;
+  t.mock.method(User, "find", (filter) => {
+    assert.deepEqual(filter, { role: "driver" });
+    return {
+      select() { return this; },
+      lean() {
+        return Promise.resolve([
+          { _id: agencyDriverId },
+          { _id: independentDriverId }
+        ]);
+      }
+    };
+  });
+  t.mock.method(Driver, "find", (query) => {
+    listQuery = query;
+    return chain([]);
+  });
+  t.mock.method(Driver, "countDocuments", async (query) => {
+    countQuery = query;
+    return 2;
+  });
+  t.mock.method(Vehicle, "find", () => chain([]));
+
+  const res = createResponse();
+  await getAdminDrivers({ query: { filter: "all" }, user: { role: "admin" } }, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(listQuery.user.$in, [agencyDriverId, independentDriverId]);
+  assert.equal(listQuery.user.$in.includes(agencyOwnerId), false);
+  assert.equal(listQuery.user.$in.includes(adminId), false);
+  assert.equal(listQuery.user.$in.includes(superAdminId), false);
+  assert.deepEqual(countQuery, listQuery);
+  assert.equal(res.body.data.pagination.total, 2);
 });
 
 test("Admin Driver 13: Ordinary admin without Super Admin identity cannot approve driver", async (t) => {

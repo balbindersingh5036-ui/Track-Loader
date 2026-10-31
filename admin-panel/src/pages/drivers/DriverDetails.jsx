@@ -4,9 +4,7 @@ import driverService from '../../services/driverService';
 
 const supportedDocuments = [
   { key: 'idProof', label: 'Identity Proof (Aadhaar)', mandatory: true },
-  { key: 'drivingLicense', label: 'Driving Licence', mandatory: true },
-  { key: 'vehicleRegistration', label: 'Vehicle Registration (RC)', mandatory: false },
-  { key: 'insurance', label: 'Vehicle Insurance', mandatory: false }
+  { key: 'drivingLicense', label: 'Driving Licence', mandatory: true }
 ];
 
 export default function DriverDetails() {
@@ -120,16 +118,6 @@ export default function DriverDetails() {
   const agencyAccepted = !hasAgency || agencyAssocStatus === 'approved';
   const docsApproved = driver?.documents?.idProof?.status === 'approved' && driver?.documents?.drivingLicense?.status === 'approved';
   const canApprove = Boolean(driver?.canReviewDocuments && docsApproved && agencyAccepted && driver?.approvalStatus !== 'approved');
-
-  const knownKeys = new Set(supportedDocuments.map((d) => d.key));
-  const dynamicDocuments = Object.keys(driver?.documents || {})
-    .filter((k) => !knownKeys.has(k) && driver.documents[k] && typeof driver.documents[k] === 'object')
-    .map((k) => ({
-      key: k,
-      label: k.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase()),
-      mandatory: false
-    }));
-  const allDocumentsToRender = [...supportedDocuments, ...dynamicDocuments];
 
   return (
     <section className="card">
@@ -248,6 +236,29 @@ export default function DriverDetails() {
                         {v.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </div>
+                    <div style={{ display: 'grid', gap: 4, marginTop: 10, fontSize: 12 }}>
+                      {[
+                        { key: 'registration', label: 'Vehicle RC' },
+                        { key: 'insurance', label: 'Vehicle Insurance' }
+                      ].map(({ key, label }) => {
+                        const document = v.documents?.[key] || { status: 'not_uploaded' };
+                        return (
+                          <div key={key}>
+                            <strong>{label}:</strong> {document.status || 'not_uploaded'}
+                            {document.submittedAt ? ` · Submitted ${new Date(document.submittedAt).toLocaleDateString()}` : ''}
+                            {document.rejectionReason ? ` · Rejection: ${document.rejectionReason}` : ''}
+                          </div>
+                        );
+                      })}
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => navigate(`/vehicles/${encodeURIComponent(v.id || v._id)}`)}
+                        style={{ justifySelf: 'start', marginTop: 4 }}
+                      >
+                        Review Vehicle Documents
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -320,7 +331,7 @@ export default function DriverDetails() {
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
-              {allDocumentsToRender.map(({ key, label, mandatory }) => {
+              {supportedDocuments.map(({ key, label, mandatory }) => {
                 const document = driver.documents?.[key] || { status: 'not_uploaded' };
                 const submitted = Boolean(document.status && document.status !== 'not_uploaded' && document.status !== 'missing');
                 const status = submitted ? (document.status || 'pending') : 'missing';

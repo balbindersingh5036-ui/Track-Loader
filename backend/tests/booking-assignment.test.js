@@ -100,6 +100,10 @@ const mockNotifications = (t) => {
 
 test("Agency assigns its eligible driver and booking remains pending until driver acceptance", async (t) => {
   mockNotifications(t);
+  t.mock.method(User, "findById", () => ({
+    select() { return this; },
+    lean() { return Promise.resolve({ role: "driver" }); }
+  }));
   const booking = pendingBooking();
   const assignedBooking = {
     ...booking,
@@ -140,6 +144,10 @@ test("Agency assigns its eligible driver and booking remains pending until drive
 
 test("Agency assignment cannot select another agency's or an unapproved driver", async (t) => {
   const booking = pendingBooking();
+  t.mock.method(User, "findById", () => ({
+    select() { return this; },
+    lean() { return Promise.resolve({ role: "driver" }); }
+  }));
   t.mock.method(Agency, "findOne", async () => activeAgency);
   t.mock.method(Booking, "findById", async () => booking);
   t.mock.method(Driver, "findOne", async () => null);
@@ -166,6 +174,37 @@ test("Agency assignment cannot select another agency's or an unapproved driver",
     user: { _id: agencyOwnerId }
   }, res);
   assert.equal(res.statusCode, 400);
+});
+
+test("Agency assignment remains blocked while personal driver KYC is pending", async (t) => {
+  const booking = pendingBooking();
+  t.mock.method(User, "findById", () => ({
+    select() { return this; },
+    lean() { return Promise.resolve({ role: "driver" }); }
+  }));
+  t.mock.method(Agency, "findOne", async () => activeAgency);
+  t.mock.method(Booking, "findById", async () => booking);
+  t.mock.method(Driver, "findOne", async () => ({
+    ...eligibleDriver,
+    documents: {
+      idProof: { status: "pending" },
+      drivingLicense: { status: "approved" }
+    }
+  }));
+  t.mock.method(Vehicle, "findOne", async () => eligibleVehicle);
+  t.mock.method(Vehicle, "findOneAndUpdate", async () => {
+    assert.fail("A driver with pending personal KYC must not reserve a vehicle");
+  });
+
+  const res = response();
+  await assignAgencyBooking({
+    params: { id: bookingId },
+    body: { driverId, vehicleId },
+    user: { _id: agencyOwnerId }
+  }, res);
+
+  assert.equal(res.statusCode, 400);
+  assert.match(res.body.message, /Aadhaar and Driving Licence/i);
 });
 
 test("Agency cannot claim an unowned booking that is not routed to it", async (t) => {
@@ -301,6 +340,10 @@ test("atomic driver acceptance allows only one concurrent acceptance", async (t)
 
 test("Agency booking list is scoped to its agency and its assigned fleet", async (t) => {
   let filter;
+  t.mock.method(User, "find", () => ({
+    select() { return this; },
+    lean() { return Promise.resolve([{ _id: driverUserId }]); }
+  }));
   t.mock.method(Agency, "findOne", async () => activeAgency);
   t.mock.method(Vehicle, "find", () => ({
     select: async () => [{ _id: vehicleId }]

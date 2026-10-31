@@ -62,13 +62,21 @@ export const register = async (req, res) => {
       });
     }
 
+    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    if (normalizedEmail && await User.findOne({ email: normalizedEmail })) {
+      return res.status(409).json({
+        success: false,
+        message: "Email address already registered"
+      });
+    }
+
     const hashedPassword = await hashPassword(password);
 
     const user = await User.create({
       name: String(name).trim(),
       phone: normalizedPhone,
       email: email
-        ? String(email).trim().toLowerCase()
+        ? normalizedEmail
         : undefined,
       password: hashedPassword,
       role: "customer"
@@ -177,10 +185,18 @@ export const registerDriver = async (req, res) => {
       });
     }
 
+    const normalizedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    if (normalizedEmail && await User.findOne({ email: normalizedEmail })) {
+      return res.status(409).json({
+        success: false,
+        message: "Email address already registered"
+      });
+    }
+
     createdUser = await User.create({
       name: fullName.trim(),
       phone: normalizedPhone,
-      email: email ? String(email).trim().toLowerCase() : undefined,
+      email: normalizedEmail || undefined,
       password: await hashPassword(password),
       role: "driver"
     });
@@ -198,7 +214,7 @@ export const registerDriver = async (req, res) => {
       },
       fullName: fullName.trim(),
       phone: normalizedPhone,
-      email: email ? String(email).trim().toLowerCase() : "",
+      email: normalizedEmail,
       address: typeof address === "string" ? address.trim() : "",
       approvalStatus: "pending"
     });
@@ -608,6 +624,83 @@ export const adminLogin = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Admin login failed"
+    });
+  }
+};
+
+export const agencyLogin = async (req, res) => {
+  try {
+    const { phone, email, password, identifier } = req.body;
+    const input = String(email || phone || identifier || "").trim();
+
+    if (!password || !input) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone/email and password are required"
+      });
+    }
+
+    const normalizedPhone = input.replace(/\D/g, "");
+    const queryOr = [{ email: input.toLowerCase() }];
+    if (normalizedPhone) queryOr.push({ phone: normalizedPhone });
+
+    const user = await User.findOne({
+      role: "agency",
+      $or: queryOr
+    }).select("+password");
+
+    if (!user || !user.isActive) {
+      return res.status(user ? 403 : 401).json({
+        success: false,
+        message: user ? "Agency account is inactive" : "Invalid credentials"
+      });
+    }
+
+    if (!await comparePassword(password, user.password)) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials"
+      });
+    }
+
+    const agency = await Agency.findOne({ owner: user._id }).lean();
+    if (!agency) {
+      return res.status(404).json({
+        success: false,
+        message: "Agency profile not found"
+      });
+    }
+
+    user.lastLoginAt = new Date();
+    await user.save();
+
+    const token = generateToken({
+      userId: user._id.toString(),
+      role: "agency"
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Agency login successful",
+      data: {
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          phone: user.phone,
+          email: user.email || "",
+          role: "agency",
+          isSuperAdmin: false,
+          superAdminConfigured: isSuperAdminConfigured()
+        },
+        agency
+      }
+    });
+  } catch (error) {
+    console.error("Agency login error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Agency login failed"
     });
   }
 };

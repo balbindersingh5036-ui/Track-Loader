@@ -6,6 +6,7 @@ import { errorResponse, successResponse } from "../utils/response.js";
 import { parsePagination } from "../utils/pagination.js";
 import { sanitizeDriverDocumentResponse } from "../utils/driverDocumentResponse.js";
 import { sanitizeVehicleDocumentResponse } from "../utils/vehicleDocumentResponse.js";
+import { getActualDriverUserFilter } from "../utils/actualDriver.js";
 import { extractCloudinaryAssetInfo, generateSignedDocumentUrl } from "../utils/documentSigner.js";
 import {
   isDesignatedSuperAdmin,
@@ -167,8 +168,12 @@ export const getAdminAgencyById = async (req, res) => {
       return errorResponse(res, "Agency not found", 404);
     }
 
+    const actualDriverUserFilter = await getActualDriverUserFilter();
     const [drivers, vehicles] = await Promise.all([
-      Driver.find({ agency: agency._id })
+      Driver.find({
+        agency: agency._id,
+        ...actualDriverUserFilter
+      })
         .populate("user", "name phone email")
         .populate("documents.idProof.uploadedBy", "name")
         .populate("documents.drivingLicense.uploadedBy", "name"),

@@ -260,6 +260,31 @@ test("Agency Lifecycle: 3 & 4. Agency registers driver & submits Aadhaar and DL 
   assert.equal(mockDriverInstance.documents.drivingLicense, undefined);
 });
 
+test("Agency-created Driver rejects an existing email before creating another User", async (t) => {
+  const ownerId = new mongoose.Types.ObjectId();
+  const existingUserId = new mongoose.Types.ObjectId();
+  t.mock.method(Agency, "findOne", async () => ({ _id: new mongoose.Types.ObjectId(), approvalStatus: "approved" }));
+  t.mock.method(User, "findOne", async (query) => {
+    assert.ok(query.$or.some((criterion) => criterion.email === "existing@example.com"));
+    return { _id: existingUserId };
+  });
+  t.mock.method(User, "create", async () => assert.fail("Duplicate email must not create another User"));
+
+  const res = createResponse();
+  await createAgencyDriver({
+    user: { _id: ownerId, role: "agency" },
+    body: {
+      fullName: "Duplicate Email Driver",
+      phone: "9811122233",
+      email: " Existing@Example.com ",
+      password: "password1"
+    }
+  }, res);
+
+  assert.equal(res.statusCode, 409);
+  assert.match(res.body.message, /phone number or email/i);
+});
+
 test("Agency Lifecycle: 5. Super Admin approves driver (enforces authority)", async (t) => {
   const driverId = new mongoose.Types.ObjectId();
   let approvalUpdated = false;

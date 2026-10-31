@@ -119,17 +119,27 @@ test("Dual Approval 3: Agency Admin accepts its own driver request", async (t) =
     approvalStatus: "pending",
     agencyAssociation: { status: "pending", rejectionReason: "", decidedAt: null, reviewedBy: null },
     documents: {
-      idProof: { status: "pending" },
-      drivingLicense: { status: "pending" }
+      idProof: { status: "pending", publicId: "loadbalbin_kyc/driver-aadhaar" },
+      drivingLicense: { status: "pending", publicId: "loadbalbin_kyc/driver-license" }
     },
     async save() {
       return this;
     }
   };
+  const agencyOwnerAadhaar = {
+    status: "approved",
+    publicId: "loadbalbin_kyc/agency-owner-aadhaar"
+  };
 
   t.mock.method(Agency, "findOne", async (q) => {
     if (q.owner?.toString() === agencyOwnerId.toString()) {
-      return { _id: agencyId, owner: agencyOwnerId, approvalStatus: "approved", isActive: true };
+      return {
+        _id: agencyId,
+        owner: agencyOwnerId,
+        approvalStatus: "approved",
+        isActive: true,
+        documents: { ownerAadhaar: agencyOwnerAadhaar }
+      };
     }
     return null;
   });
@@ -147,6 +157,8 @@ test("Dual Approval 3: Agency Admin accepts its own driver request", async (t) =
   assert.ok(driverDoc.agencyAssociation.decidedAt instanceof Date);
   assert.equal(driverDoc.approvalStatus, "pending"); // Super Admin approval remains pending!
   assert.equal(driverDoc.documents.idProof.status, "pending"); // KYC remains pending!
+  assert.notEqual(driverDoc.documents.idProof.publicId, agencyOwnerAadhaar.publicId);
+  assert.equal(agencyOwnerAadhaar.status, "approved");
 });
 
 test("Dual Approval 4: Agency Admin rejects its own request with a reason", async (t) => {
@@ -565,13 +577,16 @@ test("Dual Approval 13: Association resolution correctly falls back for legacy a
 test("Dual Approval 14: getAgencyStats provides strict count consistency matching association state", async (t) => {
   const agencyId = new mongoose.Types.ObjectId();
   const ownerId = new mongoose.Types.ObjectId();
+  const driverUserIds = [new mongoose.Types.ObjectId(), new mongoose.Types.ObjectId()];
 
   t.mock.method(Agency, "findOne", async () => ({ _id: agencyId }));
+  t.mock.method(User, "find", () => mockQuery(driverUserIds.map((_id) => ({ _id }))));
 
   const sampleDrivers = [
     // Driver 1: Rajesh - Accepted by agency, pending Super Admin
     {
       _id: new mongoose.Types.ObjectId(),
+      user: driverUserIds[0],
       agency: agencyId,
       approvalStatus: "pending",
       agencyAssociation: { status: "approved" }
@@ -579,6 +594,7 @@ test("Dual Approval 14: getAgencyStats provides strict count consistency matchin
     // Driver 2: Amit - Registered with agency, pending agency approval (legacy/default state)
     {
       _id: new mongoose.Types.ObjectId(),
+      user: driverUserIds[1],
       agency: agencyId,
       approvalStatus: "pending",
       agencyAssociation: { status: "none" }

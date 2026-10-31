@@ -335,14 +335,20 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
     assert.equal(resDriver.status, 200);
     assert.ok(resDriver.body.data.document.viewUrl);
 
-    // Verify all 4 driver document types are viewable by designated Super Admin
-    for (const docKey of ["idProof", "drivingLicense", "vehicleRegistration", "insurance"]) {
+    // Driver document access is limited to personal identity records.
+    for (const docKey of ["idProof", "drivingLicense"]) {
       const docRes = await request(app)
         .get(`/api/documents/driver/${driverA._id}/${docKey}`)
         .set("Authorization", `Bearer ${adminToken}`);
       assert.equal(docRes.status, 200, `Super Admin must be authorized to view driver ${docKey}`);
       assert.ok(docRes.body.data.document.viewUrl, `viewUrl must be returned for ${docKey}`);
       assert.equal(docRes.body.data.document.expiresInSeconds, 300);
+    }
+    for (const docKey of ["vehicleRegistration", "insurance"]) {
+      const docRes = await request(app)
+        .get(`/api/documents/driver/${driverA._id}/${docKey}`)
+        .set("Authorization", `Bearer ${adminToken}`);
+      assert.equal(docRes.status, 400, `${docKey} must be served from a Vehicle record`);
     }
   });
 
@@ -356,14 +362,14 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
     assert.match(res.body.message, /Access denied.*not authorized/i);
   });
 
-  // TEST: Missing documents return 404 and do not generate signed URLs
-  it("7c. Missing driver documents return 404 without generating signed URLs", async () => {
+  // Vehicle-owned document types are not served from a Driver profile
+  it("7c. Driver document endpoint rejects Vehicle-owned document types", async () => {
     const res = await request(app)
       .get(`/api/documents/driver/${driverB._id}/insurance`)
       .set("Authorization", `Bearer ${adminToken}`);
-    assert.equal(res.status, 404);
+    assert.equal(res.status, 400);
     assert.equal(res.body.success, false);
-    assert.match(res.body.message, /not been uploaded/i);
+    assert.match(res.body.message, /invalid driver document type/i);
   });
 
   // TEST: Expired signed URLs can be refreshed via subsequent authorized requests
