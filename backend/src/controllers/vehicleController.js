@@ -142,11 +142,13 @@ const parseVehicleUpdates = (body, { creating = false, allowedFields }) => {
   if (Object.hasOwn(body, "vehicleImages")) {
     if (
       !Array.isArray(body.vehicleImages) ||
+      body.vehicleImages.length > 4 ||
       body.vehicleImages.some((image) => typeof image !== "string")
     ) {
-      return { error: "vehicleImages must be an array of strings" };
+      return { error: "vehicleImages must be an array of no more than 4 strings" };
     }
     updates.vehicleImages = body.vehicleImages.map((image) => image.trim());
+    updates.vehicleImage = updates.vehicleImages[0] || "";
   }
 
   if (Object.hasOwn(body, "isAvailable")) {

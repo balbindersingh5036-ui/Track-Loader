@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../components/AgencyTheme';
 import StatCard from '../components/StatCard';
 import StatusBadge from '../components/StatusBadge';
+import { getBookingFilterCounts } from '../../../utils/agencyBookings.mjs';
 
 export default function OverviewTab({
   agency,
@@ -24,19 +25,7 @@ export default function OverviewTab({
   const inactiveVehicles = vehicles.filter((v) => v.isActive === false);
   const availableVehicles = vehicles.filter((v) => v.isAvailable && v.isActive !== false);
 
-  const pendingBookings = bookings.filter(
-    (b) => (!b.driver && ['unassigned', 'rejected', undefined].includes(b.assignmentStatus)) ||
-           (b.bookingStatus === 'pending' && !b.driver)
-  );
-  const awaitingDriverAcceptance = bookings.filter(
-    (b) => b.assignmentStatus === 'pending_acceptance' || (b.bookingStatus === 'pending' && b.driver)
-  );
-  const acceptedBookings = bookings.filter(
-    (b) => b.bookingStatus === 'accepted' || b.assignmentStatus === 'accepted'
-  );
-  const completedBookings = bookings.filter(
-    (b) => b.bookingStatus === 'completed'
-  );
+  const bookingCounts = getBookingFilterCounts(bookings);
 
   // Agency KYC Document progress (5 docs total)
   const docKeys = ['ownerAadhaar', 'businessRegistration', 'tradeLicense', 'gstCertificate', 'taxId'];
@@ -216,11 +205,11 @@ export default function OverviewTab({
         />
         <StatCard
           title="Needs Assignment"
-          value={pendingBookings.length}
+          value={bookingCounts.unassigned}
           subtitle="Assign driver & truck"
           icon="alert-circle"
           iconColor={theme.colors.accent}
-          badgeText={pendingBookings.length > 0 ? 'Action Needed' : null}
+          badgeText={bookingCounts.unassigned > 0 ? 'Action Needed' : null}
           badgeColor={theme.colors.accent}
           onPress={() => onNavigateTab('Bookings')}
         />
@@ -229,7 +218,7 @@ export default function OverviewTab({
       <View style={styles.statsGrid}>
         <StatCard
           title="Awaiting Acceptance"
-          value={awaitingDriverAcceptance.length}
+          value={bookingCounts.awaiting}
           subtitle="Pending driver response"
           icon="time"
           iconColor={theme.colors.warning}
@@ -237,7 +226,7 @@ export default function OverviewTab({
         />
         <StatCard
           title="Completed Trips"
-          value={completedBookings.length}
+          value={bookingCounts.completed}
           subtitle="Delivered successfully"
           icon="checkmark-done"
           iconColor={theme.colors.green}

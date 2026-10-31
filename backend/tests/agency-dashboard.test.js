@@ -32,6 +32,7 @@ const query = (value) => ({
   populate() { return this; },
   select() { return this; },
   sort() { return this; },
+  skip() { return this; },
   limit() { return this; },
   lean() { return Promise.resolve(value); },
   then(resolve, reject) { return Promise.resolve(value).then(resolve, reject); }
@@ -59,7 +60,21 @@ test("agency dashboard reads drivers only through the authenticated agency relat
       fullName: "Agency Driver",
       approvalStatus: "pending",
       isActive: true,
-      documents: { idProof: {}, drivingLicense: {} },
+      documents: {
+        idProof: {
+          url: "https://res.cloudinary.com/private/image/authenticated/loadbalbin_kyc/driver-id.png",
+          publicId: "loadbalbin_kyc/driver-id",
+          format: "png",
+          status: "pending"
+        },
+        drivingLicense: {
+          url: "https://res.cloudinary.com/private/raw/authenticated/loadbalbin_kyc/driver-dl.pdf",
+          publicId: "loadbalbin_kyc/driver-dl",
+          format: "pdf",
+          status: "rejected",
+          rejectionReason: "Resubmit a clearer copy."
+        }
+      },
       toObject() {
         return { ...this };
       }
@@ -79,6 +94,14 @@ test("agency dashboard reads drivers only through the authenticated agency relat
   assert.equal(res.body.data.drivers.length, 1);
   assert.equal(res.body.data.drivers[0]._id, driverId);
   assert.equal(res.body.data.drivers[0].approvalStatus, "pending");
+  assert.equal(res.body.data.drivers[0].documents.idProof.status, "pending");
+  assert.equal(res.body.data.drivers[0].documents.drivingLicense.status, "rejected");
+  assert.equal(res.body.data.drivers[0].documents.drivingLicense.rejectionReason, "Resubmit a clearer copy.");
+  for (const document of Object.values(res.body.data.drivers[0].documents)) {
+    assert.equal(document.viewUrl, null);
+    assert.equal("url" in document, false);
+    assert.equal("publicId" in document, false);
+  }
 });
 
 test("agency dashboard returns the real scoped booking count even when only recent trips are returned", async (t) => {
@@ -100,9 +123,21 @@ test("agency dashboard returns the real scoped booking count even when only rece
   t.mock.method(Driver, "find", () => ({
     select() { return query([{ _id: driverId }]); }
   }));
+  let bookingPageLimit;
   t.mock.method(Booking, "find", (filter) => {
     bookingFilter = filter;
-    return query(bookings);
+    return {
+      populate() { return this; },
+      sort() { return this; },
+      skip(value) {
+        assert.equal(value, 0);
+        return this;
+      },
+      limit(value) {
+        bookingPageLimit = value;
+        return Promise.resolve(bookings);
+      }
+    };
   });
   t.mock.method(Booking, "countDocuments", async (filter) => {
     assert.deepEqual(filter, bookingFilter);
@@ -110,7 +145,7 @@ test("agency dashboard returns the real scoped booking count even when only rece
   });
 
   const res = response();
-  await getAgencyBookings({ user: { _id: ownerId } }, res);
+  await getAgencyBookings({ user: { _id: ownerId }, query: { page: "1", limit: "25" } }, res);
 
   assert.deepEqual(bookingFilter, {
     $or: [
@@ -120,7 +155,8 @@ test("agency dashboard returns the real scoped booking count even when only rece
     ]
   });
   assert.equal(res.body.data.bookings.length, 1);
-  assert.deepEqual(res.body.data.pagination, { total: 73, returned: 1 });
+  assert.equal(bookingPageLimit, 25);
+  assert.deepEqual(res.body.data.pagination, { total: 73, returned: 1, page: 1, limit: 25, pages: 3 });
 });
 
 test("agency driver statistics count only genuine agency-linked driver profiles", async (t) => {

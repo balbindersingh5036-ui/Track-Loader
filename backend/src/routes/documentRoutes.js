@@ -52,6 +52,40 @@ const createDocumentViewPayload = (doc) => {
   };
 };
 
+const createPrivateDriverDocumentViewPayload = (doc) => {
+  let publicId = doc?.publicId;
+  let format = doc?.format || "pdf";
+  if (!publicId && doc?.url) {
+    const extracted = extractCloudinaryAssetInfo(doc.url);
+    publicId = extracted?.publicId;
+    format = extracted?.format || format;
+  }
+
+  if (
+    typeof publicId !== "string" ||
+    !/^loadbalbin_(?:kyc|profiles)\//.test(publicId)
+  ) {
+    return null;
+  }
+
+  const viewUrl = generateSignedDocumentUrl(
+    publicId,
+    format,
+    300,
+    doc.resourceType || "image"
+  );
+  if (!viewUrl) return null;
+
+  return {
+    status: doc.status || "pending",
+    viewUrl,
+    format,
+    submittedAt: doc.submittedAt || null,
+    rejectionReason: doc.rejectionReason || "",
+    expiresInSeconds: 300
+  };
+};
+
 /**
  * GET /api/documents/agency/:agencyId/:docType
  * Authorized: Super Admin, or the Agency Owner of the specified agency
@@ -119,14 +153,13 @@ router.get("/driver/:driverId/:docType", protect, async (req, res) => {
     const userId = String(req.user?._id || req.user?.id || "").trim();
     const driverUserId = String(driver.user?._id || driver.user || "").trim();
     const isSuperAdmin = isDesignatedSuperAdmin(req.user);
-    const isSelfDriver = Boolean(userId && driverUserId && driverUserId === userId);
+    const isSelfDriver = req.user.role === "driver" &&
+      Boolean(userId && driverUserId && driverUserId === userId);
 
     let isManagingAgencyOwner = false;
-    if (driver.agency) {
-      const agency = await Agency.findById(driver.agency);
-      if (agency && agency.owner && String(agency.owner) === userId) {
-        isManagingAgencyOwner = true;
-      }
+    if (req.user.role === "agency" && driver.agency && userId) {
+      const agency = await Agency.findOne({ _id: driver.agency, owner: userId }).select("_id").lean();
+      isManagingAgencyOwner = Boolean(agency);
     }
 
     if (!isSuperAdmin && !isSelfDriver && !isManagingAgencyOwner) {
@@ -138,7 +171,10 @@ router.get("/driver/:driverId/:docType", protect, async (req, res) => {
       return errorResponse(res, "Requested document has not been uploaded yet", 404);
     }
 
-    const payload = createDocumentViewPayload(doc);
+    const payload = createPrivateDriverDocumentViewPayload(doc);
+    if (!payload) {
+      return errorResponse(res, "Requested document is unavailable for secure preview", 404);
+    }
     return successResponse(res, { document: payload }, "Temporary authorized document link generated");
   } catch (error) {
     console.error("Driver document view failed:", error.code || error.name || "unknown error");

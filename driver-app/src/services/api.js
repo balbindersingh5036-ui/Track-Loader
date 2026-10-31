@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import axios from 'axios';
 import { getToken, removeToken } from '../utils/authStorage';
 
@@ -28,10 +29,11 @@ api.interceptors.request.use(async (config) => {
     config.data instanceof FormData ||
     (config.data && typeof config.data.append === "function")
   ) {
-    if (typeof window !== "undefined") {
-      delete config.headers["Content-Type"];
-    } else {
-      config.headers["Content-Type"] = "multipart/form-data";
+    delete config.headers["Content-Type"];
+    delete config.headers["content-type"];
+    if (typeof config.headers?.delete === "function") {
+      config.headers.delete("Content-Type");
+      config.headers.delete("content-type");
     }
   }
 

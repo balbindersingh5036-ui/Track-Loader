@@ -30,15 +30,19 @@ export const upload = multer({
 });
 
 export const handleUploadSingle = (fieldName = "image") => {
-  return handleUploadParser(upload.single(fieldName), [fieldName]);
+  return handleUploadParser(upload.single(fieldName), [fieldName], { [fieldName]: 1 });
+};
+
+export const handleUploadArray = (fieldName = "images", maxCount = 4) => {
+  return handleUploadParser(upload.array(fieldName, maxCount), [fieldName], { [fieldName]: maxCount });
 };
 
 export const handleUploadFields = (fieldNames) => {
   const fields = fieldNames.map((name) => ({ name, maxCount: 1 }));
-  return handleUploadParser(upload.fields(fields), fieldNames);
+  return handleUploadParser(upload.fields(fields), fieldNames, Object.fromEntries(fieldNames.map((name) => [name, 1])));
 };
 
-const handleUploadParser = (parse, fieldNames) => {
+const handleUploadParser = (parse, fieldNames, fieldLimits = {}) => {
   return (req, res, next) => {
     parse(req, res, (err) => {
       if (err) {
@@ -50,6 +54,12 @@ const handleUploadParser = (parse, fieldNames) => {
             });
           }
           if (err.code === "LIMIT_UNEXPECTED_FILE") {
+            if (fieldNames.includes(err.field)) {
+              return res.status(400).json({
+                success: false,
+                message: `Too many files for '${err.field}'. Maximum allowed: ${fieldLimits[err.field] || 1}.`
+              });
+            }
             return res.status(400).json({
               success: false,
               message: `Unexpected field '${err.field}'. Expected ${fieldNames.map((name) => `'${name}'`).join(", ")}`

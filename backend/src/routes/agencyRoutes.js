@@ -20,7 +20,7 @@ import {
 } from "../controllers/agencyController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { agencyOnly } from "../middleware/agencyMiddleware.js";
-import { handleUploadFields } from "../middleware/uploadMiddleware.js";
+import { handleUploadArray, handleUploadFields } from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
 
@@ -49,8 +49,8 @@ router.patch("/drivers/:id/accept", protect, agencyOnly, acceptAgencyDriverReque
 router.patch("/drivers/:id/reject", protect, agencyOnly, rejectAgencyDriverRequest);
 router.patch("/drivers/:id/documents", protect, agencyOnly, updateAgencyDriverDocuments);
 router.get("/vehicles", protect, agencyOnly, getAgencyVehicles);
-router.post("/vehicles", protect, agencyOnly, createAgencyVehicle);
-router.put("/vehicles/:id", protect, agencyOnly, updateAgencyVehicle);
+router.post("/vehicles", protect, agencyOnly, handleUploadArray("photos", 4), createAgencyVehicle);
+router.put("/vehicles/:id", protect, agencyOnly, handleUploadArray("photos", 4), updateAgencyVehicle);
 router.patch("/vehicles/:id/driver", protect, agencyOnly, assignVehicleDriver);
 router.get("/bookings", protect, agencyOnly, getAgencyBookings);
 router.patch("/bookings/:id/assign", protect, agencyOnly, assignAgencyBooking);

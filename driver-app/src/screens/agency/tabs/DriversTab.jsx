@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,13 +8,16 @@ import {
   Modal,
   StyleSheet,
   ActivityIndicator,
-  Linking
+  Linking,
+  Image,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../components/AgencyTheme';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 import ConfirmationModal from '../components/ConfirmationModal';
+import agencyService from '../../../services/agencyService';
 
 export default function DriversTab({
   drivers = [],
@@ -36,6 +39,12 @@ export default function DriversTab({
 
   // Modals state
   const [selectedDriver, setSelectedDriver] = useState(null);
+  const [previewDocument, setPreviewDocument] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState('');
+  const [previewRefreshAttempted, setPreviewRefreshAttempted] = useState(false);
+  const [previewZoomed, setPreviewZoomed] = useState(false);
+  const previewRequestId = useRef(0);
   const [confirmModal, setConfirmModal] = useState({
     visible: false,
     type: '', // 'accept' | 'reject'
@@ -52,6 +61,104 @@ export default function DriversTab({
     address: ''
   });
   const [regError, setRegError] = useState('');
+
+  const loadDriverDocument = async (target) => {
+    const requestId = previewRequestId.current + 1;
+    previewRequestId.current = requestId;
+    setPreviewLoading(true);
+    setPreviewError('');
+    try {
+      const response = await agencyService.getDriverDocument(target.driverId, target.docType);
+      const document = response.data?.data?.document;
+      if (!document?.viewUrl) {
+        throw new Error('The secure document preview was not returned.');
+      }
+
+      let hostname = '';
+      try {
+        hostname = new URL(document.viewUrl).hostname;
+      } catch {
+        const match = String(document.viewUrl).match(/^https?:\/\/([^/?#]+)(?:[/?#]|$)/i);
+        hostname = match ? match[1] : '';
+      }
+      const isCloudinary = hostname === 'cloudinary.com' || hostname.endsWith('.cloudinary.com');
+      const isLocalOrTest = (typeof __DEV__ !== 'undefined' && __DEV__) || hostname === 'localhost' || hostname === '127.0.0.1';
+      if (!isCloudinary && !isLocalOrTest) {
+        throw new Error('The secure document service returned an unsupported preview link.');
+      }
+
+      if (previewRequestId.current === requestId) {
+        const detectedFormat = (document.format || target.format || (document.viewUrl.split('?')[0].split('.').pop()) || '').toLowerCase().replace(/^\./, '');
+        setPreviewDocument({
+          ...target,
+          viewUrl: document.viewUrl,
+          status: document.status || target.status,
+          rejectionReason: document.rejectionReason || target.rejectionReason,
+          format: detectedFormat
+        });
+      }
+    } catch (error) {
+      if (previewRequestId.current === requestId) {
+        setPreviewError(
+          error?.response?.data?.message ||
+          error?.message ||
+          'The document could not be loaded. Please try again.'
+        );
+      }
+    } finally {
+      if (previewRequestId.current === requestId) setPreviewLoading(false);
+    }
+  };
+
+  const openDriverDocument = (driver, docType, label) => {
+    const document = driver.documents?.[docType] || {};
+    const target = {
+      driverId: driver._id,
+      driverName: driver.fullName || driver.user?.name || 'Driver',
+      docType,
+      label,
+      status: document.status || 'not_uploaded',
+      rejectionReason: document.rejectionReason || '',
+      format: document.format || ''
+    };
+    setPreviewDocument(target);
+    setPreviewRefreshAttempted(false);
+    setPreviewZoomed(false);
+    loadDriverDocument(target);
+  };
+
+  const closeDocumentPreview = () => {
+    previewRequestId.current += 1;
+    setPreviewDocument(null);
+    setPreviewError('');
+    setPreviewLoading(false);
+    setPreviewRefreshAttempted(false);
+    setPreviewZoomed(false);
+  };
+
+  const refreshDocumentPreview = () => {
+    if (!previewDocument) return;
+    setPreviewRefreshAttempted(false);
+    loadDriverDocument(previewDocument);
+  };
+
+  const handleImagePreviewError = () => {
+    if (previewRefreshAttempted || !previewDocument) {
+      setPreviewError('The secure image preview could not be loaded. Please retry.');
+      return;
+    }
+    setPreviewRefreshAttempted(true);
+    loadDriverDocument(previewDocument);
+  };
+
+  const openPdfPreview = async () => {
+    try {
+      await Linking.openURL(previewDocument.viewUrl);
+      setPreviewError('');
+    } catch {
+      setPreviewError('The PDF could not be opened in a secure browser. Refresh the link and try again.');
+    }
+  };
 
   // Filtered Roster
   const filteredDrivers = useMemo(() => {
@@ -586,14 +693,49 @@ export default function DriversTab({
 
                 <View style={styles.detailCard}>
                   <Text style={styles.detailSectionTitle}>KYC Verification Status</Text>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Aadhaar / ID:</Text>
-                    <StatusBadge status={selectedDriver.documents?.idProof?.status} size="sm" />
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Driving Licence:</Text>
-                    <StatusBadge status={selectedDriver.documents?.drivingLicense?.status} size="sm" />
-                  </View>
+                  {[
+                    { type: 'idProof', label: 'Aadhaar / ID Proof' },
+                    { type: 'drivingLicense', label: 'Driving Licence' }
+                  ].map(({ type, label }) => {
+                    const document = selectedDriver.documents?.[type] || {};
+                    const status = document.status || 'not_uploaded';
+                    const uploaded = ['pending', 'approved', 'rejected'].includes(status);
+                    return (
+                      <View key={type} style={styles.kycDocumentRow}>
+                        <View style={styles.kycDocumentHeader}>
+                          <View style={styles.kycDocumentTitleWrap}>
+                            <Text style={styles.kycDocumentTitle}>{label}</Text>
+                            <Text style={[styles.kycDocumentAvailability, !uploaded && styles.kycDocumentMissing]}>
+                              {uploaded ? 'Document uploaded' : 'Document not uploaded'}
+                            </Text>
+                          </View>
+                          <StatusBadge status={status} size="sm" />
+                        </View>
+                        {status === 'rejected' && document.rejectionReason ? (
+                          <Text style={styles.kycRejectionReason}>
+                            Rejection reason: {document.rejectionReason}
+                          </Text>
+                        ) : null}
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityLabel={uploaded ? `View ${label}` : `${label} unavailable`}
+                          accessibilityState={{ disabled: !uploaded }}
+                          disabled={!uploaded}
+                          onPress={() => openDriverDocument(selectedDriver, type, label)}
+                          style={[styles.viewDocumentButton, !uploaded && styles.viewDocumentButtonDisabled]}
+                        >
+                          <Ionicons
+                            name="eye-outline"
+                            size={15}
+                            color={uploaded ? theme.colors.primary : theme.colors.muted}
+                          />
+                          <Text style={[styles.viewDocumentButtonText, !uploaded && styles.viewDocumentButtonTextDisabled]}>
+                            {uploaded ? 'View Document' : 'Document Unavailable'}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
                 </View>
 
                 <View style={styles.detailCard}>
@@ -617,6 +759,102 @@ export default function DriversTab({
                 </Pressable>
               </ScrollView>
             ) : null}
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={Boolean(previewDocument)}
+        transparent
+        animationType="fade"
+        onRequestClose={closeDocumentPreview}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={closeDocumentPreview} />
+          <View style={styles.documentPreviewModal}>
+            <View style={styles.modalHeader}>
+              <View style={styles.previewHeaderText}>
+                <Text style={styles.modalTitle}>{previewDocument?.label || 'Driver Document'}</Text>
+                <Text style={styles.modalSubtitle}>{previewDocument?.driverName || 'Driver'}</Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close document preview"
+                onPress={closeDocumentPreview}
+                style={styles.previewCloseButton}
+              >
+                <Ionicons name="close" size={22} color={theme.colors.muted} />
+              </Pressable>
+            </View>
+
+            <View style={styles.previewStatusRow}>
+              <Text style={styles.previewStatusLabel}>Verification status</Text>
+              <StatusBadge status={previewDocument?.status} size="sm" />
+            </View>
+
+            {previewDocument?.status === 'rejected' && previewDocument?.rejectionReason ? (
+              <Text style={styles.kycRejectionReason}>
+                Rejection reason: {previewDocument.rejectionReason}
+              </Text>
+            ) : null}
+
+            {previewLoading ? (
+              <View style={styles.previewState}>
+                <ActivityIndicator size="large" color={theme.colors.primary} />
+                <Text style={styles.previewMessage}>Loading secure document...</Text>
+              </View>
+            ) : previewError ? (
+              <View style={styles.previewState}>
+                <Ionicons name="alert-circle-outline" size={30} color={theme.colors.danger} />
+                <Text style={styles.previewMessage}>{previewError}</Text>
+                <Pressable onPress={refreshDocumentPreview} style={styles.previewRetryButton}>
+                  <Text style={styles.previewRetryText}>Retry secure preview</Text>
+                </Pressable>
+              </View>
+            ) : previewDocument?.viewUrl && (['jpg', 'jpeg', 'png', 'webp'].includes(previewDocument.format) || (previewDocument.format !== 'pdf' && !previewDocument.viewUrl.includes('.pdf'))) ? (
+              <>
+                <View style={styles.imagePreviewFrame}>
+                  <Image
+                    source={{ uri: previewDocument.viewUrl }}
+                    resizeMode="contain"
+                    onError={handleImagePreviewError}
+                    style={[
+                      styles.documentImage,
+                      previewZoomed && styles.documentImageZoomed
+                    ]}
+                  />
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setPreviewZoomed((zoomed) => !zoomed)}
+                  style={styles.previewSecondaryButton}
+                >
+                  <Ionicons name={previewZoomed ? 'contract-outline' : 'expand-outline'} size={15} color={theme.colors.primary} />
+                  <Text style={styles.previewSecondaryText}>{previewZoomed ? 'Fit to screen' : 'Zoom image'}</Text>
+                </Pressable>
+              </>
+            ) : previewDocument?.viewUrl && previewDocument.format === 'pdf' ? (
+              <View style={styles.pdfPreviewState}>
+                <Ionicons name="document-text-outline" size={42} color={theme.colors.primary} />
+                <Text style={styles.previewMessage}>Open this PDF using a secure, short-lived preview link.</Text>
+                <Pressable onPress={openPdfPreview} style={styles.previewRetryButton}>
+                  <Ionicons name="open-outline" size={15} color="#FFFFFF" />
+                  <Text style={styles.previewRetryText}>Open PDF securely</Text>
+                </Pressable>
+                <Pressable onPress={refreshDocumentPreview} style={styles.previewSecondaryButton}>
+                  <Ionicons name="refresh-outline" size={15} color={theme.colors.primary} />
+                  <Text style={styles.previewSecondaryText}>Refresh secure link</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <View style={styles.previewState}>
+                <Ionicons name="alert-circle-outline" size={30} color={theme.colors.danger} />
+                <Text style={styles.previewMessage}>This document format cannot be previewed.</Text>
+                <Pressable onPress={refreshDocumentPreview} style={styles.previewRetryButton}>
+                  <Text style={styles.previewRetryText}>Retry secure preview</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -1058,5 +1296,169 @@ const styles = StyleSheet.create({
     color: theme.colors.ink,
     fontSize: 13,
     fontWeight: '700'
+  },
+  kycDocumentRow: {
+    borderTopWidth: 1,
+    borderColor: theme.colors.border,
+    paddingTop: 10,
+    gap: 8
+  },
+  kycDocumentHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8
+  },
+  kycDocumentTitleWrap: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3
+  },
+  kycDocumentTitle: {
+    color: theme.colors.ink,
+    fontSize: 13,
+    fontWeight: '700',
+    flexShrink: 1
+  },
+  kycDocumentAvailability: {
+    color: theme.colors.green,
+    fontSize: 10,
+    fontWeight: '600'
+  },
+  kycDocumentMissing: {
+    color: theme.colors.muted
+  },
+  kycRejectionReason: {
+    color: theme.colors.warning,
+    fontSize: 11,
+    lineHeight: 16,
+    backgroundColor: theme.colors.warningGlow,
+    padding: 8,
+    borderRadius: theme.borderRadius.sm
+  },
+  viewDocumentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-end',
+    gap: 6,
+    minHeight: 34,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.primaryGlow
+  },
+  viewDocumentButtonDisabled: {
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.surface
+  },
+  viewDocumentButtonText: {
+    color: theme.colors.primary,
+    fontSize: 11,
+    fontWeight: '800'
+  },
+  viewDocumentButtonTextDisabled: {
+    color: theme.colors.muted
+  },
+  documentPreviewModal: {
+    backgroundColor: theme.colors.card,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.borderRadius.xl,
+    padding: 16,
+    width: '100%',
+    maxWidth: 520,
+    maxHeight: '90%',
+    gap: 12
+  },
+  previewHeaderText: {
+    flex: 1,
+    minWidth: 0
+  },
+  previewCloseButton: {
+    padding: 6
+  },
+  previewStatusRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8
+  },
+  previewStatusLabel: {
+    color: theme.colors.muted,
+    fontSize: 12,
+    fontWeight: '600'
+  },
+  previewState: {
+    minHeight: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    padding: 18
+  },
+  previewMessage: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center'
+  },
+  previewRetryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 38,
+    paddingHorizontal: 14,
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.primary
+  },
+  previewRetryText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800'
+  },
+  imagePreviewFrame: {
+    width: '100%',
+    height: 420,
+    maxHeight: '60%',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md
+  },
+  documentImage: {
+    width: '100%',
+    height: '100%'
+  },
+  documentImageZoomed: {
+    transform: [{ scale: 1.65 }]
+  },
+  previewSecondaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 34,
+    paddingHorizontal: 12,
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    alignSelf: 'center'
+  },
+  previewSecondaryText: {
+    color: theme.colors.primary,
+    fontSize: 11,
+    fontWeight: '700'
+  },
+  pdfPreviewState: {
+    minHeight: 200,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+    padding: 18,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md
   }
 });

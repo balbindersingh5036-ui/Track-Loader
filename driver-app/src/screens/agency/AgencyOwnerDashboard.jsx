@@ -13,6 +13,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
 import agencyService from '../../services/agencyService';
 import notificationService from '../../services/notificationService';
+import { matchesBookingFilter } from '../../utils/agencyBookings.mjs';
 
 // Unified Theme & Components
 import { theme } from './components/AgencyTheme';
@@ -49,6 +50,8 @@ export default function AgencyOwnerDashboard({ user, initialAgency, refreshKey, 
   // UI state
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [bookingsLoadState, setBookingsLoadState] = useState('loading');
+  const [bookingsError, setBookingsError] = useState('');
   const [saving, setSaving] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -61,15 +64,10 @@ export default function AgencyOwnerDashboard({ user, initialAgency, refreshKey, 
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     setError('');
+    setBookingsLoadState('loading');
+    setBookingsError('');
     try {
-      const [
-        profileResponse,
-        statsResponse,
-        driverResponse,
-        requestResponse,
-        vehicleResponse,
-        bookingResponse
-      ] = await Promise.all([
+      const results = await Promise.allSettled([
         agencyService.getMyAgency(),
         agencyService.getAgencyStats(),
         agencyService.getAgencyDrivers(),
@@ -77,6 +75,28 @@ export default function AgencyOwnerDashboard({ user, initialAgency, refreshKey, 
         agencyService.getAgencyVehicles(),
         agencyService.getAgencyBookings()
       ]);
+      const bookingResult = results[5];
+      if (bookingResult.status === 'rejected') {
+        setBookingsError(errorMessage(bookingResult.reason));
+        setBookingsLoadState('error');
+      } else if (!Array.isArray(bookingResult.value.bookings)) {
+        setBookingsError('Agency bookings were not returned as a validated list.');
+        setBookingsLoadState('error');
+      } else {
+        setBookings(bookingResult.value.bookings);
+        setBookingsLoadState('loaded');
+      }
+
+      const coreFailure = results.slice(0, 5).find((result) => result.status === 'rejected');
+      if (coreFailure) throw coreFailure.reason;
+
+      const [
+        { value: profileResponse },
+        { value: statsResponse },
+        { value: driverResponse },
+        { value: requestResponse },
+        { value: vehicleResponse }
+      ] = results;
 
       const nextAgency = profileResponse.data?.data?.agency;
       if (!nextAgency?._id) throw new Error('Agency profile could not be loaded.');
@@ -86,7 +106,6 @@ export default function AgencyOwnerDashboard({ user, initialAgency, refreshKey, 
       setDrivers(driverResponse.data?.data?.drivers || []);
       setRequests(requestResponse.data?.data?.requests || []);
       setVehicles(vehicleResponse.data?.data?.vehicles || []);
-      setBookings(bookingResponse.data?.data?.bookings || []);
     } catch (loadError) {
       setError(errorMessage(loadError));
     } finally {
@@ -137,15 +156,18 @@ export default function AgencyOwnerDashboard({ user, initialAgency, refreshKey, 
     loadNotifications();
   };
 
-  const runAction = async (key, action) => {
-    if (saving) return;
+  const runAction = async (key, action, { propagateError = false } = {}) => {
+    if (saving) return false;
     setSaving(key);
     setError('');
     setNotice('');
     try {
       await action();
+      return true;
     } catch (actionError) {
       setError(errorMessage(actionError));
+      if (propagateError) throw actionError;
+      return false;
     } finally {
       setSaving('');
     }
@@ -230,21 +252,23 @@ export default function AgencyOwnerDashboard({ user, initialAgency, refreshKey, 
   };
 
   // Vehicle Management Handlers
-  const handleCreateVehicle = async (vehicleData) => {
-    await runAction('create-vehicle', async () => {
-      await agencyService.createAgencyVehicle(vehicleData);
+  const handleCreateVehicle = async (vehicleData, photos, onUploadProgress) => {
+    const succeeded = await runAction('create-vehicle', async () => {
+      await agencyService.createAgencyVehicle(vehicleData, photos, onUploadProgress);
       setNotice('Vehicle registered successfully. Upload RC and Insurance documents.');
       setIsAddVehicleOpen(false);
       await loadData(true);
-    });
+    }, { propagateError: true });
+    if (!succeeded) throw new Error('Another action is still in progress. Please retry.');
   };
 
-  const handleUpdateVehicle = async (vehicleId, vehicleData) => {
-    await runAction(`update-vehicle-${vehicleId}`, async () => {
-      await agencyService.updateAgencyVehicle(vehicleId, vehicleData);
+  const handleUpdateVehicle = async (vehicleId, vehicleData, photos, retainedPhotos, onUploadProgress) => {
+    const succeeded = await runAction(`update-vehicle-${vehicleId}`, async () => {
+      await agencyService.updateAgencyVehicle(vehicleId, vehicleData, photos, retainedPhotos, onUploadProgress);
       setNotice('Vehicle details updated successfully.');
       await loadData(true);
-    });
+    }, { propagateError: true });
+    if (!succeeded) throw new Error('Another action is still in progress. Please retry.');
   };
 
   const handleAssignDriver = async (vehicleId, driverId) => {
@@ -311,13 +335,11 @@ export default function AgencyOwnerDashboard({ user, initialAgency, refreshKey, 
   }, [requests]);
 
   const pendingBookingsCount = useMemo(() => {
-    return bookings.filter((b) =>
-      ['pending', 'created', 'requested', 'unassigned'].includes(b.status)
-    ).length;
+    return bookings.filter((booking) => matchesBookingFilter(booking, 'unassigned')).length;
   }, [bookings]);
 
   const completedBookingsCount = useMemo(() => {
-    return bookings.filter((b) => b.status === 'completed').length;
+    return bookings.filter((booking) => booking.bookingStatus === 'completed').length;
   }, [bookings]);
 
   const isSubTab = ['Earnings', 'ProfileKyc', 'Notifications', 'Support'].includes(activeTab);
@@ -455,6 +477,9 @@ export default function AgencyOwnerDashboard({ user, initialAgency, refreshKey, 
                 drivers={drivers}
                 vehicles={vehicles}
                 saving={saving}
+                loading={bookingsLoadState === 'loading'}
+                error={bookingsLoadState === 'error' ? bookingsError : ''}
+                onRetry={() => loadData(true)}
                 onAssignBooking={handleAssignBooking}
               />
             )}

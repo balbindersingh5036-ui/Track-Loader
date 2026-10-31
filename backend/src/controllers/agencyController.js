@@ -16,6 +16,10 @@ import {
 } from "../utils/driverEligibility.js";
 import { sanitizeVehicleDocumentResponse } from "../utils/vehicleDocumentResponse.js";
 import { sanitizeDriverDocumentResponse } from "../utils/driverDocumentResponse.js";
+import {
+  removeUploadedVehiclePhotoAssets,
+  uploadVehiclePhotos
+} from "../utils/vehiclePhotoStorage.js";
 import { getActualDriverUserFilter, isActualDriverProfile } from "../utils/actualDriver.js";
 import { notifyCustomer, notifyDriver } from "../services/notificationService.js";
 import { emitToUser } from "../sockets/socket.js";
@@ -320,7 +324,7 @@ export const getAgencyDrivers = async (req, res) => {
       const dObj = d.toObject();
       dObj.agencyAssociation = resolveAgencyAssociation(dObj);
       dObj.assignedVehicle = vehicleByDriver.get(String(d._id)) || null;
-      return sanitizeDriverDocumentResponse(dObj, { includeSignedUrls: true });
+      return sanitizeDriverDocumentResponse(dObj);
     });
 
     return successResponse(res, { drivers: enhancedDrivers }, "Agency drivers fetched");
@@ -449,7 +453,29 @@ export const getAgencyVehicles = async (req, res) => {
   }
 };
 
+const parseVehicleCapacity = (value) => {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+};
+
+const parseVehiclePhotoList = (value) => {
+  if (value === undefined) return undefined;
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string") return null;
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
 export const createAgencyVehicle = async (req, res) => {
+  let uploadedAssets = [];
   try {
     const agency = await getAgencyForUser(req.user._id);
     if (!agency) {
@@ -468,9 +494,33 @@ export const createAgencyVehicle = async (req, res) => {
       vehicleImage,
       vehicleImages
     } = req.body;
+    const parsedCapacity = parseVehicleCapacity(loadCapacity);
+    const incomingVehicleImages = parseVehiclePhotoList(vehicleImages);
 
-    if (!vehicleNumber || !vehicleModel || !vehicleType || !loadCapacity) {
+    if (!vehicleNumber || !vehicleModel || !vehicleType || !parsedCapacity) {
       return errorResponse(res, "Required vehicle details missing", 400);
+    }
+    if (vehicleImage !== undefined && typeof vehicleImage !== "string") {
+      return errorResponse(res, "Vehicle image must be a URL string", 400);
+    }
+    if (incomingVehicleImages === null || (incomingVehicleImages && (
+      incomingVehicleImages.length > 4 ||
+      incomingVehicleImages.some((url) => typeof url !== "string" || !url.startsWith("https://"))
+    ))) {
+      return errorResponse(res, "Vehicle photos must contain no more than 4 images", 400);
+    }
+
+    const basePhotoUrls = incomingVehicleImages ?? (vehicleImage ? [vehicleImage] : []);
+    if (basePhotoUrls.length + (req.files || []).length > 4) {
+      return errorResponse(res, "A maximum of 4 vehicle photos is allowed", 400);
+    }
+    uploadedAssets = await uploadVehiclePhotos(req.files || []);
+    const uploadedPhotoUrls = uploadedAssets.map((asset) => asset.secure_url);
+    const photoUrls = [...basePhotoUrls, ...uploadedPhotoUrls];
+    if (photoUrls.length > 4) {
+      await removeUploadedVehiclePhotoAssets(uploadedAssets);
+      uploadedAssets = [];
+      return errorResponse(res, "A maximum of 4 vehicle photos is allowed", 400);
     }
 
     const vehicle = await Vehicle.create({
@@ -478,11 +528,12 @@ export const createAgencyVehicle = async (req, res) => {
       vehicleNumber: vehicleNumber.trim().toUpperCase(),
       vehicleModel: vehicleModel.trim(),
       vehicleType,
-      loadCapacity,
+      loadCapacity: parsedCapacity,
       bodyType: bodyType || "open",
-      vehicleImage: vehicleImage || "",
-      vehicleImages: vehicleImages || []
+      vehicleImage: photoUrls[0] || "",
+      vehicleImages: photoUrls
     });
+    uploadedAssets = [];
 
     return successResponse(
       res,
@@ -491,14 +542,22 @@ export const createAgencyVehicle = async (req, res) => {
       201
     );
   } catch (error) {
+    console.error("createAgencyVehicle error:", error);
     if (error.code === 11000) {
+      await removeUploadedVehiclePhotoAssets(uploadedAssets);
       return errorResponse(res, "Vehicle number already registered", 409);
+    }
+    await removeUploadedVehiclePhotoAssets(uploadedAssets);
+    if (error.statusCode) return errorResponse(res, error.message, error.statusCode);
+    if (error instanceof mongoose.Error.ValidationError || error instanceof mongoose.Error.CastError || error?.name === "ValidationError") {
+      return errorResponse(res, "Invalid vehicle details", 400);
     }
     return errorResponse(res, "Failed to create vehicle", 500);
   }
 };
 
 export const updateAgencyVehicle = async (req, res) => {
+  let uploadedAssets = [];
   try {
     const agency = await getAgencyForUser(req.user._id);
     if (!agency) {
@@ -523,22 +582,67 @@ export const updateAgencyVehicle = async (req, res) => {
       vehicleImages,
       isActive
     } = req.body;
+    const parsedCapacity = parseVehicleCapacity(loadCapacity);
+    const incomingPhotoList = parseVehiclePhotoList(req.body.existingPhotos ?? vehicleImages);
+    if (vehicleImage !== undefined && typeof vehicleImage !== "string") {
+      return errorResponse(res, "Vehicle image must be a URL string", 400);
+    }
+    if (incomingPhotoList === null || (incomingPhotoList && (
+      incomingPhotoList.length > 4 ||
+      incomingPhotoList.some((url) => typeof url !== "string" || !url.startsWith("https://"))
+    ))) {
+      return errorResponse(res, "Vehicle photos must be a list of no more than 4 HTTPS image URLs", 400);
+    }
+    if (isActive === "true" || isActive === "false") {
+      req.body.isActive = isActive === "true";
+    }
 
     if (vehicleModel) vehicle.vehicleModel = vehicleModel.trim();
     if (vehicleType) vehicle.vehicleType = vehicleType;
-    if (loadCapacity) vehicle.loadCapacity = loadCapacity;
+    if (parsedCapacity) vehicle.loadCapacity = parsedCapacity;
     if (bodyType) vehicle.bodyType = bodyType;
-    if (vehicleImage !== undefined) vehicle.vehicleImage = vehicleImage;
-    if (vehicleImages) vehicle.vehicleImages = vehicleImages;
-    if (typeof isActive === "boolean") vehicle.isActive = isActive;
+    if (typeof req.body.isActive === "boolean") vehicle.isActive = req.body.isActive;
 
+    const currentPhotoUrls = Array.isArray(vehicle.vehicleImages) && vehicle.vehicleImages.length
+      ? vehicle.vehicleImages
+      : (vehicle.vehicleImage ? [vehicle.vehicleImage] : []);
+    let retainedPhotoUrls = incomingPhotoList ?? currentPhotoUrls;
+    if (incomingPhotoList === undefined && vehicleImage !== undefined) {
+      const replacement = vehicleImage.trim();
+      retainedPhotoUrls = replacement
+        ? [replacement, ...currentPhotoUrls.slice(1)]
+        : [];
+    }
+    if (retainedPhotoUrls.some((url) => !currentPhotoUrls.includes(url))) {
+      return errorResponse(res, "Only existing vehicle photos can be retained; upload new photos as image files", 400);
+    }
+    if (retainedPhotoUrls.length + (req.files || []).length > 4) {
+      return errorResponse(res, "A maximum of 4 vehicle photos is allowed", 400);
+    }
+
+    uploadedAssets = await uploadVehiclePhotos(req.files || []);
+    const photoUrls = [...retainedPhotoUrls, ...uploadedAssets.map((asset) => asset.secure_url)];
+    if (photoUrls.length > 4) {
+      await removeUploadedVehiclePhotoAssets(uploadedAssets);
+      uploadedAssets = [];
+      return errorResponse(res, "A maximum of 4 vehicle photos is allowed", 400);
+    }
+    vehicle.vehicleImages = photoUrls;
+    vehicle.vehicleImage = photoUrls[0] || "";
     await vehicle.save();
+    uploadedAssets = [];
     return successResponse(
       res,
       { vehicle: sanitizeVehicleDocumentResponse(toPlainObject(vehicle)) },
       "Agency vehicle updated successfully"
     );
   } catch (error) {
+    console.error("updateAgencyVehicle error:", error);
+    await removeUploadedVehiclePhotoAssets(uploadedAssets);
+    if (error.statusCode) return errorResponse(res, error.message, error.statusCode);
+    if (error instanceof mongoose.Error.ValidationError || error instanceof mongoose.Error.CastError || error?.name === "ValidationError") {
+      return errorResponse(res, "Invalid vehicle details", 400);
+    }
     return errorResponse(res, "Failed to update agency vehicle", 500);
   }
 };
@@ -682,6 +786,7 @@ export const getAgencyBookings = async (req, res) => {
         { driver: { $in: driverIds } }
       ]
     };
+    const pagination = parsePagination(req.query, { defaultPage: 1, defaultLimit: 50, maxLimit: 100 });
     const [bookings, total] = await Promise.all([
       Booking.find(query)
         .populate("customer", "name phone")
@@ -689,13 +794,23 @@ export const getAgencyBookings = async (req, res) => {
         .populate("vehicle", "vehicleNumber vehicleModel vehicleType loadCapacity isActive isAvailable documents")
         .populate("assignmentHistory.actor", "name role")
         .sort({ createdAt: -1 })
-        .limit(50),
+        .skip(pagination.skip)
+        .limit(pagination.limit),
       Booking.countDocuments(query)
     ]);
 
     return successResponse(
       res,
-      { bookings, pagination: { total, returned: bookings.length } },
+      {
+        bookings,
+        pagination: {
+          total,
+          returned: bookings.length,
+          page: pagination.page,
+          limit: pagination.limit,
+          pages: Math.ceil(total / pagination.limit)
+        }
+      },
       "Agency bookings fetched"
     );
   } catch (error) {

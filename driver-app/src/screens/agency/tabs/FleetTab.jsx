@@ -7,13 +7,129 @@ import {
   ScrollView,
   Modal,
   StyleSheet,
-  ActivityIndicator
+  ActivityIndicator,
+  Image,
+  Platform
 } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../components/AgencyTheme';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 import ConfirmationModal from '../components/ConfirmationModal';
+
+const getVehiclePhotos = (vehicle) => {
+  const photos = Array.isArray(vehicle?.vehicleImages)
+    ? vehicle.vehicleImages.filter((photo) => typeof photo === 'string' && photo)
+    : [];
+  if (photos.length) return photos.slice(0, 4);
+  return vehicle?.vehicleImage ? [vehicle.vehicleImage] : [];
+};
+
+function VehiclePhotoGrid({ photos, onAdd, onRemove, onReplace, progress = 0, disabled = false }) {
+  const [loadingPhotos, setLoadingPhotos] = useState({});
+  const [failedPhotos, setFailedPhotos] = useState({});
+  const photoSlots = Array.from({ length: 4 }, (_, index) => photos[index] || null);
+  const progressValue = Math.max(0, Math.min(100, Math.round(progress)));
+
+  const getPhotoUri = (photo) => {
+    if (!photo) return null;
+    if (typeof photo === 'string') return photo;
+    if (photo.previewUri) return photo.previewUri;
+    if (Platform.OS === 'web' && photo.file && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+      try {
+        return URL.createObjectURL(photo.file);
+      } catch {}
+    }
+    return photo.uri || null;
+  };
+
+  return (
+    <View style={styles.photoPickerSection}>
+      <View style={styles.photoPickerHeading}>
+        <Text style={styles.photoPickerTitle}>Vehicle Photos (Optional)</Text>
+        <Text style={styles.photoPickerHint}>Upload up to 4 vehicle photos · JPG, JPEG, PNG, WEBP · 5 MB each</Text>
+      </View>
+      <View style={styles.photoGrid}>
+        {photoSlots.map((photo, index) => {
+          const uri = getPhotoUri(photo);
+          return (
+            <View key={`vehicle-photo-${index}`} style={styles.photoSlot}>
+              {photo ? (
+                <>
+                  {uri && !failedPhotos[uri] ? (
+                    <Image
+                      source={{ uri }}
+                      resizeMode="cover"
+                      onLoadStart={() => setLoadingPhotos((current) => ({ ...current, [uri]: true }))}
+                      onLoadEnd={() => setLoadingPhotos((current) => ({ ...current, [uri]: false }))}
+                      onError={() => {
+                        setLoadingPhotos((current) => ({ ...current, [uri]: false }));
+                        setFailedPhotos((current) => ({ ...current, [uri]: true }));
+                      }}
+                      style={styles.photoThumbnail}
+                    />
+                  ) : (
+                    <View style={styles.photoThumbnailPlaceholder}>
+                      <Ionicons name="image-outline" size={24} color={theme.colors.muted} />
+                      <Text style={styles.photoErrorText}>Preview unavailable</Text>
+                    </View>
+                  )}
+                  {loadingPhotos[uri] ? (
+                    <View style={styles.photoLoadingOverlay}>
+                      <ActivityIndicator size="small" color={theme.colors.primary} />
+                    </View>
+                  ) : null}
+                  {onRemove ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remove vehicle photo ${index + 1}`}
+                      onPress={() => onRemove(index)}
+                      disabled={disabled}
+                      style={styles.photoRemoveButton}
+                    >
+                      <Ionicons name="close" size={15} color="#FFFFFF" />
+                    </Pressable>
+                  ) : null}
+                  {onReplace ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => onReplace(index)}
+                      disabled={disabled}
+                      style={styles.photoReplaceButton}
+                    >
+                      <Ionicons name="refresh-outline" size={13} color={theme.colors.primary} />
+                      <Text style={styles.photoReplaceText}>Replace</Text>
+                    </Pressable>
+                  ) : null}
+                </>
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onAdd}
+                  disabled={disabled}
+                  style={styles.photoAddButton}
+                >
+                  <Ionicons name="add-circle-outline" size={22} color={theme.colors.primary} />
+                  <Text style={styles.photoAddText}>Add Photo</Text>
+                </Pressable>
+              )}
+            </View>
+          );
+        })}
+      </View>
+      <Text style={styles.photoCountText}>{photos.length}/4 Photos Uploaded</Text>
+      {photos.length && progressValue > 0 && progressValue < 100 ? (
+        <View style={styles.photoProgressContainer}>
+          <View style={styles.photoProgressTrack}>
+            <View style={[styles.photoProgressBar, { width: `${progressValue}%` }]} />
+          </View>
+          <Text style={styles.photoProgressText}>Uploading photos... {progressValue}%</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 export default function FleetTab({
   vehicles = [],
@@ -35,6 +151,10 @@ export default function FleetTab({
   const [editingVehicle, setEditingVehicle] = useState(null);
   const [assignModalVehicle, setAssignModalVehicle] = useState(null);
   const [unassignModalVehicle, setUnassignModalVehicle] = useState(null);
+  const [galleryVehicle, setGalleryVehicle] = useState(null);
+  const [galleryPhotoIndex, setGalleryPhotoIndex] = useState(0);
+  const [photoLoadErrors, setPhotoLoadErrors] = useState({});
+  const [photoProgress, setPhotoProgress] = useState(0);
 
   // Add vehicle form state
   const [vehicleForm, setVehicleForm] = useState({
@@ -46,6 +166,106 @@ export default function FleetTab({
     bodyType: 'open'
   });
   const [formError, setFormError] = useState('');
+  const [vehiclePhotos, setVehiclePhotos] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const isImageAsset = (asset) => {
+    const extension = asset.name?.split('.').pop()?.toLowerCase();
+    const mimeType = asset.mimeType?.toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'webp'].includes(extension) &&
+      (!mimeType || ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'].includes(mimeType));
+  };
+
+  const pickVehiclePhotos = async ({ multiple = true } = {}) => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ['image/jpeg', 'image/png', 'image/webp'],
+      copyToCacheDirectory: true,
+      multiple
+    });
+    if (result.canceled) return [];
+    return (result.assets || []).map((asset) => {
+      let previewUri = asset.uri;
+      if (Platform.OS === 'web' && asset.file && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+        try {
+          previewUri = URL.createObjectURL(asset.file);
+        } catch {}
+      }
+      return {
+        uri: previewUri || asset.uri,
+        previewUri: previewUri || asset.uri,
+        name: asset.name,
+        mimeType: asset.mimeType,
+        size: asset.size,
+        file: asset.file
+      };
+    });
+  };
+
+  const validatePhotoSelection = (photos, availableSlots) => {
+    if (!photos.length) return 'Select at least one photo.';
+    if (photos.length > availableSlots) return `You can add only ${availableSlots} more photo${availableSlots === 1 ? '' : 's'} (maximum 4).`;
+    const invalidPhoto = photos.find((photo) => !isImageAsset(photo));
+    if (invalidPhoto) return 'Invalid image format. Select JPG, JPEG, PNG, or WEBP photos.';
+    const oversizedPhoto = photos.find((photo) => Number.isFinite(photo.size) && photo.size > 5 * 1024 * 1024);
+    if (oversizedPhoto) return 'Each vehicle photo must be 5 MB or smaller.';
+    return '';
+  };
+
+  const choosePhotosForAdd = async () => {
+    try {
+      const selected = await pickVehiclePhotos();
+      if (!selected.length) return;
+      const validationMessage = validatePhotoSelection(selected, 4 - vehiclePhotos.length);
+      if (validationMessage) {
+        setFormError(validationMessage);
+        return;
+      }
+      setFormError('');
+      setPhotoProgress(0);
+      setVehiclePhotos((current) => [...current, ...selected]);
+    } catch (error) {
+      setFormError(error?.message || 'Vehicle photos could not be selected. Please retry.');
+    }
+  };
+
+  const choosePhotosForEdit = async () => {
+    if (!editingVehicle) return;
+    try {
+      const selected = await pickVehiclePhotos();
+      if (!selected.length) return;
+      const validationMessage = validatePhotoSelection(selected, 4 - editingVehicle.photos.length);
+      if (validationMessage) {
+        setFormError(validationMessage);
+        return;
+      }
+      setFormError('');
+      setEditingVehicle((current) => ({
+        ...current,
+        photos: [...current.photos, ...selected]
+      }));
+    } catch (error) {
+      setFormError(error?.message || 'Vehicle photos could not be selected. Please retry.');
+    }
+  };
+
+  const replacePhoto = async (index) => {
+    try {
+      const [replacement] = await pickVehiclePhotos({ multiple: false });
+      if (!replacement) return;
+      const validationMessage = validatePhotoSelection([replacement], 1);
+      if (validationMessage) {
+        setFormError(validationMessage);
+        return;
+      }
+      setFormError('');
+      setEditingVehicle((current) => ({
+        ...current,
+        photos: current.photos.map((photo, photoIndex) => photoIndex === index ? replacement : photo)
+      }));
+    } catch (error) {
+      setFormError(error?.message || 'The vehicle photo could not be replaced. Please retry.');
+    }
+  };
 
   // Eligible drivers for assignment (Verified KYC & Approved Agency Association)
   const eligibleDrivers = useMemo(() => {
@@ -81,12 +301,14 @@ export default function FleetTab({
   const inactiveCount = vehicles.filter((v) => v.isActive === false).length;
 
   const handleSaveAddVehicle = async () => {
+    if (isSubmitting || Boolean(saving)) return;
     const capacity = Number(vehicleForm.capacity);
     if (!vehicleForm.vehicleNumber.trim() || !vehicleForm.vehicleModel.trim() || !Number.isFinite(capacity) || capacity <= 0) {
       setFormError('Please enter a vehicle number, model, and valid positive load capacity.');
       return;
     }
     setFormError('');
+    setIsSubmitting(true);
     try {
       await onAddVehicle({
         vehicleNumber: vehicleForm.vehicleNumber.trim(),
@@ -94,7 +316,7 @@ export default function FleetTab({
         vehicleType: vehicleForm.vehicleType,
         loadCapacity: { value: capacity, unit: vehicleForm.capacityUnit },
         bodyType: vehicleForm.bodyType
-      });
+      }, vehiclePhotos, setPhotoProgress);
       setVehicleForm({
         vehicleNumber: '',
         vehicleModel: '',
@@ -103,25 +325,48 @@ export default function FleetTab({
         capacityUnit: 'kg',
         bodyType: 'open'
       });
+      setVehiclePhotos([]);
+      setPhotoProgress(0);
       if (onCloseAddModal) onCloseAddModal();
     } catch (err) {
       setFormError(err?.message || 'Failed to add vehicle.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleSaveEditVehicle = async () => {
-    if (!editingVehicle) return;
+    if (!editingVehicle || isSubmitting || Boolean(saving)) return;
     const capacity = Number(editingVehicle.capacity);
     if (!editingVehicle.vehicleModel.trim() || !Number.isFinite(capacity) || capacity <= 0) {
       return;
     }
-    await onUpdateVehicle(editingVehicle.id, {
-      vehicleModel: editingVehicle.vehicleModel.trim(),
-      vehicleType: editingVehicle.vehicleType,
-      loadCapacity: { value: capacity, unit: editingVehicle.capacityUnit },
-      bodyType: editingVehicle.bodyType
-    });
-    setEditingVehicle(null);
+    setFormError('');
+    setPhotoProgress(0);
+    setIsSubmitting(true);
+    const retainedPhotos = editingVehicle.photos.filter((photo) => typeof photo === 'string');
+    const newPhotos = editingVehicle.photos.filter((photo) => typeof photo !== 'string');
+    try {
+      await onUpdateVehicle(editingVehicle.id, {
+        vehicleModel: editingVehicle.vehicleModel.trim(),
+        vehicleType: editingVehicle.vehicleType,
+        loadCapacity: { value: capacity, unit: editingVehicle.capacityUnit },
+        bodyType: editingVehicle.bodyType
+      }, newPhotos, retainedPhotos, setPhotoProgress);
+      setEditingVehicle(null);
+      setPhotoProgress(0);
+    } catch (error) {
+      setFormError(error?.message || 'Failed to update vehicle. Please retry.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleOpenAddModal = () => {
+    setFormError('');
+    setVehiclePhotos([]);
+    setPhotoProgress(0);
+    onOpenAddModal?.();
   };
 
   return (
@@ -194,7 +439,7 @@ export default function FleetTab({
           })}
         </ScrollView>
 
-        <Pressable onPress={onOpenAddModal} style={styles.addVehicleBtn}>
+        <Pressable onPress={handleOpenAddModal} style={styles.addVehicleBtn}>
           <Ionicons name="add" size={18} color="#FFFFFF" />
           <Text style={styles.addVehicleText}>Add Vehicle</Text>
         </Pressable>
@@ -207,11 +452,13 @@ export default function FleetTab({
           title="No Vehicles Found"
           description={searchQuery ? 'No vehicle matches your search query.' : 'Add your first commercial transport vehicle to build your agency fleet.'}
           actionLabel={searchQuery ? 'Clear Filter' : 'Add Vehicle'}
-          onAction={searchQuery ? () => setSearchQuery('') : onOpenAddModal}
+          onAction={searchQuery ? () => setSearchQuery('') : handleOpenAddModal}
         />
       ) : (
         filteredVehicles.map((vehicle) => {
           const assignedDriver = vehicle.driver?.fullName || vehicle.driver?.name;
+          const photos = getVehiclePhotos(vehicle);
+          const primaryPhoto = photos[0];
           const rcStatus = vehicle.documents?.registration?.status || 'not_uploaded';
           const insStatus = vehicle.documents?.insurance?.status || 'not_uploaded';
           const isVerified = rcStatus === 'approved' && insStatus === 'approved';
@@ -237,6 +484,37 @@ export default function FleetTab({
                   ) : null}
                 </View>
               </View>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`View photos for ${vehicle.vehicleNumber}`}
+                onPress={() => {
+                  setGalleryVehicle(vehicle);
+                  setGalleryPhotoIndex(0);
+                }}
+                style={styles.vehiclePhotoPreview}
+              >
+                {primaryPhoto && !photoLoadErrors[vehicle._id] ? (
+                  <Image
+                    source={{ uri: primaryPhoto }}
+                    resizeMode="cover"
+                    onLoadStart={() => setPhotoLoadErrors((current) => ({ ...current, [vehicle._id]: false }))}
+                    onError={() => setPhotoLoadErrors((current) => ({ ...current, [vehicle._id]: true }))}
+                    style={styles.vehiclePrimaryPhoto}
+                  />
+                ) : (
+                  <View style={styles.vehiclePhotoPlaceholder}>
+                    <Ionicons name="bus-outline" size={30} color={theme.colors.muted} />
+                    <Text style={styles.vehiclePhotoPlaceholderText}>Vehicle photos unavailable</Text>
+                  </View>
+                )}
+                <View style={styles.photoGalleryAction}>
+                  <Ionicons name="images-outline" size={14} color="#FFFFFF" />
+                  <Text style={styles.photoGalleryActionText}>
+                    {photos.length ? `View Photos (${photos.length})` : 'Vehicle Details'}
+                  </Text>
+                </View>
+              </Pressable>
 
               {/* Specs & Type Chips */}
               <View style={styles.specsRow}>
@@ -337,7 +615,8 @@ export default function FleetTab({
                     vehicleType: vehicle.vehicleType || 'mini-truck',
                     capacity: String(vehicle.loadCapacity?.value || ''),
                     capacityUnit: vehicle.loadCapacity?.unit || 'kg',
-                    bodyType: vehicle.bodyType || 'open'
+                    bodyType: vehicle.bodyType || 'open',
+                    photos: getVehiclePhotos(vehicle)
                   })}
                   style={styles.actionBtnOutline}
                 >
@@ -441,6 +720,14 @@ export default function FleetTab({
                 </View>
               </View>
 
+              <VehiclePhotoGrid
+                photos={vehiclePhotos}
+                onAdd={choosePhotosForAdd}
+                onRemove={(index) => setVehiclePhotos((current) => current.filter((_, photoIndex) => photoIndex !== index))}
+                progress={photoProgress}
+                disabled={Boolean(saving)}
+              />
+
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Load Capacity *</Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -495,8 +782,13 @@ export default function FleetTab({
                 <Pressable onPress={onCloseAddModal} style={styles.modalCancelBtn}>
                   <Text style={styles.modalCancelText}>Cancel</Text>
                 </Pressable>
-                <Pressable onPress={handleSaveAddVehicle} style={styles.modalSubmitBtn}>
-                  {saving === 'new-vehicle' ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={handleSaveAddVehicle}
+                  disabled={Boolean(saving || isSubmitting)}
+                  style={[styles.modalSubmitBtn, Boolean(saving || isSubmitting) && styles.modalSubmitBtnDisabled]}
+                >
+                  {saving === 'create-vehicle' || isSubmitting ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
                   ) : (
                     <Text style={styles.modalSubmitText}>Add Vehicle</Text>
@@ -527,6 +819,12 @@ export default function FleetTab({
 
             {editingVehicle ? (
               <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ gap: 12, paddingBottom: 16 }} keyboardShouldPersistTaps="handled">
+                {formError ? (
+                  <View style={styles.errorBanner}>
+                    <Ionicons name="alert-circle" size={16} color={theme.colors.danger} />
+                    <Text style={styles.errorText}>{formError}</Text>
+                  </View>
+                ) : null}
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Model</Text>
                   <TextInput
@@ -604,12 +902,29 @@ export default function FleetTab({
                   </View>
                 </View>
 
+                <VehiclePhotoGrid
+                  photos={editingVehicle.photos}
+                  onAdd={choosePhotosForEdit}
+                  onRemove={(index) => setEditingVehicle((current) => ({
+                    ...current,
+                    photos: current.photos.filter((_, photoIndex) => photoIndex !== index)
+                  }))}
+                  onReplace={replacePhoto}
+                  progress={photoProgress}
+                  disabled={Boolean(saving)}
+                />
+
                 <View style={styles.modalActions}>
                   <Pressable onPress={() => setEditingVehicle(null)} style={styles.modalCancelBtn}>
                     <Text style={styles.modalCancelText}>Cancel</Text>
                   </Pressable>
-                  <Pressable onPress={handleSaveEditVehicle} style={styles.modalSubmitBtn}>
-                    <Text style={styles.modalSubmitText}>Save Changes</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={handleSaveEditVehicle}
+                    disabled={Boolean(saving || isSubmitting)}
+                    style={[styles.modalSubmitBtn, Boolean(saving || isSubmitting) && styles.modalSubmitBtnDisabled]}
+                  >
+                    {saving === 'update-vehicle' || isSubmitting ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.modalSubmitText}>Save Changes</Text>}
                   </Pressable>
                 </View>
               </ScrollView>
@@ -618,7 +933,65 @@ export default function FleetTab({
         </View>
       </Modal>
 
-      {/* 6. ASSIGN DRIVER MODAL */}
+      <Modal
+        visible={Boolean(galleryVehicle)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setGalleryVehicle(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setGalleryVehicle(null)} />
+          <View style={styles.galleryModal}>
+            <View style={styles.modalHeader}>
+              <View style={styles.galleryHeaderText}>
+                <Text style={styles.modalTitle}>Vehicle Details</Text>
+                <Text style={styles.modalSubtitle}>
+                  {galleryVehicle?.vehicleNumber} · {galleryVehicle?.vehicleModel}
+                </Text>
+              </View>
+              <Pressable accessibilityRole="button" onPress={() => setGalleryVehicle(null)} style={{ padding: 6 }}>
+                <Ionicons name="close" size={22} color={theme.colors.muted} />
+              </Pressable>
+            </View>
+
+            {galleryVehicle && getVehiclePhotos(galleryVehicle).length ? (
+              <>
+                <View style={styles.galleryMainFrame}>
+                  <Image
+                    source={{ uri: getVehiclePhotos(galleryVehicle)[galleryPhotoIndex] }}
+                    resizeMode="contain"
+                    style={styles.galleryMainImage}
+                  />
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.galleryThumbnails}>
+                  {getVehiclePhotos(galleryVehicle).map((photo, index) => (
+                    <Pressable
+                      key={`${photo}-${index}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Show vehicle photo ${index + 1}`}
+                      onPress={() => setGalleryPhotoIndex(index)}
+                      style={[styles.galleryThumbnailButton, galleryPhotoIndex === index && styles.galleryThumbnailButtonSelected]}
+                    >
+                      <Image source={{ uri: photo }} resizeMode="cover" style={styles.galleryThumbnailImage} />
+                    </Pressable>
+                  ))}
+                </ScrollView>
+                <Text style={styles.galleryPhotoCount}>{galleryPhotoIndex + 1} of {getVehiclePhotos(galleryVehicle).length} photos</Text>
+              </>
+            ) : (
+              <View style={styles.galleryEmptyState}>
+                <Ionicons name="bus-outline" size={44} color={theme.colors.muted} />
+                <Text style={styles.vehiclePhotoPlaceholderText}>No vehicle photos uploaded</Text>
+              </View>
+            )}
+            <Text style={styles.galleryVehicleSpecs}>
+              {galleryVehicle?.vehicleType || 'Truck'} · {galleryVehicle?.loadCapacity?.value} {galleryVehicle?.loadCapacity?.unit || 'kg'} · {galleryVehicle?.bodyType || 'open'}
+            </Text>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 7. ASSIGN DRIVER MODAL */}
       <Modal
         visible={Boolean(assignModalVehicle)}
         transparent
@@ -799,6 +1172,47 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.xl,
     padding: 16,
     gap: 12
+  },
+  vehiclePhotoPreview: {
+    height: 150,
+    overflow: 'hidden',
+    position: 'relative',
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border
+  },
+  vehiclePrimaryPhoto: {
+    width: '100%',
+    height: '100%'
+  },
+  vehiclePhotoPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6
+  },
+  vehiclePhotoPlaceholderText: {
+    color: theme.colors.muted,
+    fontSize: 11,
+    textAlign: 'center'
+  },
+  photoGalleryAction: {
+    position: 'absolute',
+    right: 8,
+    bottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(8, 17, 31, 0.88)',
+    borderRadius: theme.borderRadius.md,
+    paddingHorizontal: 10,
+    paddingVertical: 6
+  },
+  photoGalleryActionText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700'
   },
   cardHeader: {
     flexDirection: 'row',
@@ -986,6 +1400,74 @@ const styles = StyleSheet.create({
     maxHeight: '90%',
     gap: 14
   },
+  galleryModal: {
+    backgroundColor: theme.colors.card,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.borderRadius.xl,
+    padding: 16,
+    width: '100%',
+    maxWidth: 520,
+    maxHeight: '90%',
+    gap: 12
+  },
+  galleryHeaderText: {
+    flex: 1,
+    minWidth: 0
+  },
+  galleryMainFrame: {
+    width: '100%',
+    height: 340,
+    maxHeight: '55%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderRadius: theme.borderRadius.md,
+    backgroundColor: theme.colors.surface
+  },
+  galleryMainImage: {
+    width: '100%',
+    height: '100%'
+  },
+  galleryThumbnails: {
+    alignItems: 'center',
+    gap: 8
+  },
+  galleryThumbnailButton: {
+    width: 68,
+    height: 58,
+    borderRadius: theme.borderRadius.sm,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: theme.colors.border
+  },
+  galleryThumbnailButtonSelected: {
+    borderColor: theme.colors.primary,
+    borderWidth: 2
+  },
+  galleryThumbnailImage: {
+    width: '100%',
+    height: '100%'
+  },
+  galleryPhotoCount: {
+    color: theme.colors.muted,
+    fontSize: 11,
+    textAlign: 'center'
+  },
+  galleryVehicleSpecs: {
+    color: theme.colors.textSecondary,
+    fontSize: 12,
+    textAlign: 'center',
+    textTransform: 'capitalize'
+  },
+  galleryEmptyState: {
+    minHeight: 220,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md
+  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1013,6 +1495,133 @@ const styles = StyleSheet.create({
     color: theme.colors.danger,
     fontSize: 12,
     flex: 1
+  },
+  photoPickerSection: {
+    backgroundColor: theme.colors.surface,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.lg,
+    padding: 12,
+    gap: 10
+  },
+  photoPickerHeading: {
+    gap: 3
+  },
+  photoPickerTitle: {
+    color: theme.colors.ink,
+    fontSize: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase'
+  },
+  photoPickerHint: {
+    color: theme.colors.muted,
+    fontSize: 10,
+    lineHeight: 15
+  },
+  photoGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 8
+  },
+  photoSlot: {
+    width: '48%',
+    height: 112,
+    position: 'relative',
+    overflow: 'hidden',
+    borderRadius: theme.borderRadius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: theme.colors.border,
+    backgroundColor: theme.colors.card
+  },
+  photoThumbnail: {
+    width: '100%',
+    height: '100%'
+  },
+  photoThumbnailPlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    padding: 6,
+    backgroundColor: theme.colors.surface
+  },
+  photoErrorText: {
+    color: theme.colors.muted,
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center'
+  },
+  photoLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(8, 17, 31, 0.45)'
+  },
+  photoRemoveButton: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    width: 25,
+    height: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.danger,
+    borderRadius: 13
+  },
+  photoReplaceButton: {
+    position: 'absolute',
+    left: 5,
+    right: 5,
+    bottom: 5,
+    minHeight: 26,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    borderRadius: theme.borderRadius.sm,
+    backgroundColor: 'rgba(8, 17, 31, 0.9)'
+  },
+  photoReplaceText: {
+    color: theme.colors.primary,
+    fontSize: 10,
+    fontWeight: '800'
+  },
+  photoAddButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5
+  },
+  photoAddText: {
+    color: theme.colors.primary,
+    fontSize: 11,
+    fontWeight: '700'
+  },
+  photoCountText: {
+    color: theme.colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'right'
+  },
+  photoProgressContainer: {
+    gap: 4
+  },
+  photoProgressTrack: {
+    height: 5,
+    overflow: 'hidden',
+    borderRadius: 3,
+    backgroundColor: theme.colors.border
+  },
+  photoProgressBar: {
+    height: '100%',
+    backgroundColor: theme.colors.primary
+  },
+  photoProgressText: {
+    color: theme.colors.primary,
+    fontSize: 10,
+    fontWeight: '700'
   },
   inputGroup: {
     gap: 5
@@ -1110,6 +1719,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center'
+  },
+  modalSubmitBtnDisabled: {
+    opacity: 0.65
   },
   modalSubmitText: {
     color: '#FFFFFF',

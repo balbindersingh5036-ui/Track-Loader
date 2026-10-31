@@ -14,16 +14,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../components/AgencyTheme';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
+import {
+  bookingFilters,
+  filterAgencyBookings,
+  getBookingFilterCounts
+} from '../../../utils/agencyBookings.mjs';
 
 export default function BookingsTab({
   bookings = [],
   drivers = [],
   vehicles = [],
   saving,
+  loading = false,
+  error = '',
+  onRetry,
   onAssignBooking
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedBookingForDetails, setSelectedBookingForDetails] = useState(null);
 
   // Assignment Modal
   const [selectedBookingForAssign, setSelectedBookingForAssign] = useState(null);
@@ -54,29 +63,9 @@ export default function BookingsTab({
     return vehicle.loadCapacity?.unit === 'ton' ? capacity * 1000 : capacity;
   };
 
-  // Filtered Bookings
+  const filterCounts = useMemo(() => getBookingFilterCounts(bookings), [bookings]);
   const filteredBookings = useMemo(() => {
-    return bookings.filter((b) => {
-      const q = searchQuery.toLowerCase();
-      const bId = (b.bookingId || b._id || '').toLowerCase();
-      const cust = (b.customer?.name || '').toLowerCase();
-      const pickup = (b.pickup?.address || '').toLowerCase();
-      const drop = (b.drop?.address || '').toLowerCase();
-      const matchesSearch = bId.includes(q) || cust.includes(q) || pickup.includes(q) || drop.includes(q);
-
-      if (!matchesSearch) return false;
-
-      const isUnassigned = !b.driver && ['unassigned', 'rejected', undefined].includes(b.assignmentStatus);
-      const isAwaitingAcceptance = b.assignmentStatus === 'pending_acceptance' || (b.bookingStatus === 'pending' && b.driver);
-
-      if (statusFilter === 'unassigned') return isUnassigned;
-      if (statusFilter === 'awaiting') return isAwaitingAcceptance;
-      if (statusFilter === 'accepted') return b.bookingStatus === 'accepted' || b.assignmentStatus === 'accepted';
-      if (statusFilter === 'in_progress') return ['in_transit', 'loading', 'unloading'].includes(b.bookingStatus);
-      if (statusFilter === 'completed') return b.bookingStatus === 'completed';
-      if (statusFilter === 'cancelled') return b.bookingStatus === 'cancelled';
-      return true;
-    });
+    return filterAgencyBookings(bookings, searchQuery, statusFilter);
   }, [bookings, searchQuery, statusFilter]);
 
   // Compute Candidates for selected booking
@@ -106,12 +95,8 @@ export default function BookingsTab({
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-    >
+    <View style={styles.container}>
+      <View style={styles.controlsContainer}>
       {/* 1. SEARCH INPUT */}
       <View style={styles.searchBox}>
         <Ionicons name="search" size={18} color={theme.colors.muted} />
@@ -130,16 +115,15 @@ export default function BookingsTab({
       </View>
 
       {/* 2. FILTER CHIPS */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-        {[
-          { id: 'all', label: `All (${bookings.length})` },
-          { id: 'unassigned', label: 'Needs Assignment' },
-          { id: 'awaiting', label: 'Awaiting Driver' },
-          { id: 'accepted', label: 'Accepted' },
-          { id: 'in_progress', label: 'In Transit' },
-          { id: 'completed', label: 'Completed' },
-          { id: 'cancelled', label: 'Cancelled' }
-        ].map((chip) => {
+      <ScrollView
+        horizontal
+        style={styles.filterScroll}
+        contentContainerStyle={styles.filterContent}
+        showsHorizontalScrollIndicator={false}
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
+      >
+        {bookingFilters.map((chip) => {
           const isSelected = statusFilter === chip.id;
           return (
             <Pressable
@@ -147,22 +131,56 @@ export default function BookingsTab({
               onPress={() => setStatusFilter(chip.id)}
               style={[styles.filterChip, isSelected && styles.filterChipActive]}
             >
-              <Text style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>
-                {chip.label}
+              <Text numberOfLines={1} ellipsizeMode="tail" style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>
+                {chip.label} ({filterCounts[chip.id] ?? 0})
               </Text>
             </Pressable>
           );
         })}
       </ScrollView>
+      </View>
 
       {/* 3. BOOKINGS LIST */}
-      {filteredBookings.length === 0 ? (
+      <ScrollView
+        style={styles.listScroll}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+      {loading ? (
+        <View style={styles.stateContainer}>
+          <ActivityIndicator size="large" color={theme.colors.primary} />
+          <Text style={styles.stateText}>Loading agency bookings...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.stateContainer}>
+          <Ionicons name="alert-circle-outline" size={30} color={theme.colors.danger} />
+          <Text style={styles.stateTitle}>Bookings could not be loaded</Text>
+          <Text style={styles.stateText}>{error}</Text>
+          {onRetry ? (
+            <Pressable onPress={onRetry} style={styles.retryButton}>
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : bookings.length === 0 ? (
         <EmptyState
           icon="clipboard-outline"
+          title="No Bookings Yet"
+          description="No agency bookings were returned for your account."
+          actionLabel="Refresh"
+          onAction={onRetry}
+        />
+      ) : filteredBookings.length === 0 ? (
+        <EmptyState
+          icon="search-outline"
           title="No Bookings Found"
-          description={searchQuery ? 'No booking matches your search query.' : 'There are no customer bookings in this category.'}
-          actionLabel={searchQuery ? 'Clear Filter' : null}
-          onAction={searchQuery ? () => setSearchQuery('') : null}
+          description={searchQuery ? 'No booking matches this search and status filter.' : 'No bookings match this status filter.'}
+          actionLabel={searchQuery ? 'Clear Search' : 'Show All'}
+          onAction={() => {
+            setSearchQuery('');
+            setStatusFilter('all');
+          }}
         />
       ) : (
         filteredBookings.map((booking) => {
@@ -171,7 +189,8 @@ export default function BookingsTab({
           const fare = booking.finalFare || booking.estimatedFare || 0;
           const isUnassigned = !booking.driver && ['unassigned', 'rejected', undefined].includes(booking.assignmentStatus);
           const isScheduled = booking.bookingMode === 'scheduled';
-          const scheduledDate = booking.preferredPickupDate ? new Date(booking.preferredPickupDate).toLocaleDateString() : null;
+          const pickupDate = booking.preferredPickupDate || booking.createdAt;
+          const scheduledDate = pickupDate ? new Date(pickupDate).toLocaleDateString() : null;
 
           return (
             <View key={bookingId} style={styles.bookingCard}>
@@ -196,12 +215,12 @@ export default function BookingsTab({
                 </View>
               </View>
 
-              {/* Scheduled timing if applicable */}
-              {isScheduled && scheduledDate ? (
+              {scheduledDate ? (
                 <View style={styles.scheduledTimingBox}>
                   <Ionicons name="time-outline" size={13} color={theme.colors.warning} />
                   <Text style={styles.scheduledTimingText}>
-                    Pickup: {scheduledDate} {booking.preferredPickupTime ? `at ${booking.preferredPickupTime}` : ''}
+                    {isScheduled ? 'Pickup: ' : 'Travel date: '}{scheduledDate}
+                    {booking.preferredPickupTime ? ` at ${booking.preferredPickupTime}` : ''}
                   </Text>
                 </View>
               ) : null}
@@ -216,6 +235,11 @@ export default function BookingsTab({
                       {booking.pickup?.address || 'Pickup location'}
                     </Text>
                   </View>
+                </View>
+
+                <View style={styles.statusRows}>
+                  <Text style={styles.statusText}>Booking status: <Text style={styles.statusValue}>{booking.bookingStatus || 'Unknown'}</Text></Text>
+                  <Text style={styles.statusText}>Assignment status: <Text style={styles.statusValue}>{booking.assignmentStatus || 'unassigned'}</Text></Text>
                 </View>
 
                 <View style={styles.routeLine} />
@@ -306,10 +330,19 @@ export default function BookingsTab({
                   <Text style={styles.assignActionBtnText}>Assign Driver & Fleet Vehicle</Text>
                 </Pressable>
               ) : null}
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setSelectedBookingForDetails(booking)}
+                style={styles.detailsActionBtn}
+              >
+                <Ionicons name="open-outline" size={15} color={theme.colors.primary} />
+                <Text style={styles.detailsActionText}>View Details</Text>
+              </Pressable>
             </View>
           );
         })
       )}
+      </ScrollView>
 
       {/* 4. ASSIGN DRIVER & VEHICLE MODAL */}
       <Modal
@@ -404,7 +437,44 @@ export default function BookingsTab({
           </View>
         </View>
       </Modal>
-    </ScrollView>
+
+      <Modal
+        visible={Boolean(selectedBookingForDetails)}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedBookingForDetails(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFillObject} onPress={() => setSelectedBookingForDetails(null)} />
+          <View style={styles.detailsModal}>
+            <View style={styles.modalHeader}>
+              <View>
+                <Text style={styles.modalTitle}>Booking Details</Text>
+                <Text style={styles.modalSubtitle}>
+                  #{selectedBookingForDetails?.bookingId || selectedBookingForDetails?._id}
+                </Text>
+              </View>
+              <Pressable accessibilityRole="button" onPress={() => setSelectedBookingForDetails(null)} style={{ padding: 6 }}>
+                <Ionicons name="close" size={22} color={theme.colors.muted} />
+              </Pressable>
+            </View>
+            <ScrollView contentContainerStyle={{ gap: 10, paddingBottom: 8 }}>
+              <Text style={styles.detailsText}>Customer: {selectedBookingForDetails?.customer?.name || 'Not available'}</Text>
+              {selectedBookingForDetails?.customer?.phone ? <Text style={styles.detailsText}>Contact: {selectedBookingForDetails.customer.phone}</Text> : null}
+              <Text style={styles.detailsText}>Pickup: {selectedBookingForDetails?.pickup?.address || 'Not available'}</Text>
+              <Text style={styles.detailsText}>Drop: {selectedBookingForDetails?.drop?.address || 'Not available'}</Text>
+              <Text style={styles.detailsText}>Travel: {selectedBookingForDetails?.preferredPickupDate ? new Date(selectedBookingForDetails.preferredPickupDate).toLocaleString() : 'Not specified'} {selectedBookingForDetails?.preferredPickupTime || ''}</Text>
+              <Text style={styles.detailsText}>Vehicle category: {selectedBookingForDetails?.vehicleType || 'Not specified'}</Text>
+              <Text style={styles.detailsText}>Fare: ₹{selectedBookingForDetails?.finalFare || selectedBookingForDetails?.estimatedFare || 0}</Text>
+              <Text style={styles.detailsText}>Booking status: {selectedBookingForDetails?.bookingStatus || 'Unknown'}</Text>
+              <Text style={styles.detailsText}>Assignment status: {selectedBookingForDetails?.assignmentStatus || 'unassigned'}</Text>
+              <Text style={styles.detailsText}>Driver: {selectedBookingForDetails?.driver?.fullName || selectedBookingForDetails?.driver?.name || 'Unassigned'}</Text>
+              <Text style={styles.detailsText}>Vehicle: {selectedBookingForDetails?.vehicle?.vehicleNumber || 'Unassigned'}</Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
@@ -413,10 +483,23 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 0
   },
-  contentContainer: {
+  controlsContainer: {
+    flexGrow: 0,
+    flexShrink: 0,
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: theme.spacing.md,
+    gap: 12
+  },
+  listScroll: {
+    flex: 1,
+    minHeight: 0
+  },
+  listContent: {
     flexGrow: 1,
-    padding: theme.spacing.md,
-    paddingBottom: 120,
+    alignItems: 'stretch',
+    paddingHorizontal: theme.spacing.md,
+    paddingTop: 12,
+    paddingBottom: 140,
     gap: 14
   },
   searchBox: {
@@ -436,13 +519,37 @@ const styles = StyleSheet.create({
     fontSize: 13,
     padding: 0
   },
+  filterScroll: {
+    height: 42,
+    maxHeight: 42,
+    minHeight: 42,
+    flexGrow: 0,
+    flexShrink: 0,
+    alignSelf: 'stretch'
+  },
+  filterContent: {
+    alignItems: 'center',
+    flexGrow: 0,
+    flexShrink: 0,
+    gap: 8,
+    paddingHorizontal: 2
+  },
   filterChip: {
     backgroundColor: theme.colors.card,
     borderColor: theme.colors.border,
     borderWidth: 1,
     borderRadius: theme.borderRadius.full,
-    paddingHorizontal: 12,
-    paddingVertical: 6
+    height: 38,
+    minHeight: 38,
+    maxHeight: 38,
+    maxWidth: 170,
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: 'auto',
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12
   },
   filterChipActive: {
     backgroundColor: theme.colors.primaryGlow,
@@ -451,7 +558,10 @@ const styles = StyleSheet.create({
   filterChipText: {
     color: theme.colors.textSecondary,
     fontSize: 11,
-    fontWeight: '600'
+    fontWeight: '600',
+    flexShrink: 1,
+    textAlign: 'center',
+    includeFontPadding: false
   },
   filterChipTextActive: {
     color: theme.colors.primary,
@@ -464,6 +574,88 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.xl,
     padding: 16,
     gap: 12
+  },
+  stateContainer: {
+    backgroundColor: theme.colors.card,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.xl,
+    padding: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10
+  },
+  stateTitle: {
+    color: theme.colors.ink,
+    fontSize: 15,
+    fontWeight: '800',
+    textAlign: 'center'
+  },
+  stateText: {
+    color: theme.colors.muted,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center'
+  },
+  retryButton: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: theme.borderRadius.md,
+    marginTop: 4
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '800'
+  },
+  statusRows: {
+    gap: 4,
+    backgroundColor: theme.colors.surface,
+    padding: 9,
+    borderRadius: theme.borderRadius.md
+  },
+  statusText: {
+    color: theme.colors.muted,
+    fontSize: 11,
+    textTransform: 'capitalize'
+  },
+  statusValue: {
+    color: theme.colors.ink,
+    fontWeight: '800'
+  },
+  detailsActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: theme.colors.border,
+    borderRadius: theme.borderRadius.md
+  },
+  detailsActionText: {
+    color: theme.colors.primary,
+    fontSize: 12,
+    fontWeight: '800'
+  },
+  detailsModal: {
+    backgroundColor: theme.colors.card,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.borderRadius.xl,
+    padding: 18,
+    width: '100%',
+    maxWidth: 480,
+    maxHeight: '85%',
+    gap: 12
+  },
+  detailsText: {
+    color: theme.colors.ink,
+    backgroundColor: theme.colors.surface,
+    borderRadius: theme.borderRadius.md,
+    padding: 10,
+    fontSize: 12,
+    lineHeight: 18
   },
   cardHeader: {
     flexDirection: 'row',
