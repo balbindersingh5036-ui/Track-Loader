@@ -294,6 +294,58 @@ test("agency document review supports tradeLicense and gstCertificate", async (t
   assert.equal(agency.documents.gstCertificate.rejectionReason, "GSTIN number mismatch");
 });
 
+test("designated Super Admin can approve and reject all five Agency KYC document types", async (t) => {
+  const agencyId = new mongoose.Types.ObjectId();
+  const reviewerId = new mongoose.Types.ObjectId();
+  const previousSuperAdminId = env.superAdminUserId;
+  env.superAdminUserId = reviewerId.toString();
+  t.after(() => {
+    env.superAdminUserId = previousSuperAdminId;
+  });
+
+  let agency;
+  t.mock.method(Agency, "findById", async () => agency);
+
+  const docTypes = ["ownerAadhaar", "businessRegistration", "tradeLicense", "gstCertificate", "taxId"];
+  for (const docType of docTypes) {
+    for (const action of ["approve", "reject"]) {
+      agency = {
+        _id: agencyId,
+        reviewHistory: [],
+        documents: {
+          [docType]: {
+            publicId: `loadbalbin_kyc/${docType}-review`,
+            url: privateAsset.secure_url,
+            status: "pending"
+          }
+        },
+        markModified() {},
+        async save() { return this; }
+      };
+
+      const reason = action === "reject" ? `Please resubmit ${docType}.` : undefined;
+      const res = response();
+      await reviewAdminAgencyDocument({
+        params: { id: agencyId.toString(), docType, action },
+        body: reason ? { reason } : {},
+        user: { _id: reviewerId, role: "admin" }
+      }, res);
+
+      const expectedStatus = action === "approve" ? "approved" : "rejected";
+      const document = agency.documents[docType];
+      assert.equal(res.statusCode, 200, `${action} ${docType}`);
+      assert.equal(document.status, expectedStatus);
+      assert.equal(document.reviewedBy.toString(), reviewerId.toString());
+      assert.ok(document.reviewedAt instanceof Date);
+      assert.equal(document.rejectionReason, reason || "");
+      assert.equal(agency.reviewHistory[0].action, `document_${expectedStatus}`);
+      assert.equal(agency.reviewHistory[0].documentType, docType);
+      assert.equal(agency.reviewHistory[0].reviewedBy.toString(), reviewerId.toString());
+      assert.equal(agency.reviewHistory[0].reason, reason || "");
+    }
+  }
+});
+
 test("sanitizeAgencyForList creates safe document summary without leaking private URLs or IDs", () => {
   const rawAgency = {
     _id: new mongoose.Types.ObjectId(),

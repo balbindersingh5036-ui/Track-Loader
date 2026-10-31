@@ -13,6 +13,8 @@ const vehicleDocumentFields = {
   insurance: "insurance"
 };
 
+const MAX_PRIVATE_DOCUMENT_SIZE = 5 * 1024 * 1024;
+
 const detectFileType = (buffer) => {
   if (
     buffer.length >= 8 &&
@@ -32,22 +34,39 @@ const detectFileType = (buffer) => {
   return null;
 };
 
-const uploadPrivateDocument = async (file) => {
+export const validatePrivateDocument = (file) => {
+  if (!file?.buffer || !Buffer.isBuffer(file.buffer)) {
+    const error = new Error("A document file is required");
+    error.statusCode = 400;
+    throw error;
+  }
+  if (file.size > MAX_PRIVATE_DOCUMENT_SIZE || file.buffer.length > MAX_PRIVATE_DOCUMENT_SIZE) {
+    const error = new Error("File size exceeds the maximum limit of 5MB");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const detected = detectFileType(file.buffer);
+  const fileMimeType = String(file.mimetype || "").toLowerCase();
+  const uploadedMimeType = fileMimeType === "image/jpg"
+    ? "image/jpeg"
+    : fileMimeType;
+  if (!detected || detected.mimeType !== uploadedMimeType) {
+    const error = new Error("The selected file is not a supported image or PDF");
+    error.statusCode = 400;
+    throw error;
+  }
+  return detected;
+};
+
+export const uploadPrivateDocument = async (file) => {
   if (!env.cloudinary.apiKey || !env.cloudinary.apiSecret || !env.cloudinary.cloudName) {
     const error = new Error("Document upload service is not configured");
     error.statusCode = 503;
     throw error;
   }
 
-  const detected = detectFileType(file.buffer);
-  const uploadedMimeType = file.mimetype.toLowerCase() === "image/jpg"
-    ? "image/jpeg"
-    : file.mimetype.toLowerCase();
-  if (!detected || detected.mimeType !== uploadedMimeType) {
-    const error = new Error("The selected file is not a supported image or PDF");
-    error.statusCode = 400;
-    throw error;
-  }
+  const detected = validatePrivateDocument(file);
 
   const dataUri = `data:${detected.mimeType};base64,${file.buffer.toString("base64")}`;
   const asset = await cloudinary.uploader.upload(dataUri, {
@@ -71,15 +90,17 @@ const uploadPrivateDocument = async (file) => {
   };
 };
 
-const removeUploadedAsset = async (asset) => {
-  if (!asset?.public_id) return;
+export const removeUploadedAsset = async (asset) => {
+  if (!asset?.public_id) return true;
   try {
     await cloudinary.uploader.destroy(asset.public_id, {
       type: "authenticated",
       resource_type: asset.resource_type || "image"
     });
+    return true;
   } catch (error) {
     console.error("Private document cleanup failed:", error.code || error.name || "unknown error");
+    return false;
   }
 };
 

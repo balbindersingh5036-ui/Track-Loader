@@ -10,6 +10,8 @@ import User from "../src/models/User.js";
 import Fare from "../src/models/Fare.js";
 import Notification from "../src/models/Notification.js";
 import SystemSetting from "../src/models/SystemSetting.js";
+import cloudinary from "../src/config/cloudinary.js";
+import { env } from "../src/config/env.js";
 
 import {
   registerAgency,
@@ -79,6 +81,9 @@ test("Agency Lifecycle: 1. Owner registers an agency", async (t) => {
   const ownerId = new mongoose.Types.ObjectId();
   let createdAgencyData;
   let userRoleUpdated = false;
+  const previousCloudinary = { ...env.cloudinary };
+  Object.assign(env.cloudinary, { apiKey: "test-key", apiSecret: "test-secret", cloudName: "test-cloud" });
+  t.after(() => Object.assign(env.cloudinary, previousCloudinary));
 
   t.mock.method(Agency, "findOne", async () => null);
   t.mock.method(Agency, "create", async (data) => {
@@ -90,6 +95,13 @@ test("Agency Lifecycle: 1. Owner registers an agency", async (t) => {
       isActive: true
     };
   });
+  t.mock.method(cloudinary.uploader, "upload", async () => ({
+    secure_url: "https://res.cloudinary.com/test/image/upload/private.png",
+    public_id: "loadbalbin_kyc/test-registration-aadhaar",
+    resource_type: "image",
+    format: "png"
+  }));
+  t.mock.method(cloudinary.utils, "private_download_url", () => "https://signed.example/private.png");
   t.mock.method(User, "findByIdAndUpdate", async (_id, update) => {
     if (update.role === "agency") userRoleUpdated = true;
     return {};
@@ -103,6 +115,13 @@ test("Agency Lifecycle: 1. Owner registers an agency", async (t) => {
       email: "contact@speedy.com",
       address: "123 Transporter Hub",
       city: "Ludhiana"
+    },
+    files: {
+      ownerAadhaar: [{
+        buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+        mimetype: "image/png",
+        size: 8
+      }]
     }
   };
   const res = createResponse();
@@ -113,7 +132,8 @@ test("Agency Lifecycle: 1. Owner registers an agency", async (t) => {
   assert.equal(res.body.success, true);
   assert.equal(createdAgencyData.agencyName, "Speedy Logistics");
   assert.equal(createdAgencyData.phone, "+919876543210");
-  assert.equal(createdAgencyData.documents, undefined);
+  assert.equal(createdAgencyData.documents.ownerAadhaar.status, "pending");
+  assert.equal(createdAgencyData.documents.businessRegistration, undefined);
   assert.equal(userRoleUpdated, true);
 });
 

@@ -17,7 +17,18 @@ export const agencyService = {
   getAdminDriverById: (id) => api.get(`/admin/drivers/${id}`),
 
   // Agency Owner Endpoints
-  registerAgency: (data) => api.post('/agency/register', data),
+  registerAgency: (data, documents = {}, onUploadProgress) => {
+    const formData = new FormData();
+    Object.entries(data).forEach(([key, value]) => formData.append(key, value ?? ''));
+    Object.entries(documents).forEach(([docType, file]) => {
+      if (file) formData.append(docType, file);
+    });
+    return api.post('/agency/register', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
+      onUploadProgress
+    });
+  },
   getMyAgency: () => api.get('/agency/profile'),
   updateMyAgency: (data) => api.put('/agency/profile', data),
   getAgencyDrivers: () => api.get('/agency/drivers'),
@@ -35,12 +46,13 @@ export const agencyService = {
       timeout: 120000
     });
   },
-  uploadAgencyDocument: (agencyId, docType, file) => {
+  uploadAgencyDocument: (agencyId, docType, file, onUploadProgress) => {
     const formData = new FormData();
     formData.append('document', file);
     return api.post(`/documents/agency/${agencyId}/${docType}`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 120000
+      timeout: 120000,
+      onUploadProgress
     });
   },
   getAgencyVehicles: () => api.get('/agency/vehicles'),

@@ -20,13 +20,19 @@ import {
 } from "../controllers/agencyController.js";
 import { protect } from "../middleware/authMiddleware.js";
 import { agencyOnly } from "../middleware/agencyMiddleware.js";
+import { handleUploadFields } from "../middleware/uploadMiddleware.js";
 
 const router = express.Router();
 
 router.get("/verified", getVerifiedAgencies);
 
 // Public agency registration (authenticated user applies to become agency owner)
-router.post("/register", protect, registerAgency);
+router.post(
+  "/register",
+  protect,
+  handleUploadFields(["ownerAadhaar", "businessRegistration", "tradeLicense", "gstCertificate", "taxId"]),
+  registerAgency
+);
 
 // Agency owner management routes
 router.get("/profile", protect, agencyOnly, getMyAgency);

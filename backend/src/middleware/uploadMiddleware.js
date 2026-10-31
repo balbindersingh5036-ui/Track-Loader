@@ -30,9 +30,17 @@ export const upload = multer({
 });
 
 export const handleUploadSingle = (fieldName = "image") => {
-  const single = upload.single(fieldName);
+  return handleUploadParser(upload.single(fieldName), [fieldName]);
+};
+
+export const handleUploadFields = (fieldNames) => {
+  const fields = fieldNames.map((name) => ({ name, maxCount: 1 }));
+  return handleUploadParser(upload.fields(fields), fieldNames);
+};
+
+const handleUploadParser = (parse, fieldNames) => {
   return (req, res, next) => {
-    single(req, res, (err) => {
+    parse(req, res, (err) => {
       if (err) {
         if (err instanceof multer.MulterError) {
           if (err.code === "LIMIT_FILE_SIZE") {
@@ -44,7 +52,7 @@ export const handleUploadSingle = (fieldName = "image") => {
           if (err.code === "LIMIT_UNEXPECTED_FILE") {
             return res.status(400).json({
               success: false,
-              message: `Unexpected field '${err.field}'. Expected '${fieldName}'`
+              message: `Unexpected field '${err.field}'. Expected ${fieldNames.map((name) => `'${name}'`).join(", ")}`
             });
           }
           return res.status(400).json({

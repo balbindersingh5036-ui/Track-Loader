@@ -55,6 +55,43 @@ const getCompatibleAgencyVehicle = (driver, booking, vehicles) => {
   }) || null;
 };
 
+const AGENCY_DOCUMENTS = [
+  {
+    type: 'ownerAadhaar',
+    label: 'Owner Aadhaar / Identity Proof',
+    description: 'Required to verify the agency owner. Submit an identity proof for private Super Admin review.',
+    optional: false
+  },
+  {
+    type: 'businessRegistration',
+    label: 'Business Registration Certificate',
+    description: 'Certificate of incorporation, firm registration, or another business registration document.',
+    optional: true
+  },
+  {
+    type: 'tradeLicense',
+    label: 'Trade Licence',
+    description: 'Upload your current local or commercial trade licence, if available.',
+    optional: true
+  },
+  {
+    type: 'gstCertificate',
+    label: 'GST Certificate',
+    description: 'Upload your GST registration certificate, if your business is registered.',
+    optional: true
+  },
+  {
+    type: 'taxId',
+    label: 'Tax ID / PAN Document',
+    description: 'Upload the business or owner PAN/tax ID document, if available.',
+    optional: true
+  }
+];
+
+const AGENCY_DOCUMENT_ACCEPT = 'image/jpeg,image/png,image/webp,application/pdf';
+const AGENCY_DOCUMENT_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+const AGENCY_DOCUMENT_MAX_SIZE = 5 * 1024 * 1024;
+
 export default function AgencyDashboard() {
   const [agency, setAgency] = useState(null);
   const [drivers, setDrivers] = useState([]);
@@ -219,6 +256,9 @@ export default function AgencyDashboard() {
     message: ''
   });
   const [agencyDocumentError, setAgencyDocumentError] = useState('');
+  const [agencyDocumentUploadFiles, setAgencyDocumentUploadFiles] = useState({});
+  const [agencyDocumentUploadStatuses, setAgencyDocumentUploadStatuses] = useState({});
+  const [agencyDocumentUploadProgress, setAgencyDocumentUploadProgress] = useState({});
 
   const handleFileUpload = async (e, targetField, setter, purpose = 'document') => {
     const file = e.target.files?.[0];
@@ -321,6 +361,9 @@ export default function AgencyDashboard() {
     address: '',
     city: ''
   });
+  const [registrationDocuments, setRegistrationDocuments] = useState({});
+  const [registrationDocumentStatuses, setRegistrationDocumentStatuses] = useState({});
+  const [registrationUploadProgress, setRegistrationUploadProgress] = useState(0);
   const [registering, setRegistering] = useState(false);
 
   const loadData = async (isManualRefresh = false) => {
@@ -445,22 +488,88 @@ export default function AgencyDashboard() {
 
   const handleRegisterAgency = async (e) => {
     e.preventDefault();
+    if (!registrationDocuments.ownerAadhaar) {
+      setRegistrationDocumentStatuses(prev => ({
+        ...prev,
+        ownerAadhaar: { state: 'error', message: 'Owner Aadhaar / Identity Proof is required.' }
+      }));
+      setError('Select the mandatory Owner Aadhaar / Identity Proof before submitting registration.');
+      return;
+    }
+
     try {
       setRegistering(true);
       setError('');
-      await agencyService.registerAgency({
-        agencyName: regForm.agencyName,
-        phone: regForm.phone,
-        email: regForm.email,
-        address: regForm.address,
-        city: regForm.city
+      setRegistrationUploadProgress(0);
+      setRegistrationDocumentStatuses(Object.fromEntries(
+        Object.keys(registrationDocuments).map((docType) => [docType, { state: 'uploading', message: 'Uploading securely…' }])
+      ));
+      await agencyService.registerAgency(regForm, registrationDocuments, (event) => {
+        if (event.total) setRegistrationUploadProgress(Math.round((event.loaded / event.total) * 100));
       });
+      setRegistrationDocumentStatuses(Object.fromEntries(
+        Object.keys(registrationDocuments).map((docType) => [docType, { state: 'success', message: 'Submitted · Pending Super Admin review' }])
+      ));
       await loadData();
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Registration failed');
+      const message = err.response?.data?.message || err.message || 'Registration failed';
+      setError(message);
+      setRegistrationDocumentStatuses(Object.fromEntries(
+        Object.keys(registrationDocuments).map((docType) => [docType, { state: 'error', message: `Registration/upload failed: ${message}` }])
+      ));
     } finally {
       setRegistering(false);
     }
+  };
+
+  const handleRegistrationDocumentChange = (event, docType) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    if (file.size > AGENCY_DOCUMENT_MAX_SIZE) {
+      setRegistrationDocuments(prev => {
+        const next = { ...prev };
+        delete next[docType];
+        return next;
+      });
+      setRegistrationDocumentStatuses(prev => ({
+        ...prev,
+        [docType]: { state: 'error', message: 'File size exceeds the 5MB limit.' }
+      }));
+      return;
+    }
+    if (!AGENCY_DOCUMENT_MIME_TYPES.includes(file.type.toLowerCase())) {
+      setRegistrationDocuments(prev => {
+        const next = { ...prev };
+        delete next[docType];
+        return next;
+      });
+      setRegistrationDocumentStatuses(prev => ({
+        ...prev,
+        [docType]: { state: 'error', message: 'Choose a JPEG, PNG, WebP, or PDF document.' }
+      }));
+      return;
+    }
+
+    setRegistrationDocuments(prev => ({ ...prev, [docType]: file }));
+    setRegistrationDocumentStatuses(prev => ({
+      ...prev,
+      [docType]: { state: 'ready', message: 'Ready to upload securely with registration.' }
+    }));
+    setError('');
+  };
+
+  const handleRemoveRegistrationDocument = (docType) => {
+    setRegistrationDocuments(prev => {
+      const next = { ...prev };
+      delete next[docType];
+      return next;
+    });
+    setRegistrationDocumentStatuses(prev => ({
+      ...prev,
+      [docType]: { state: 'missing', message: docType === 'ownerAadhaar' ? 'Required before registration.' : 'Optional document not selected.' }
+    }));
   };
 
   const handleUpdateProfile = async (e) => {
@@ -510,27 +619,51 @@ export default function AgencyDashboard() {
   const handleAgencyDocumentUpload = async (event, docType) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > AGENCY_DOCUMENT_MAX_SIZE) {
       setAgencyDocumentError('File size exceeds the 5MB limit.');
+      setAgencyDocumentUploadStatuses(prev => ({ ...prev, [docType]: 'File size exceeds the 5MB limit.' }));
+      setAgencyDocumentUploadFiles(prev => {
+        const next = { ...prev };
+        delete next[docType];
+        return next;
+      });
       event.target.value = '';
       return;
     }
-    if (!allowedMimeTypes.includes(file.type.toLowerCase())) {
+    if (!AGENCY_DOCUMENT_MIME_TYPES.includes(file.type.toLowerCase())) {
       setAgencyDocumentError('Choose a JPEG, PNG, WebP, or PDF document.');
+      setAgencyDocumentUploadStatuses(prev => ({ ...prev, [docType]: 'Choose a JPEG, PNG, WebP, or PDF document.' }));
+      setAgencyDocumentUploadFiles(prev => {
+        const next = { ...prev };
+        delete next[docType];
+        return next;
+      });
       event.target.value = '';
       return;
     }
 
     const key = `agency-${docType}`;
+    setAgencyDocumentUploadFiles(prev => ({ ...prev, [docType]: file.name }));
     setAgencyDocumentError('');
+    setAgencyDocumentUploadStatuses(prev => ({ ...prev, [docType]: 'Uploading securely…' }));
+    setAgencyDocumentUploadProgress(prev => ({ ...prev, [docType]: 0 }));
     try {
       setUploadingDoc(key);
-      await agencyService.uploadAgencyDocument(agency._id, docType, file);
+      await agencyService.uploadAgencyDocument(agency._id, docType, file, (progressEvent) => {
+        if (progressEvent.total) {
+          setAgencyDocumentUploadProgress(prev => ({
+            ...prev,
+            [docType]: Math.round((progressEvent.loaded / progressEvent.total) * 100)
+          }));
+        }
+      });
+      setAgencyDocumentUploadStatuses(prev => ({ ...prev, [docType]: 'Submitted · Pending Super Admin review' }));
       await loadData();
     } catch (uploadError) {
+      const message = uploadError.response?.data?.message || uploadError.message || 'Secure document upload failed';
+      setAgencyDocumentUploadStatuses(prev => ({ ...prev, [docType]: `Upload failed: ${message}` }));
       setAgencyDocumentError(
-        uploadError.response?.data?.message || uploadError.message || 'Secure document upload failed'
+        message
       );
     } finally {
       setUploadingDoc('');
@@ -738,7 +871,7 @@ export default function AgencyDashboard() {
           </div>
         </div>
         <p style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.5, marginBottom: 20 }}>
-          Register your transport fleet to manage commercial vehicles and drivers. The agency profile starts pending; submit optional business documents and Owner Aadhaar securely from Profile & KYC after registration.
+          Register your transport fleet and submit its verification documents securely. Owner Aadhaar / Identity Proof is required; the other four business documents are optional and can be submitted later from Profile & KYC.
         </p>
 
         {error && <div style={{ color: 'var(--danger)', background: '#fef2f2', padding: 12, borderRadius: 8, marginBottom: 16, fontSize: 13 }}>{error}</div>}
@@ -798,8 +931,73 @@ export default function AgencyDashboard() {
             </div>
           </div>
 
-          <div style={{ padding: 12, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 12, color: 'var(--text-secondary)' }}>
-            After registration, upload Owner Aadhaar securely from Profile & KYC. Business registration and tax documents are optional and can also be submitted there.
+          <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 16 }}>
+            <h3 style={{ fontSize: 15, margin: '0 0 6px 0' }}>Agency KYC Documents</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: 12, margin: '0 0 12px 0' }}>
+              JPEG, PNG, WebP, or PDF · maximum 5MB per document. Files are uploaded to private authenticated storage and remain pending until Super Admin review.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {AGENCY_DOCUMENTS.map(({ type, label, description, optional }) => {
+                const file = registrationDocuments[type];
+                const documentStatus = registrationDocumentStatuses[type] || {
+                  state: 'missing',
+                  message: optional ? 'Optional document not selected.' : 'Required before registration.'
+                };
+                const statusColor = documentStatus.state === 'error'
+                  ? '#991b1b'
+                  : documentStatus.state === 'success'
+                    ? '#166534'
+                    : documentStatus.state === 'uploading'
+                      ? 'var(--primary)'
+                      : 'var(--text-secondary)';
+                return (
+                  <div key={type} style={{ padding: 12, border: '1px solid #e5e7eb', borderRadius: 8, background: '#f9fafb' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <label htmlFor={`registration-document-${type}`} style={{ fontWeight: 600, fontSize: 13 }}>
+                        {label} {optional ? <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>(Optional)</span> : <span aria-label="required">*</span>}
+                      </label>
+                      <span style={{ fontSize: 11, color: documentStatus.state === 'success' ? '#166534' : documentStatus.state === 'error' ? '#991b1b' : 'var(--text-secondary)' }}>
+                        {documentStatus.state === 'ready' ? 'Ready' : documentStatus.state === 'uploading' ? 'Uploading' : documentStatus.state === 'success' ? 'Pending review' : documentStatus.state === 'error' ? 'Error' : 'Missing'}
+                      </span>
+                    </div>
+                    <p style={{ color: 'var(--text-secondary)', fontSize: 12, margin: '4px 0 8px 0' }}>{description}</p>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: 11, marginBottom: 8 }}>
+                      Supported: JPEG, PNG, WebP, PDF · Maximum size: 5MB.
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                      <input
+                        id={`registration-document-${type}`}
+                        type="file"
+                        accept={AGENCY_DOCUMENT_ACCEPT}
+                        aria-label={`Choose ${label}`}
+                        disabled={registering}
+                        onChange={(event) => handleRegistrationDocumentChange(event, type)}
+                      />
+                      {file ? (
+                        <>
+                          <span style={{ fontSize: 12, overflowWrap: 'anywhere' }}>Selected: {file.name}</span>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            disabled={registering}
+                            onClick={() => handleRemoveRegistrationDocument(type)}
+                          >
+                            Remove
+                          </button>
+                        </>
+                      ) : null}
+                    </div>
+                    <div role={documentStatus.state === 'error' ? 'alert' : 'status'} style={{ color: statusColor, fontSize: 11, marginTop: 6 }}>
+                      {documentStatus.message}
+                      {registering && file ? ` ${registrationUploadProgress}% uploaded with registration.` : ''}
+                    </div>
+                    {registering && file ? (
+                      <progress aria-label={`${label} upload progress`} value={registrationUploadProgress} max="100" style={{ width: '100%', marginTop: 5 }} />
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <button type="submit" className="btn btn-primary" disabled={registering} style={{ marginTop: 8, height: 42 }}>
@@ -1980,111 +2178,79 @@ export default function AgencyDashboard() {
             <p style={{ color: 'var(--text-secondary)', fontSize: 12, marginBottom: 16 }}>Documents are secured in an authorized vault accessible via short-lived signed links.</p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {/* Owner Aadhaar */}
-              <div style={{ padding: 14, background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
-                {(() => {
-                  const document = agency.documents?.ownerAadhaar || {};
-                  const status = document.status || 'not_uploaded';
-                  const mayUpload = status !== 'pending' || !document.viewUrl;
-                  return (
-                    <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>Owner Aadhaar Document</div>
-                  <span className={`badge ${status === 'approved' ? 'success' : status === 'rejected' || status === 'not_uploaded' ? 'danger' : 'warning'}`}>
-                    {status === 'approved' ? 'Verified' : status === 'pending' ? 'Pending Super Admin Verification' : status === 'rejected' ? 'Rejected' : 'Missing'}
-                  </span>
-                </div>
-                <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px 0' }}>
-                  Submit a masked Aadhaar securely for Super Admin review. Agency approval and driver-dropdown eligibility currently use the agency's active and approved status; owner Aadhaar is not a configured prerequisite.
-                </p>
-                {document.viewUrl ? (
-                  <a
-                    href={document.viewUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-secondary btn-sm"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                  >
-                    <Eye size={13} /> View Submitted Aadhaar
-                  </a>
-                ) : null}
-                {document.submittedAt ? <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>Submitted {new Date(document.submittedAt).toLocaleString()}</div> : null}
-                {document.reviewedAt ? <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Reviewed {new Date(document.reviewedAt).toLocaleString()}</div> : null}
-                {document.reviewedBy ? <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Reviewed by {document.reviewedBy}</div> : null}
-                {document.rejectionReason ? <div role="alert" style={{ fontSize: 12, color: '#991b1b', marginTop: 6 }}>Reason: {document.rejectionReason}</div> : null}
-                {mayUpload ? (
-                  <label style={{ display: 'block', marginTop: 10, fontSize: 12, fontWeight: 600 }}>
-                    {status === 'rejected' ? 'Resubmit Owner Aadhaar' : status === 'approved' ? 'Replace with a private vault submission' : status === 'pending' ? 'Resubmit to the private vault for review' : 'Upload Owner Aadhaar'}
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,application/pdf"
-                      aria-label="Upload or resubmit owner Aadhaar"
-                      disabled={uploadingDoc === 'agency-ownerAadhaar'}
-                      onChange={(event) => handleAgencyDocumentUpload(event, 'ownerAadhaar')}
-                      style={{ display: 'block', marginTop: 6 }}
-                    />
-                    {uploadingDoc === 'agency-ownerAadhaar' ? <span role="status">Uploading securely…</span> : null}
-                  </label>
-                ) : status === 'pending' ? (
-                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8 }}>Awaiting Super Admin review.</div>
-                ) : null}
-                    </>
-                  );
-                })()}
-              </div>
-
-              {/* Business Registration */}
-              <div style={{ padding: 14, background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
-                {(() => {
-                  const document = agency.documents?.businessRegistration || {};
-                  const status = document.status || 'not_uploaded';
-                  const mayUpload = status !== 'pending' || !document.viewUrl;
-                  return (
-                    <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>Business Registration Document</div>
-                  <span className={`badge ${status === 'approved' ? 'success' : status === 'rejected' ? 'danger' : status === 'pending' ? 'warning' : 'default'}`}>
-                    {status === 'not_uploaded' ? 'Optional' : status === 'approved' ? 'Verified' : status === 'pending' ? 'Pending Super Admin Verification' : 'Rejected'}
-                  </span>
-                </div>
-                <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px 0' }}>
-                  Trade licence, GSTIN or commercial transport registration document.
-                </p>
-                {document.viewUrl ? (
-                  <a
-                    href={document.viewUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-secondary btn-sm"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                  >
-                    <Eye size={13} /> View Registration Certificate
-                  </a>
-                ) : null}
-                {document.submittedAt ? <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>Submitted {new Date(document.submittedAt).toLocaleString()}</div> : null}
-                {document.reviewedAt ? <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Reviewed {new Date(document.reviewedAt).toLocaleString()}</div> : null}
-                {document.reviewedBy ? <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Reviewed by {document.reviewedBy}</div> : null}
-                {document.rejectionReason ? <div role="alert" style={{ fontSize: 12, color: '#991b1b', marginTop: 6 }}>Reason: {document.rejectionReason}</div> : null}
-                {mayUpload ? (
-                  <label style={{ display: 'block', marginTop: 10, fontSize: 12, fontWeight: 600 }}>
-                    {status === 'rejected' ? 'Resubmit business document' : status === 'approved' ? 'Replace with a private vault submission' : status === 'pending' ? 'Resubmit to the private vault for review' : 'Upload optional business document'}
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,application/pdf"
-                      aria-label="Upload or resubmit business registration document"
-                      disabled={uploadingDoc === 'agency-businessRegistration'}
-                      onChange={(event) => handleAgencyDocumentUpload(event, 'businessRegistration')}
-                      style={{ display: 'block', marginTop: 6 }}
-                    />
-                    {uploadingDoc === 'agency-businessRegistration' ? <span role="status">Uploading securely…</span> : null}
-                  </label>
-                ) : status === 'pending' ? (
-                  <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8 }}>Awaiting Super Admin review.</div>
-                ) : null}
-                    </>
-                  );
-                })()}
-              </div>
+              {AGENCY_DOCUMENTS.map(({ type, label, description, optional }) => {
+                const document = agency.documents?.[type] || {};
+                const status = document.status === 'not_uploaded' ? 'missing' : (document.status || 'missing');
+                const isUploading = uploadingDoc === `agency-${type}`;
+                const mayUpload = status !== 'pending' || !document.viewUrl;
+                const badgeClass = status === 'approved' ? 'success' : status === 'rejected' ? 'danger' : status === 'pending' ? 'warning' : 'default';
+                return (
+                  <div key={type} style={{ padding: 14, background: '#f9fafb', borderRadius: 8, border: '1px solid #e5e7eb' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <div style={{ fontWeight: 600, fontSize: 13 }}>
+                        {label} {optional ? <span style={{ color: 'var(--text-secondary)', fontWeight: 400 }}>(Optional)</span> : null}
+                      </div>
+                      <span className={`badge ${badgeClass}`}>
+                        {status === 'approved' ? 'Approved' : status === 'pending' ? 'Pending' : status === 'rejected' ? 'Rejected' : 'Missing'}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: 12, color: 'var(--text-secondary)', margin: '0 0 10px 0' }}>{description}</p>
+                    {agencyDocumentUploadFiles[type] ? (
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginBottom: 8, overflowWrap: 'anywhere' }}>
+                        Selected: {agencyDocumentUploadFiles[type]}
+                      </div>
+                    ) : null}
+                    {agencyDocumentUploadStatuses[type] ? (
+                      <div role={agencyDocumentUploadStatuses[type].startsWith('Upload failed:') || agencyDocumentUploadStatuses[type].startsWith('Choose ') || agencyDocumentUploadStatuses[type].startsWith('File size') ? 'alert' : 'status'} style={{
+                        fontSize: 11,
+                        color: agencyDocumentUploadStatuses[type].startsWith('Upload failed:') || agencyDocumentUploadStatuses[type].startsWith('Choose ') || agencyDocumentUploadStatuses[type].startsWith('File size') ? '#991b1b' : 'var(--text-secondary)',
+                        marginBottom: 6
+                      }}>
+                        {agencyDocumentUploadStatuses[type]}{isUploading ? ` ${agencyDocumentUploadProgress[type] || 0}%` : ''}
+                      </div>
+                    ) : null}
+                    {isUploading ? (
+                      <progress aria-label={`${label} upload progress`} value={agencyDocumentUploadProgress[type] || 0} max="100" style={{ width: '100%', marginBottom: 8 }} />
+                    ) : null}
+                    {document.viewUrl ? (
+                      <a
+                        href={document.viewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-secondary btn-sm"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+                      >
+                        <Eye size={13} /> View submitted document
+                      </a>
+                    ) : null}
+                    {document.submittedAt ? <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 6 }}>Submitted {new Date(document.submittedAt).toLocaleString()}</div> : null}
+                    {document.reviewedAt ? <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Reviewed {new Date(document.reviewedAt).toLocaleString()}</div> : null}
+                    {document.reviewedBy ? <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 3 }}>Reviewed by {document.reviewedBy}</div> : null}
+                    {document.rejectionReason ? <div role="alert" style={{ fontSize: 12, color: '#991b1b', marginTop: 6 }}>Rejection reason: {document.rejectionReason}</div> : null}
+                    {mayUpload ? (
+                      <div style={{ marginTop: 10 }}>
+                        <label style={{ display: 'block', fontSize: 12, fontWeight: 600 }}>
+                          {status === 'rejected' ? 'Resubmit rejected document' : 'Choose document'}
+                          <input
+                            type="file"
+                            accept={AGENCY_DOCUMENT_ACCEPT}
+                            aria-label={`${status === 'rejected' ? 'Resubmit' : 'Upload'} ${label}`}
+                            disabled={isUploading}
+                            onChange={(event) => handleAgencyDocumentUpload(event, type)}
+                            style={{ display: 'block', marginTop: 6 }}
+                          />
+                        </label>
+                        <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4 }}>
+                          JPEG, PNG, WebP, or PDF · maximum 5MB.
+                        </div>
+                        {isUploading ? <div role="status" style={{ fontSize: 11, marginTop: 4 }}>Uploading securely…</div> : null}
+                      </div>
+                    ) : status === 'pending' ? (
+                      <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 8 }}>Awaiting Super Admin review.</div>
+                    ) : null}
+                  </div>
+                );
+              })}
 
               {agencyDocumentError ? <div role="alert" style={{ color: '#991b1b', background: '#fef2f2', padding: 10, borderRadius: 6 }}>{agencyDocumentError}</div> : null}
 

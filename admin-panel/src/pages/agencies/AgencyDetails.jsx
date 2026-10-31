@@ -150,13 +150,13 @@ export default function AgencyDetails() {
     }));
   const allAgencyDocuments = [...supportedAgencyDocuments, ...dynamicDocuments];
 
-  const getDocStatusBadge = (status, optional) => {
+  const getDocStatusBadge = (status) => {
     const map = {
       approved: { bg: '#dcfce7', color: '#166534', label: 'Approved' },
       pending: { bg: '#fef9c3', color: '#854d0e', label: 'Pending' },
       rejected: { bg: '#fee2e2', color: '#991b1b', label: 'Rejected' },
-      missing: { bg: '#f3f4f6', color: '#6b7280', label: optional ? 'Optional / Not Uploaded' : 'Missing' },
-      not_uploaded: { bg: '#f3f4f6', color: '#6b7280', label: optional ? 'Optional / Not Uploaded' : 'Missing' }
+      missing: { bg: '#f3f4f6', color: '#6b7280', label: 'Missing' },
+      not_uploaded: { bg: '#f3f4f6', color: '#6b7280', label: 'Missing' }
     };
     const s = map[status] || map.missing;
     return (
@@ -310,7 +310,7 @@ export default function AgencyDetails() {
                         {optional ? 'Optional' : 'Mandatory'}
                       </div>
                     </div>
-                    {getDocStatusBadge(status, optional)}
+                    {getDocStatusBadge(status)}
                   </div>
 
                   <div style={{ fontSize: 12, color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8 }}>

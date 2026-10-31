@@ -19,6 +19,11 @@ import { sanitizeDriverDocumentResponse } from "../utils/driverDocumentResponse.
 import { notifyCustomer, notifyDriver } from "../services/notificationService.js";
 import { emitToUser } from "../sockets/socket.js";
 import { extractCloudinaryAssetInfo, generateSignedDocumentUrl } from "../utils/documentSigner.js";
+import {
+  removeUploadedAsset,
+  uploadPrivateDocument,
+  validatePrivateDocument
+} from "./documentController.js";
 
 // Helper to retrieve current authenticated user's agency
 const getAgencyForUser = async (userId) => {
@@ -26,7 +31,7 @@ const getAgencyForUser = async (userId) => {
 };
 const toPlainObject = (document) =>
   typeof document?.toObject === "function" ? document.toObject() : document;
-const agencyDocumentTypes = ["ownerAadhaar", "businessRegistration", "taxId"];
+const agencyDocumentTypes = ["ownerAadhaar", "businessRegistration", "tradeLicense", "gstCertificate", "taxId"];
 
 const serializeAgencyDocument = (document) => {
   const doc = document || {};
@@ -43,6 +48,9 @@ const serializeAgencyDocument = (document) => {
     submittedAt: doc.submittedAt || null,
     reviewedAt: doc.reviewedAt || null,
     reviewedBy: typeof doc.reviewedBy === "object" ? doc.reviewedBy?.name || null : null,
+    uploadedBy: typeof doc.uploadedBy === "object"
+      ? doc.uploadedBy?.name || doc.uploadedBy?._id?.toString?.() || doc.uploadedBy?.toString?.() || null
+      : doc.uploadedBy?.toString?.() || null,
     rejectionReason: doc.rejectionReason || "",
     viewUrl: privateAsset
       ? generateSignedDocumentUrl(asset.publicId, asset.format || "pdf", 300, doc.resourceType || asset.resourceType || "image")
@@ -79,11 +87,20 @@ export const getVerifiedAgencies = async (_req, res) => {
 
 // Agency Profile & Registration
 export const registerAgency = async (req, res) => {
+  const uploadedAssets = [];
+  let createdAgency;
+  let roleUpdateAttempted = false;
+  let uploadInProgress = false;
   try {
     const { agencyName, phone, email, address, city } = req.body;
 
     if (Object.hasOwn(req.body || {}, "documents")) {
-      return errorResponse(res, "Agency documents must be submitted through the authenticated private upload endpoint", 400);
+      return errorResponse(res, "Agency documents must be submitted as multipart files through the authenticated private upload endpoint", 400);
+    }
+
+    const files = req.files || {};
+    if (!files.ownerAadhaar?.[0]) {
+      return errorResponse(res, "An owner Aadhaar document is required to register an agency", 400);
     }
     if (!agencyName || typeof agencyName !== "string" || !agencyName.trim()) {
       return errorResponse(res, "Agency name is required", 400);
@@ -92,33 +109,91 @@ export const registerAgency = async (req, res) => {
       return errorResponse(res, "Phone number is required", 400);
     }
 
+    for (const docType of agencyDocumentTypes) {
+      if (files[docType]?.[0]) validatePrivateDocument(files[docType][0]);
+    }
+
     const existing = await Agency.findOne({ $or: [{ owner: req.user._id }, { phone: phone.trim() }] });
     if (existing) {
       return errorResponse(res, "Agency with this owner or phone number already exists", 409);
     }
 
-    const agency = await Agency.create({
+    const documents = {};
+    for (const docType of agencyDocumentTypes) {
+      const file = files[docType]?.[0];
+      if (!file) continue;
+
+      uploadInProgress = true;
+      const { asset, detected } = await uploadPrivateDocument(file);
+      uploadedAssets.push(asset);
+      documents[docType] = {
+        url: asset.secure_url,
+        publicId: asset.public_id,
+        resourceType: asset.resource_type || "image",
+        format: asset.format || detected.format,
+        status: "pending",
+        submittedAt: new Date(),
+        uploadedBy: req.user._id,
+        reviewedAt: null,
+        reviewedBy: null,
+        rejectionReason: ""
+      };
+    }
+    uploadInProgress = false;
+
+    createdAgency = await Agency.create({
       owner: req.user._id,
       agencyName: agencyName.trim(),
       phone: phone.trim(),
-      email: email ? email.trim().toLowerCase() : "",
-      address: address ? address.trim() : "",
-      city: city ? city.trim() : ""
+      email: typeof email === "string" ? email.trim().toLowerCase() : "",
+      address: typeof address === "string" ? address.trim() : "",
+      city: typeof city === "string" ? city.trim() : "",
+      documents
     });
 
     // Update user role to agency if not already admin
     if (req.user.role !== "admin") {
-      await User.findByIdAndUpdate(req.user._id, { role: "agency" });
+      roleUpdateAttempted = true;
+      const updatedUser = await User.findByIdAndUpdate(req.user._id, { role: "agency" });
+      if (!updatedUser) throw new Error("User role update did not find the registering user");
     }
 
     return successResponse(
       res,
-      { agency: serializeAgencyOwnerView(agency) },
+      { agency: serializeAgencyOwnerView(createdAgency) },
       "Agency registered successfully and pending approval",
       201
     );
   } catch (error) {
-    return errorResponse(res, "Failed to register agency", 500);
+    let cleanupIncomplete = false;
+    if (createdAgency?._id) {
+      try {
+        const deletion = await Agency.deleteOne({ _id: createdAgency._id });
+        if (deletion?.deletedCount === 0) cleanupIncomplete = true;
+      } catch (cleanupError) {
+        cleanupIncomplete = true;
+        console.error("Agency registration rollback failed:", cleanupError.code || cleanupError.name || "unknown error");
+      }
+    }
+    if (roleUpdateAttempted) {
+      try {
+        const restoredUser = await User.findByIdAndUpdate(req.user._id, { role: req.user.role });
+        if (!restoredUser) cleanupIncomplete = true;
+      } catch (cleanupError) {
+        cleanupIncomplete = true;
+        console.error("Agency registration role rollback failed:", cleanupError.code || cleanupError.name || "unknown error");
+      }
+    }
+    const cleanupResults = await Promise.all(uploadedAssets.map((asset) => removeUploadedAsset(asset)));
+    if (cleanupResults.some((success) => !success)) cleanupIncomplete = true;
+
+    console.error("Agency registration failed:", error.code || error.name || "unknown error");
+    const primaryMessage = error.statusCode ? error.message : "Failed to register agency";
+    const message = cleanupIncomplete
+      ? `${primaryMessage}; rollback or uploaded document cleanup was incomplete`
+      : primaryMessage;
+    const statusCode = error.statusCode || (error.code === 11000 ? 409 : uploadInProgress ? 502 : 500);
+    return errorResponse(res, message, statusCode);
   }
 };
 
@@ -126,8 +201,15 @@ export const getMyAgency = async (req, res) => {
   try {
     const agency = await Agency.findOne({ owner: req.user._id })
       .populate("documents.ownerAadhaar.reviewedBy", "name")
+      .populate("documents.ownerAadhaar.uploadedBy", "name")
       .populate("documents.businessRegistration.reviewedBy", "name")
-      .populate("documents.taxId.reviewedBy", "name");
+      .populate("documents.businessRegistration.uploadedBy", "name")
+      .populate("documents.tradeLicense.reviewedBy", "name")
+      .populate("documents.tradeLicense.uploadedBy", "name")
+      .populate("documents.gstCertificate.reviewedBy", "name")
+      .populate("documents.gstCertificate.uploadedBy", "name")
+      .populate("documents.taxId.reviewedBy", "name")
+      .populate("documents.taxId.uploadedBy", "name");
     if (!agency) {
       return errorResponse(res, "Agency not found", 404);
     }
