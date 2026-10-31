@@ -172,6 +172,43 @@ export const getPaymentStatus = async (req, res) => {
   }
 };
 
+export const recordRefundResponse = async (payment, refund) => {
+  const validResult = refund?.id
+    && ["pending", "processed", "failed"].includes(refund.status)
+    && Number.isFinite(refund.amount)
+    && refund.amount > 0;
+  if (!validResult) {
+    if (refund?.id) payment.refundId = refund.id;
+    payment.refundStatus = "unknown";
+    payment.refundInitiatedAt = payment.refundInitiatedAt || new Date();
+    await payment.save();
+    return {
+      error: "Payment provider returned an incomplete refund response. Review the gateway before retrying.",
+      statusCode: 502
+    };
+  }
+
+  payment.refundStatus = refund.status;
+  payment.refundAmount = refund.status === "failed" ? 0 : refund.amount / 100;
+  payment.refundId = refund.id;
+  payment.refundInitiatedAt = refund.created_at ? new Date(refund.created_at * 1000) : new Date();
+  if (refund.status === "processed") {
+    payment.status = "refunded";
+    payment.refundedAt = payment.refundInitiatedAt;
+  }
+  await payment.save();
+
+  return {
+    refundStatus: refund.status,
+    processed: refund.status === "processed",
+    message: refund.status === "processed"
+      ? "Refund processed"
+      : refund.status === "pending"
+        ? "Refund request is pending with the payment provider"
+        : "Payment provider reports that the refund failed"
+  };
+};
+
 export const refundPayment = async (req, res) => {
   try {
     const { paymentId } = req.params;
@@ -181,26 +218,52 @@ export const refundPayment = async (req, res) => {
     if (!payment) return errorResponse(res, "Payment not found", 404);
     if (payment.status !== "success") return errorResponse(res, "Cannot refund unsuccessful payment", 400);
     if (payment.status === "refunded" || payment.refundId) return errorResponse(res, "Payment already refunded", 409);
-
-    const refund = await createRefund(payment.transactionId);
-
-    payment.status = "refunded";
-    payment.refundAmount = payment.amount;
-    payment.refundId = refund.id;
-    payment.refundedAt = new Date();
-    await payment.save();
-
-    if (payment.booking) {
-      payment.booking.paymentStatus = "refunded";
-      await payment.booking.save();
-
-      await notifyCustomer(payment.customer, "Payment Refunded", `Your payment for booking ${payment.booking.bookingId} has been refunded`, payment.booking._id);
-      emitToBooking(payment.booking._id, "payment:refunded", { bookingId: payment.booking._id, status: "refunded" });
+    if (payment.refundAmount > 0) return errorResponse(res, "Payment already has a recorded refund", 409);
+    if (!payment.transactionId || !Number.isFinite(payment.amount) || payment.amount <= 0) {
+      return errorResponse(res, "Payment does not have a valid refundable transaction", 400);
     }
 
-    return successResponse(res, { payment }, "Refund successful");
+    const claimedPayment = await Payment.findOneAndUpdate(
+      {
+        _id: paymentId,
+        status: "success",
+        transactionId: payment.transactionId,
+        refundId: { $in: ["", null] },
+        refundStatus: { $in: ["", null] },
+        refundAmount: { $in: [0, null] }
+      },
+      { $set: { refundStatus: "pending", refundInitiatedAt: new Date() } },
+      { new: true }
+    ).populate("booking");
+    if (!claimedPayment) return errorResponse(res, "Refund is already in progress or this payment is no longer eligible", 409);
+
+    let refund;
+    try {
+      refund = await createRefund(claimedPayment.transactionId);
+    } catch (error) {
+      claimedPayment.refundStatus = "unknown";
+      await claimedPayment.save();
+      throw error;
+    }
+
+    const paymentToUpdate = claimedPayment;
+    const outcome = await recordRefundResponse(paymentToUpdate, refund);
+    if (outcome.error) {
+      console.error("Razorpay refund response did not contain valid refund status and amount");
+      return errorResponse(res, outcome.error, outcome.statusCode);
+    }
+
+    if (paymentToUpdate.booking && outcome.processed) {
+      paymentToUpdate.booking.paymentStatus = "refunded";
+      await paymentToUpdate.booking.save();
+
+      await notifyCustomer(paymentToUpdate.customer, "Payment Refunded", `Your payment for booking ${paymentToUpdate.booking.bookingId} has been refunded`, paymentToUpdate.booking._id);
+      emitToBooking(paymentToUpdate.booking._id, "payment:refunded", { bookingId: paymentToUpdate.booking._id, status: "refunded" });
+    }
+
+    return successResponse(res, { payment: paymentToUpdate }, outcome.message);
   } catch (error) {
-    console.error("Refund error:", error);
+    console.error("Refund error:", error?.statusCode || "processing error");
     return errorResponse(res, "Failed to process refund", 500);
   }
 };
@@ -253,6 +316,36 @@ export const processWebhook = async (req, res) => {
             await booking.save();
             await notifyCustomer(booking.customer, "Payment Failed", `Your payment for booking ${booking.bookingId} has failed`, booking._id);
             emitToBooking(booking._id, "payment:failed", { bookingId: booking._id, status: "failed" });
+          }
+        }
+      }
+    } else if (event.event === "refund.processed" || event.event === "refund.failed") {
+      const refundEntity = event.payload.refund.entity;
+      const payment = await Payment.findOne({
+        transactionId: refundEntity.payment_id,
+        refundId: refundEntity.id
+      });
+      if (payment && payment.refundStatus !== "processed" && payment.refundStatus !== "failed") {
+        payment.refundStatus = event.event === "refund.processed" ? "processed" : "failed";
+        if (event.event === "refund.processed") {
+          payment.status = "refunded";
+          payment.refundAmount = Number.isFinite(refundEntity.amount) ? refundEntity.amount / 100 : payment.refundAmount;
+          payment.refundedAt = refundEntity.processed_at
+            ? new Date(refundEntity.processed_at * 1000)
+            : new Date();
+        } else {
+          payment.refundAmount = 0;
+          payment.refundedAt = null;
+        }
+        await payment.save();
+
+        if (event.event === "refund.processed" && payment.booking) {
+          const booking = await Booking.findById(payment.booking);
+          if (booking) {
+            booking.paymentStatus = "refunded";
+            await booking.save();
+            await notifyCustomer(payment.customer, "Payment Refunded", `Your payment for booking ${booking.bookingId} has been refunded`, booking._id);
+            emitToBooking(booking._id, "payment:refunded", { bookingId: booking._id, status: "refunded" });
           }
         }
       }

@@ -79,6 +79,17 @@ const paymentSchema = new mongoose.Schema(
     refundedAt: {
       type: Date,
       default: null
+    },
+
+    refundInitiatedAt: {
+      type: Date,
+      default: null
+    },
+
+    refundStatus: {
+      type: String,
+      enum: ["pending", "processed", "failed", "unknown"],
+      default: null
     }
   },
   {

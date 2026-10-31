@@ -279,6 +279,8 @@ test("admin payment list filters, paginates, and projects only safe payment fiel
     }]);
   });
   t.mock.method(Payment, "countDocuments", async () => 1);
+  t.mock.method(Payment, "aggregate", async () => []);
+  t.mock.method(Payment, "distinct", async () => []);
   const res = createResponse();
   await getAdminPayments({
     query: { page: "1", limit: "5", status: "success", method: "online", provider: "razorpay", transactionId: "tx" }

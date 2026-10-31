@@ -60,7 +60,7 @@ export const createRefund = async (paymentId, amount = null) => {
     const refund = await razorpayInstance.payments.refund(paymentId, refundData);
     return refund;
   } catch (error) {
-    console.error("Razorpay Refund Error:", error);
+    console.error("Razorpay Refund Error:", error?.statusCode || "provider error");
     throw new Error("Failed to process refund");
   }
 };
