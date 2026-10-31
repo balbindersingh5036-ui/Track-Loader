@@ -1,16 +1,39 @@
 import mongoose from "mongoose";
 
 import Driver from "../models/Driver.js";
+import Agency from "../models/Agency.js";
+import Booking from "../models/Booking.js";
 import Vehicle from "../models/Vehicle.js";
 import { errorResponse, successResponse } from "../utils/response.js";
 import { sanitizeVehicleDocumentResponse } from "../utils/vehicleDocumentResponse.js";
 import { extractCloudinaryAssetInfo } from "../utils/documentSigner.js";
 import { isDesignatedSuperAdmin } from "../utils/superAdmin.js";
+import { checkDriverAssignableToVehicle } from "../utils/driverEligibility.js";
 
 const vehicleTypes = Vehicle.schema.path("vehicleType").enumValues;
 const bodyTypes = Vehicle.schema.path("bodyType").enumValues;
 const capacityUnits = Vehicle.schema.path("loadCapacity.unit").enumValues;
-const driverProjection = "fullName phone rating";
+const driverProjection = "fullName phone rating approvalStatus isActive agencyAssociation.status documents.idProof.status documents.drivingLicense.status";
+const agencyPopulate = {
+  path: "agency",
+  select: "agencyName phone email approvalStatus isActive owner",
+  populate: { path: "owner", select: "name phone role" }
+};
+const uploadedWithoutStatus = (documentPath) => ({
+  $and: [
+    { [`${documentPath}.status`]: { $exists: false } },
+    { $or: [
+      { [`${documentPath}.url`]: { $exists: true, $nin: ["", null] } },
+      { [`${documentPath}.publicId`]: { $exists: true, $nin: ["", null] } }
+    ] }
+  ]
+});
+const pendingDocumentFilter = (documentPath) => ({
+  $or: [
+    { [`${documentPath}.status`]: "pending" },
+    uploadedWithoutStatus(documentPath)
+  ]
+});
 const vehicleFields = [
   "vehicleNumber",
   "vehicleModel",
@@ -408,21 +431,127 @@ export const getAdminVehicles = async (req, res) => {
     }
 
     const filter = {};
-    if (typeof req.query.search === "string" && req.query.search.trim()) {
-      const search = req.query.search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const regex = new RegExp(search, "i");
+    const searchParam = req.query.search;
+    if (searchParam !== undefined && typeof searchParam !== "string") {
+      return errorResponse(res, "search must be a string", 400);
+    }
+    if (searchParam?.trim()) {
+      const regex = new RegExp(searchParam.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      const [drivers, agencies] = await Promise.all([
+        Driver.find({ $or: [{ fullName: regex }, { phone: regex }] }).select("_id").lean(),
+        Agency.find({ $or: [{ agencyName: regex }, { phone: regex }, { email: regex }] }).select("_id").lean()
+      ]);
       filter.$or = [
         { vehicleNumber: regex },
-        { vehicleModel: regex }
+        { vehicleModel: regex },
+        { vehicleType: regex },
+        { driver: { $in: drivers.map((driver) => driver._id) } },
+        { agency: { $in: agencies.map((agency) => agency._id) } }
       ];
     }
 
+    if (req.query.status !== undefined) {
+      if (!["active", "inactive"].includes(req.query.status)) {
+        return errorResponse(res, "status must be active or inactive", 400);
+      }
+      filter.isActive = req.query.status === "active";
+    }
+    if (req.query.assigned !== undefined) {
+      if (!["true", "false"].includes(req.query.assigned)) {
+        return errorResponse(res, "assigned must be true or false", 400);
+      }
+      filter.driver = req.query.assigned === "true"
+        ? { $exists: true, $ne: null }
+        : null;
+    }
+    if (req.query.availability !== undefined) {
+      if (!["true", "false"].includes(req.query.availability)) {
+        return errorResponse(res, "availability must be true or false", 400);
+      }
+      filter.isAvailable = req.query.availability === "true";
+    }
+    if (req.query.vehicleType !== undefined) {
+      if (!vehicleTypes.includes(req.query.vehicleType)) {
+        return errorResponse(res, "Invalid vehicle category", 400);
+      }
+      filter.vehicleType = req.query.vehicleType;
+    }
+    for (const [queryKey, documentKey] of [
+      ["registrationStatus", "registration"],
+      ["insuranceStatus", "insurance"]
+    ]) {
+      const value = req.query[queryKey];
+      if (value !== undefined) {
+        const status = value === "missing" ? "not_uploaded" : value;
+        if (!["not_uploaded", "pending", "approved", "rejected"].includes(status)) {
+          return errorResponse(res, `Invalid ${queryKey}`, 400);
+        }
+        if (status === "not_uploaded") {
+          filter.$and = [
+            ...(filter.$and || []),
+            { $or: [
+              { [`documents.${documentKey}.status`]: "not_uploaded" },
+              { [`documents.${documentKey}.status`]: { $exists: false } },
+              {
+                [`documents.${documentKey}.url`]: { $in: ["", null] },
+                [`documents.${documentKey}.publicId`]: { $in: ["", null] }
+              }
+            ] }
+          ];
+        } else if (status === "pending") {
+          filter.$and = [
+            ...(filter.$and || []),
+            pendingDocumentFilter(`documents.${documentKey}`)
+          ];
+        } else {
+          filter[`documents.${documentKey}.status`] = status;
+        }
+      }
+    }
+    if (req.query.documentStatus !== undefined) {
+      if (req.query.documentStatus !== "rejected") {
+        return errorResponse(res, "Invalid documentStatus", 400);
+      }
+      filter.$and = [
+        ...(filter.$and || []),
+        { $or: [
+          { "documents.registration.status": "rejected" },
+          { "documents.insurance.status": "rejected" }
+        ] }
+      ];
+    }
+
+    const sortFields = {
+      vehicleNumber: "vehicleNumber",
+      vehicleModel: "vehicleModel",
+      createdAt: "createdAt"
+    };
+    const sortBy = req.query.sortBy ?? "createdAt";
+    const sortOrder = req.query.sortOrder ?? "desc";
+    if (!Object.hasOwn(sortFields, sortBy) || !["asc", "desc"].includes(sortOrder)) {
+      return errorResponse(res, "Invalid vehicle sort option", 400);
+    }
+    const sort = { [sortFields[sortBy]]: sortOrder === "asc" ? 1 : -1 };
+    const statusCounts = await Promise.all([
+      Vehicle.countDocuments({}),
+      Vehicle.countDocuments({ isActive: true }),
+      Vehicle.countDocuments({ isActive: false }),
+      Vehicle.countDocuments({ isAvailable: true }),
+      Vehicle.countDocuments({ driver: { $exists: true, $ne: null } }),
+      Vehicle.countDocuments(pendingDocumentFilter("documents.registration")),
+      Vehicle.countDocuments(pendingDocumentFilter("documents.insurance")),
+      Vehicle.countDocuments({ "documents.registration.status": "rejected" }),
+      Vehicle.countDocuments({
+        "documents.insurance.status": "rejected"
+      })
+    ]);
     const [vehicles, total] = await Promise.all([
       Vehicle.find(filter)
         .populate("driver", driverProjection)
+        .populate(agencyPopulate)
         .populate("documents.registration.uploadedBy", "name")
         .populate("documents.insurance.uploadedBy", "name")
-        .sort({ createdAt: -1 })
+        .sort(sort)
         .skip((page - 1) * limit)
         .limit(limit)
         .lean(),
@@ -433,6 +562,16 @@ export const getAdminVehicles = async (req, res) => {
       res,
       {
         vehicles: vehicles.map((vehicle) => sanitizeVehicleDocumentResponse(vehicle)),
+        stats: {
+          total: statusCounts[0],
+          active: statusCounts[1],
+          inactive: statusCounts[2],
+          available: statusCounts[3],
+          assigned: statusCounts[4],
+          pendingRegistration: statusCounts[5],
+          pendingInsurance: statusCounts[6],
+          rejectedDocuments: statusCounts[7] + statusCounts[8]
+        },
         pagination: {
           page,
           limit,
@@ -454,18 +593,22 @@ export const getAdminVehicleById = async (req, res) => {
     }
     const vehicle = await Vehicle.findById(req.params.id)
       .populate("driver", driverProjection)
+      .populate(agencyPopulate)
       .populate("documents.registration.uploadedBy", "name")
       .populate("documents.registration.reviewedBy", "name")
+      .populate("documents.registration.reviewHistory.reviewedBy", "name")
       .populate("documents.insurance.uploadedBy", "name")
       .populate("documents.insurance.reviewedBy", "name")
+      .populate("documents.insurance.reviewHistory.reviewedBy", "name")
       .lean();
     if (!vehicle) {
       return errorResponse(res, "Vehicle not found", 404);
     }
     return successResponse(res, {
       vehicle: {
-        ...sanitizeVehicleDocumentResponse(vehicle, { includeSignedUrls: true }),
-        canReviewDocuments: isDesignatedSuperAdmin(req.user)
+        ...sanitizeVehicleDocumentResponse(vehicle),
+        canReviewDocuments: isDesignatedSuperAdmin(req.user),
+        canViewDocuments: isDesignatedSuperAdmin(req.user)
       }
     }, "Vehicle fetched successfully");
   } catch (error) {
@@ -534,10 +677,23 @@ export const reviewAdminVehicleDocument = async (req, res) => {
       return errorResponse(res, "This document must be resubmitted to the private KYC vault before review", 409);
     }
 
+    const previousStatus = document.status || "pending";
+    if (previousStatus !== "pending") {
+      return errorResponse(res, "Only pending vehicle documents can be reviewed", 409);
+    }
+    const reviewedAt = new Date();
     document.status = req.params.action === "approve" ? "approved" : "rejected";
-    document.reviewedAt = new Date();
+    document.reviewedAt = reviewedAt;
     document.reviewedBy = req.user._id;
     document.rejectionReason = req.params.action === "reject" ? reason : "";
+    if (!Array.isArray(document.reviewHistory)) document.reviewHistory = [];
+    document.reviewHistory.push({
+      previousStatus,
+      newStatus: document.status,
+      reviewedAt,
+      reviewedBy: req.user._id,
+      rejectionReason: document.rejectionReason
+    });
     vehicle.markModified(`documents.${req.params.docType}`);
     await vehicle.save();
 
@@ -564,14 +720,66 @@ export const updateAdminVehicleStatus = async (req, res) => {
       return errorResponse(res, "isActive must be a boolean", 400);
     }
 
-    const vehicle = await Vehicle.findByIdAndUpdate(
-      req.params.id,
-      { $set: { isActive: req.body.isActive } },
-      { new: true, runValidators: true }
-    );
+    const vehicle = await Vehicle.findById(req.params.id);
     if (!vehicle) {
       return errorResponse(res, "Vehicle not found", 404);
     }
+    if (vehicle.isActive === req.body.isActive) {
+      return successResponse(
+        res,
+        { vehicle: sanitizeVehicleDocumentResponse(toVehicleObject(vehicle)) },
+        "Vehicle status is unchanged"
+      );
+    }
+
+    const activeBooking = await Booking.exists({
+      vehicle: vehicle._id,
+      $or: [
+        { bookingStatus: { $in: ["accepted", "in-progress"] } },
+        { assignmentStatus: { $in: ["pending_acceptance", "accepted"] } }
+      ]
+    });
+    if (activeBooking) {
+      return errorResponse(res, "Vehicle status cannot change while it has an active booking or assignment", 409);
+    }
+
+    if (!req.body.isActive && vehicle.driver) {
+      return errorResponse(res, "Unassign the driver before deactivating this vehicle", 409);
+    }
+
+    if (req.body.isActive) {
+      if (!vehicle.documents?.registration || !vehicle.documents?.insurance ||
+        vehicle.documents.registration.status !== "approved" ||
+        vehicle.documents.insurance.status !== "approved") {
+        return errorResponse(res, "RC and Insurance must both be approved before vehicle activation", 409);
+      }
+
+      let agency = null;
+      if (vehicle.agency) {
+        agency = await Agency.findById(vehicle.agency);
+        if (!agency || agency.approvalStatus !== "approved" || !agency.isActive) {
+          return errorResponse(res, "The vehicle's Agency must be active and approved before activation", 409);
+        }
+      }
+
+      if (vehicle.driver) {
+        const driver = await Driver.findById(vehicle.driver);
+        if (!driver) {
+          return errorResponse(res, "The assigned Driver profile is missing; resolve the assignment before activation", 409);
+        }
+        const assignment = checkDriverAssignableToVehicle(
+          driver,
+          { ...toVehicleObject(vehicle), isActive: true },
+          agency
+        );
+        if (!assignment.eligible) {
+          return errorResponse(res, assignment.message, 409);
+        }
+      }
+    }
+
+    vehicle.isActive = req.body.isActive;
+    await vehicle.save();
     return successResponse(
       res,
       { vehicle: sanitizeVehicleDocumentResponse(toVehicleObject(vehicle)) },

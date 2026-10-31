@@ -246,6 +246,7 @@ export const uploadVehicleDocument = async (req, res) => {
 
     const { asset, detected } = await uploadPrivateDocument(req.file);
     uploadedAsset = asset;
+    const reviewHistory = vehicle.documents[field]?.reviewHistory || [];
     vehicle.documents[field] = {
       url: asset.secure_url,
       publicId: asset.public_id,
@@ -256,7 +257,8 @@ export const uploadVehicleDocument = async (req, res) => {
       uploadedBy: req.user._id,
       reviewedAt: null,
       reviewedBy: null,
-      rejectionReason: ""
+      rejectionReason: "",
+      reviewHistory
     };
     vehicle.markModified("documents");
     await vehicle.save();

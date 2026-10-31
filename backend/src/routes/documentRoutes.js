@@ -86,6 +86,34 @@ const createPrivateDriverDocumentViewPayload = (doc) => {
   };
 };
 
+const createPrivateVehicleDocumentViewPayload = (doc) => {
+  let publicId = doc?.publicId;
+  let format = doc?.format || "pdf";
+  if (!publicId && doc?.url) {
+    const extracted = extractCloudinaryAssetInfo(doc.url);
+    publicId = extracted?.publicId;
+    format = extracted?.format || format;
+  }
+  if (typeof publicId !== "string" || !publicId.startsWith("loadbalbin_kyc/")) {
+    return null;
+  }
+  const viewUrl = generateSignedDocumentUrl(
+    publicId,
+    format,
+    300,
+    doc.resourceType || "image"
+  );
+  if (!viewUrl) return null;
+  return {
+    status: doc.status || "pending",
+    viewUrl,
+    format,
+    submittedAt: doc.submittedAt || null,
+    rejectionReason: doc.rejectionReason || "",
+    expiresInSeconds: 300
+  };
+};
+
 /**
  * GET /api/documents/agency/:agencyId/:docType
  * Authorized: Super Admin, or the Agency Owner of the specified agency
@@ -210,7 +238,11 @@ router.get("/vehicle/:vehicleId/:docType", protect, async (req, res) => {
 
     const doc = vehicle.documents?.[docType];
     if (!doc || (!doc.url && !doc.publicId)) return errorResponse(res, "Requested document has not been uploaded yet", 404);
-    return successResponse(res, { document: createDocumentViewPayload(doc) }, "Temporary authorized document link generated");
+    const payload = createPrivateVehicleDocumentViewPayload(doc);
+    if (!payload) {
+      return errorResponse(res, "This document must be resubmitted to the private KYC vault before secure preview", 409);
+    }
+    return successResponse(res, { document: payload }, "Temporary authorized document link generated");
   } catch (error) {
     console.error("Vehicle document view failed:", error.code || error.name || "unknown error");
     return errorResponse(res, "Failed to retrieve document", 500);

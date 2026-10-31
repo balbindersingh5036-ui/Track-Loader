@@ -626,6 +626,46 @@ test("independent driver can upload documents for their own vehicle", async (t) 
   assert.equal(vehicle.documents.registration.uploadedBy.toString(), userId.toString());
 });
 
+test("vehicle document resubmission resets status but preserves prior review history", async (t) => {
+  useTestCloudinaryConfig(t);
+  const vehicleId = new mongoose.Types.ObjectId();
+  const agencyId = new mongoose.Types.ObjectId();
+  const ownerId = new mongoose.Types.ObjectId();
+  const history = [{
+    previousStatus: "pending",
+    newStatus: "rejected",
+    reviewedAt: new Date("2025-01-01T00:00:00Z"),
+    reviewedBy: new mongoose.Types.ObjectId(),
+    rejectionReason: "Unreadable"
+  }];
+  const vehicle = {
+    _id: vehicleId,
+    agency: agencyId,
+    documents: { registration: { status: "rejected", reviewHistory: history } },
+    markModified() {},
+    async save() { return this; }
+  };
+  t.mock.method(Vehicle, "findById", async () => vehicle);
+  t.mock.method(Agency, "findOne", () => ({
+    select() {
+      return { lean: async () => ({ _id: agencyId }) };
+    }
+  }));
+  t.mock.method(cloudinary.uploader, "upload", async () => privateAsset);
+
+  const res = response();
+  await uploadVehicleDocument({
+    params: { vehicleId: vehicleId.toString(), docType: "registration" },
+    user: { _id: ownerId, role: "agency" },
+    file: pngFile()
+  }, res);
+
+  assert.equal(res.statusCode, 201);
+  assert.equal(vehicle.documents.registration.status, "pending");
+  assert.equal(vehicle.documents.registration.reviewHistory.length, 1);
+  assert.equal(vehicle.documents.registration.reviewHistory[0].rejectionReason, "Unreadable");
+});
+
 test("failed database save cleans up the private uploaded asset", async (t) => {
   useTestCloudinaryConfig(t);
   const driverId = new mongoose.Types.ObjectId();

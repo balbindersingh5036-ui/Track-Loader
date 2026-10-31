@@ -15,7 +15,14 @@ const vehicleDocumentSchema = new mongoose.Schema(
     uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     reviewedAt: { type: Date, default: null },
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
-    rejectionReason: { type: String, default: "", trim: true }
+    rejectionReason: { type: String, default: "", trim: true },
+    reviewHistory: [{
+      previousStatus: { type: String, enum: ["not_uploaded", "pending", "approved", "rejected"] },
+      newStatus: { type: String, enum: ["approved", "rejected"], required: true },
+      reviewedAt: { type: Date, required: true },
+      reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+      rejectionReason: { type: String, default: "", trim: true }
+    }]
   },
   { _id: false }
 );
