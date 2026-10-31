@@ -23,7 +23,7 @@ import bookingService from './src/services/bookingService';
 import driverService from './src/services/driverService';
 import earningsService from './src/services/earningsService';
 import notificationService from './src/services/notificationService';
-import { connectSocket, disconnectSocket, joinBookingRoom, subscribeToSocketEvents } from './src/services/socketService';
+import { connectSocket, disconnectSocket, joinBookingRoom, leaveBookingRoom, subscribeToSocketEvents } from './src/services/socketService';
 import { getToken, removeToken, saveToken } from './src/utils/authStorage';
 import { getDriverBookingEligibility, getDriverStatusIndicators } from './src/utils/driverBookingEligibility.mjs';
 import LoadBalbinLogo from './src/components/LoadBalbinLogo';
@@ -411,9 +411,18 @@ export default function App() {
       disconnectSocket();
       return undefined;
     }
-    const socket = connectSocket(token, user?.role);
-    const unsubscribe = subscribeToSocketEvents((event, payload) => {
-      if (event === 'socket:error') setError('Realtime connection is unavailable. Pull to refresh for updates.');
+    let unsubscribe = () => {};
+    try {
+      const activeSocket = connectSocket(token, user?.role);
+      if (!activeSocket) {
+        setError('Realtime connection is unavailable. Booking details remain available; pull to refresh for updates.');
+      }
+    } catch (socketError) {
+      setError('Realtime connection is unavailable. Booking details will remain available; pull to refresh for updates.');
+      console.error('Socket initialization failed:', socketError);
+    }
+    unsubscribe = subscribeToSocketEvents((event, payload) => {
+      if (event === 'socket:error') setError('Realtime connection is unavailable. Booking details remain available; pull to refresh for updates.');
       if (payload?.bookingId || event === 'notification:new') {
         setRefreshKey((key) => key + 1);
         fetchUnreadNotificationsCount();
@@ -427,9 +436,12 @@ export default function App() {
 
   useEffect(() => {
     if (activeTab !== 'Trips' || !trips.length) return;
-    trips
+    const activeBookingIds = trips
       .filter((booking) => booking.bookingStatus === 'accepted' || booking.bookingStatus === 'in-progress')
-      .forEach((booking) => joinBookingRoom(booking._id));
+      .map((booking) => booking._id)
+      .filter(Boolean);
+    activeBookingIds.forEach((bookingId) => joinBookingRoom(bookingId));
+    return () => activeBookingIds.forEach((bookingId) => leaveBookingRoom(bookingId));
   }, [activeTab, trips]);
 
   const runAction = async (action, booking) => {
@@ -898,7 +910,19 @@ export default function App() {
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100, gap: 16 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />}
       >
-        {error ? <Text accessibilityRole="alert" style={{ color: colors.danger, fontWeight: '600', padding: 8, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 8 }}>{error}</Text> : null}
+        {error ? (
+          <View style={{ padding: 10, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 8, gap: 8 }}>
+            <Text accessibilityRole="alert" style={{ color: colors.danger, fontWeight: '600' }}>{error}</Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={refresh}
+              disabled={loading || refreshing}
+              style={{ alignSelf: 'flex-start', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, borderWidth: 1, borderColor: colors.danger }}
+            >
+              <Text style={{ color: colors.ink, fontWeight: '700' }}>{loading || refreshing ? 'Retrying…' : 'Retry / Refresh'}</Text>
+            </Pressable>
+          </View>
+        ) : null}
         {notice ? <Text style={{ color: colors.teal, fontWeight: '600', padding: 8, backgroundColor: 'rgba(20, 184, 166, 0.1)', borderRadius: 8 }}>{notice}</Text> : null}
         {loading && !refreshing ? <ActivityIndicator color={colors.primary} style={{ marginTop: 20 }} /> : null}
 
