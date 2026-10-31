@@ -3,6 +3,8 @@ import Booking from "../models/Booking.js";
 import Vehicle from "../models/Vehicle.js";
 import Driver from "../models/Driver.js";
 import Agency from "../models/Agency.js";
+import User from "../models/User.js";
+import Payment from "../models/Payment.js";
 import Fare from "../models/Fare.js";
 import * as fareService from "../services/fareService.js";
 import generateBookingId from "../utils/generateBookingId.js";
@@ -688,26 +690,160 @@ export const adminGetBookings = async (req, res) => {
     }
 
     const { page, limit, skip } = pagination;
-    const { bookingId, bookingStatus, paymentStatus, vehicleType, assignmentStatus } = req.query;
+    const {
+      bookingId,
+      search,
+      bookingStatus,
+      paymentStatus,
+      vehicleType,
+      assignmentStatus,
+      bookingMode,
+      from,
+      to,
+      sortBy = "createdAt",
+      sortOrder = "desc"
+    } = req.query;
     const query = {};
-    if (bookingId) query.bookingId = { $regex: bookingId, $options: "i" };
-    if (bookingStatus) query.bookingStatus = bookingStatus;
-    if (paymentStatus) query.paymentStatus = paymentStatus;
-    if (vehicleType) query.vehicleType = vehicleType;
-    if (assignmentStatus && ["unassigned", "pending_acceptance", "accepted", "rejected"].includes(assignmentStatus)) {
+    if (bookingId !== undefined) {
+      if (typeof bookingId !== "string" || bookingId.length > 100) {
+        return errorResponse(res, "Booking reference must be a string of 100 characters or fewer", 400);
+      }
+      if (bookingId.trim()) {
+        query.bookingId = { $regex: bookingId.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+      }
+    }
+    if (bookingStatus) {
+      if (!["pending", "accepted", "rejected", "cancelled", "in-progress", "completed"].includes(bookingStatus)) {
+        return errorResponse(res, "Invalid booking status", 400);
+      }
+      query.bookingStatus = bookingStatus;
+    }
+    if (paymentStatus) {
+      if (!["pending", "paid", "failed", "refunded", "cash"].includes(paymentStatus)) {
+        return errorResponse(res, "Invalid payment status", 400);
+      }
+      query.paymentStatus = paymentStatus;
+    }
+    if (vehicleType) {
+      if (!["mini-truck", "pickup", "small-truck", "medium-truck", "large-truck"].includes(vehicleType)) {
+        return errorResponse(res, "Invalid vehicle category", 400);
+      }
+      query.vehicleType = vehicleType;
+    }
+    if (assignmentStatus) {
+      if (!["unassigned", "pending_acceptance", "accepted", "rejected"].includes(assignmentStatus)) {
+        return errorResponse(res, "Invalid assignment status", 400);
+      }
       query.assignmentStatus = assignmentStatus;
+    }
+    if (bookingMode) {
+      if (!["instant", "scheduled"].includes(bookingMode)) {
+        return errorResponse(res, "Invalid booking mode", 400);
+      }
+      query.bookingMode = bookingMode;
+    }
+    if ((from && !/^\d{4}-\d{2}-\d{2}$/.test(from)) || (to && !/^\d{4}-\d{2}-\d{2}$/.test(to))) {
+      return errorResponse(res, "Booking date filters must use YYYY-MM-DD", 400);
+    }
+    const dateRange = {};
+    if (from) {
+      const start = new Date(`${from}T00:00:00.000Z`);
+      if (Number.isNaN(start.getTime())) return errorResponse(res, "Invalid start date", 400);
+      dateRange.$gte = start;
+    }
+    if (to) {
+      const end = new Date(`${to}T00:00:00.000Z`);
+      if (Number.isNaN(end.getTime())) return errorResponse(res, "Invalid end date", 400);
+      end.setUTCDate(end.getUTCDate() + 1);
+      dateRange.$lt = end;
+    }
+    if (from && to && from > to) {
+      return errorResponse(res, "Start date must be on or before end date", 400);
+    }
+    if (Object.keys(dateRange).length) query.createdAt = dateRange;
+    const sortFields = {
+      createdAt: "createdAt",
+      preferredPickupDate: "preferredPickupDate",
+      estimatedFare: "estimatedFare",
+      bookingId: "bookingId"
+    };
+    if (!Object.hasOwn(sortFields, sortBy) || !["asc", "desc"].includes(sortOrder)) {
+      return errorResponse(res, "Invalid booking sort option", 400);
+    }
+
+    if (search !== undefined) {
+      if (typeof search !== "string" || search.length > 100) {
+        return errorResponse(res, "Search must be a string of 100 characters or fewer", 400);
+      }
+      const term = search.trim();
+      if (term) {
+        const regex = new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+        const [customers, agencies, drivers, vehicles] = await Promise.all([
+          User.find({ $or: [{ name: regex }, { phone: regex }, { email: regex }] }).select("_id"),
+          Agency.find({ $or: [{ agencyName: regex }, { phone: regex }, { email: regex }] }).select("_id"),
+          Driver.find({ $or: [{ fullName: regex }, { phone: regex }] }).select("_id"),
+          Vehicle.find({ vehicleNumber: regex }).select("_id")
+        ]);
+        query.$or = [
+          { bookingId: regex },
+          { "pickup.address": regex },
+          { "drop.address": regex },
+          { customer: { $in: customers.map(({ _id }) => _id) } },
+          { agency: { $in: agencies.map(({ _id }) => _id) } },
+          { driver: { $in: drivers.map(({ _id }) => _id) } },
+          { vehicle: { $in: vehicles.map(({ _id }) => _id) } }
+        ];
+      }
     }
 
     const bookings = await Booking.find(query)
       .populate("customer", "name phone email")
-      .populate("agency", "agencyName")
-      .populate("driver", "fullName phone")
-      .populate("vehicle", "vehicleNumber vehicleModel vehicleType")
-      .sort({ createdAt: -1 })
+      .populate({ path: "agency", select: "agencyName phone email approvalStatus", populate: { path: "owner", select: "name phone email" } })
+      .populate("driver", "fullName phone approvalStatus agencyAssociation")
+      .populate("vehicle", "vehicleNumber vehicleModel vehicleType loadCapacity")
+      .sort({ [sortFields[sortBy]]: sortOrder === "asc" ? 1 : -1 })
       .skip(skip)
       .limit(limit);
-    const total = await Booking.countDocuments(query);
-    return successResponse(res, { bookings, total, page, pages: Math.ceil(total / limit) }, "Fetched");
+    const [total, stats] = await Promise.all([
+      Booking.countDocuments(query),
+      Promise.all([
+        Booking.countDocuments({}),
+        Booking.countDocuments({ bookingStatus: "pending", assignmentStatus: "unassigned" }),
+        Booking.countDocuments({ assignmentStatus: "pending_acceptance" }),
+        Booking.countDocuments({ $or: [{ assignmentStatus: "rejected" }, { bookingStatus: "rejected" }] }),
+        Booking.countDocuments({ bookingStatus: "accepted" }),
+        Booking.countDocuments({ bookingStatus: "in-progress" }),
+        Booking.countDocuments({ bookingStatus: "completed" }),
+        Booking.countDocuments({ bookingStatus: "cancelled" })
+      ])
+    ]);
+    const [
+      totalBookings,
+      pendingAgencyAssignment,
+      awaitingDriverAcceptance,
+      driverRejected,
+      driverAccepted,
+      inProgress,
+      completed,
+      cancelled
+    ] = stats;
+    return successResponse(res, {
+      bookings,
+      total,
+      page,
+      pages: Math.ceil(total / limit),
+      limit,
+      stats: {
+        total: totalBookings,
+        pendingAgencyAssignment,
+        awaitingDriverAcceptance,
+        driverRejected,
+        driverAccepted,
+        inProgress,
+        completed,
+        cancelled
+      }
+    }, "Fetched");
   } catch (error) {
     return errorResponse(res, "Failed", 500);
   }
@@ -719,12 +855,15 @@ export const adminGetBookingById = async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(id)) return errorResponse(res, "Invalid ID", 400);
     const booking = await Booking.findById(id)
       .populate("customer", "name phone email")
-      .populate("agency", "agencyName phone email")
-      .populate("driver", "fullName phone approvalStatus isActive")
-      .populate("vehicle", "vehicleNumber vehicleModel vehicleType loadCapacity bodyType")
+      .populate({ path: "agency", select: "agencyName phone email approvalStatus owner", populate: { path: "owner", select: "name phone email" } })
+      .populate("driver", "fullName phone approvalStatus isActive agencyAssociation documents.idProof.status documents.drivingLicense.status")
+      .populate("vehicle", "vehicleNumber vehicleModel vehicleType loadCapacity bodyType documents.registration.status documents.insurance.status")
       .populate("assignmentHistory.actor", "name role");
     if (!booking) return errorResponse(res, "Not found", 404);
-    return successResponse(res, { booking }, "Fetched");
+    const payment = await Payment.findOne({ booking: booking._id })
+      .select("amount method provider orderId transactionId status paidAt refundAmount refundId refundedAt createdAt")
+      .lean();
+    return successResponse(res, { booking, payment }, "Fetched");
   } catch (error) {
     return errorResponse(res, "Failed", 500);
   }

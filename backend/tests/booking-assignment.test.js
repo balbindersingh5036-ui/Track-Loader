@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import Booking from "../src/models/Booking.js";
+import Payment from "../src/models/Payment.js";
 import Agency from "../src/models/Agency.js";
 import Driver from "../src/models/Driver.js";
 import Notification from "../src/models/Notification.js";
@@ -380,6 +381,10 @@ test("Super Admin booking routes expose reads only and details include lifecycle
     };
     return chain;
   });
+  t.mock.method(Payment, "findOne", () => ({
+    select() { return this; },
+    lean() { return Promise.resolve(null); }
+  }));
   const res = response();
   await adminGetBookingById({ params: { id: bookingId } }, res);
   assert.equal(res.statusCode, 200);
