@@ -411,7 +411,7 @@ export default function App() {
       disconnectSocket();
       return undefined;
     }
-    const socket = connectSocket(token);
+    const socket = connectSocket(token, user?.role);
     const unsubscribe = subscribeToSocketEvents((event, payload) => {
       if (event === 'socket:error') setError('Realtime connection is unavailable. Pull to refresh for updates.');
       if (payload?.bookingId || event === 'notification:new') {
@@ -423,7 +423,7 @@ export default function App() {
       unsubscribe();
       disconnectSocket();
     };
-  }, [token, fetchUnreadNotificationsCount]);
+  }, [token, user?.role, fetchUnreadNotificationsCount]);
 
   useEffect(() => {
     if (activeTab !== 'Trips' || !trips.length) return;

@@ -3,6 +3,7 @@ import { verifyToken } from "../utils/generateToken.js";
 import User from "../models/User.js";
 import Booking from "../models/Booking.js";
 import Driver from "../models/Driver.js";
+import Agency from "../models/Agency.js";
 
 let io;
 
@@ -51,11 +52,16 @@ export const initializeSocket = (httpServer) => {
 
         if (socket.user.role === "admin") {
           authorized = true;
-        } else if (socket.user.role === "customer" && booking.customer.toString() === socket.user._id.toString()) {
+        } else if (socket.user.role === "customer" && booking.customer && booking.customer.toString() === socket.user._id.toString()) {
           authorized = true;
         } else if (socket.user.role === "driver") {
           const driver = await Driver.findOne({ user: socket.user._id });
           if (driver && booking.driver && booking.driver.toString() === driver._id.toString()) {
+            authorized = true;
+          }
+        } else if (socket.user.role === "agency") {
+          const agency = await Agency.findOne({ owner: socket.user._id });
+          if (agency && booking.agency && booking.agency.toString() === agency._id.toString()) {
             authorized = true;
           }
         }
