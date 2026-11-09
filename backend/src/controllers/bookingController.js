@@ -18,6 +18,8 @@ import {
   isDriverEligibleForAssignment,
   isVehicleEligibleForBookings
 } from "../utils/driverEligibility.js";
+import { getCleanVehicleDisplayName } from "../utils/vehicleDocumentResponse.js";
+import { isValidVehicleModel } from "../utils/vehicleValidation.js";
 
 const isFiniteNumericInput = (value) =>
   (typeof value === "number" || (typeof value === "string" && value.trim() !== "")) &&
@@ -130,13 +132,14 @@ export const createBooking = async (req, res) => {
     }
 
     let vehicleId = vehicle;
+    let vehicleDoc = null;
     let agencyId = null;
     let alternativeVehicleAssigned = false;
 
     if (vehicleId) {
       if (!mongoose.Types.ObjectId.isValid(vehicleId)) return errorResponse(res, "Invalid vehicle ID", 400);
       const selectedVehicleQuery = Vehicle.findById(vehicleId);
-      const vehicleDoc = selectedVehicleQuery.populate
+      vehicleDoc = selectedVehicleQuery.populate
         ? await selectedVehicleQuery.populate([
           { path: "driver", populate: { path: "agency" } },
           { path: "agency" }
@@ -279,12 +282,21 @@ export const createBooking = async (req, res) => {
 
     const estimatedFare = fareBreakdown.finalFare;
 
+    let savedVehicleName = "";
+    if (vehicleDoc) {
+      savedVehicleName = getCleanVehicleDisplayName(vehicleDoc);
+    } else if (req.body.vehicleModel && isValidVehicleModel(req.body.vehicleModel)) {
+      savedVehicleName = req.body.vehicleModel.trim();
+    }
+
     const bookingId = await generateBookingId();
     const booking = new Booking({
       bookingId,
       customer: req.user._id,
       agency: agencyId,
       vehicle: vehicleId || null,
+      vehicleModel: savedVehicleName,
+      vehicleName: savedVehicleName,
       bookingMode,
       alternativeVehicleAssigned,
       pickup,
@@ -378,7 +390,13 @@ export const getMyBookings = async (req, res) => {
     const query = { customer: req.user._id };
     if (status) query.bookingStatus = status;
 
-    const bookings = await Booking.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit);
+    const bookings = await Booking.find(query)
+      .populate("customer", "name phone email")
+      .populate("driver", "fullName phone rating")
+      .populate("vehicle", "vehicleNumber vehicleModel vehicleType loadCapacity")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
     const total = await Booking.countDocuments(query);
 
     return successResponse(res, { bookings, total, page, pages: Math.ceil(total / limit) }, "Bookings fetched");
@@ -528,7 +546,13 @@ export const getDriverBookings = async (req, res) => {
     const query = { driver: driver._id };
     if (status) query.bookingStatus = status;
 
-    const bookings = await Booking.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit);
+    const bookings = await Booking.find(query)
+      .populate("customer", "name phone email")
+      .populate("driver", "fullName phone rating")
+      .populate("vehicle", "vehicleNumber vehicleModel vehicleType loadCapacity")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
     const total = await Booking.countDocuments(query);
     return successResponse(res, { bookings, total, page, pages: Math.ceil(total / limit) }, "Fetched");
   } catch (error) {
@@ -688,6 +712,7 @@ export const startTrip = async (req, res) => {
 
     return successResponse(res, { booking }, "Started");
   } catch (error) {
+    console.error("startTrip error:", error);
     return errorResponse(res, "Failed", 500);
   }
 };

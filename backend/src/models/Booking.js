@@ -36,6 +36,18 @@ const bookingSchema = new mongoose.Schema(
       default: null
     },
 
+    vehicleModel: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+
+    vehicleName: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+
     pickup: {
       address: {
         type: String,

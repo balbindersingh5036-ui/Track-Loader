@@ -176,3 +176,46 @@ export const getAdminRatingById = async (req, res) => {
     return errorResponse(res, "Failed to fetch rating", 500);
   }
 };
+
+export const getDriverRatings = async (req, res) => {
+  try {
+    const driver = await Driver.findOne({ user: req.user._id });
+    if (!driver) return errorResponse(res, "Driver profile not found", 404);
+
+    let pagination;
+    try {
+      pagination = parsePagination(req.query, { defaultLimit: 20, maxLimit: 100 });
+    } catch (error) {
+      return errorResponse(res, error.message, 400);
+    }
+
+    const query = { driver: driver._id };
+    const [ratings, total] = await Promise.all([
+      Rating.find(query)
+        .populate("customer", "name phone email")
+        .populate("booking", "bookingId pickup drop createdAt")
+        .sort({ createdAt: -1 })
+        .skip(pagination.skip)
+        .limit(pagination.limit),
+      Rating.countDocuments(query)
+    ]);
+
+    return successResponse(res, {
+      ratings,
+      summary: {
+        rating: driver.rating || 5,
+        ratingCount: driver.ratingCount || 0,
+        totalTrips: driver.totalTrips || 0
+      },
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total,
+        totalPages: Math.ceil(total / pagination.limit)
+      }
+    }, "Driver ratings fetched successfully");
+  } catch (error) {
+    console.error("Driver ratings fetch error:", error);
+    return errorResponse(res, "Failed to fetch driver ratings", 500);
+  }
+};

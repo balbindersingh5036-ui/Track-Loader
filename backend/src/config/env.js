@@ -43,6 +43,6 @@ export const env = {
 
   ors: {
     apiKey: (process.env.ORS_API_KEY || "").trim(),
-    baseUrl: (process.env.ORS_BASE_URL || "https://api.heigit.org/openrouteservice/v2").trim().replace(/\/+$/, "")
+    baseUrl: (process.env.ORS_BASE_URL || "https://api.openrouteservice.org/v2").trim().replace(/\/+$/, "")
   }
 };

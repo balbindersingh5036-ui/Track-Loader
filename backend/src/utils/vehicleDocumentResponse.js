@@ -1,4 +1,5 @@
 import { extractCloudinaryAssetInfo, generateSignedDocumentUrl } from "./documentSigner.js";
+import { formatFullVehicleModel } from "./vehicleValidation.js";
 
 const CATEGORY_LABELS = {
   "mini-truck": "Mini Truck",
@@ -34,7 +35,7 @@ export const getCleanVehicleDisplayName = (vehicle) => {
     !matchesCapacity;
 
   if (isValidModel) {
-    return rawModel;
+    return formatFullVehicleModel(vehicle.vehicleMake, rawModel);
   }
 
   const category = vehicle.vehicleType;

@@ -122,6 +122,16 @@ const getCacheKey = (profile, pickup, drop) => {
 };
 
 /**
+ * Resolves the full OpenRouteService directions endpoint URL,
+ * safely handling bases with or without trailing /v2 or trailing slashes.
+ */
+export const resolveOrsEndpoint = (baseUrl, profile) => {
+  const cleanBase = (baseUrl || "https://api.openrouteservice.org/v2").trim().replace(/\/+$/, "");
+  const baseWithV2 = cleanBase.endsWith("/v2") ? cleanBase : `${cleanBase}/v2`;
+  return `${baseWithV2}/directions/${profile}/json`;
+};
+
+/**
  * Calculate Road Distance and Route via OpenRouteService Directions V2 API
  * 
  * @param {Object} params
@@ -185,8 +195,8 @@ export const calculateRoadRoute = async ({
     throw error;
   }
 
-  const baseUrl = env.ors?.baseUrl || "https://api.heigit.org/openrouteservice/v2";
-  const endpoint = `${baseUrl}/directions/${profile}/json`;
+  const baseUrl = env.ors?.baseUrl || "https://api.openrouteservice.org/v2";
+  const endpoint = resolveOrsEndpoint(baseUrl, profile);
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);

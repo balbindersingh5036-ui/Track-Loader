@@ -28,6 +28,7 @@ import {
   startTrip,
   completeTrip
 } from "../controllers/bookingController.js";
+import { getDriverRatings } from "../controllers/ratingController.js";
 import { sanitizeDriverDocumentResponse } from "../utils/driverDocumentResponse.js";
 import { checkDriverOnlineEligibility } from "../utils/driverEligibility.js";
 import { sanitizeVehicleDocumentResponse } from "../utils/vehicleDocumentResponse.js";
@@ -51,6 +52,7 @@ router.patch("/bookings/:id/accept", protect, driverOnly, acceptBooking);
 router.patch("/bookings/:id/reject", protect, driverOnly, rejectBooking);
 router.patch("/bookings/:id/start", protect, driverOnly, startTrip);
 router.patch("/bookings/:id/complete", protect, driverOnly, completeTrip);
+router.get("/ratings", protect, driverOnly, getDriverRatings);
 
 router.patch("/location", protect, driverOnly, async (req, res) => {
   try {
