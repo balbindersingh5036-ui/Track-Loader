@@ -3586,3 +3586,92 @@
 {"_e":"metro:client_log","_t":1794203232465,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478628/loadbalbin_profiles/w3kdjgfqxfvtm3pbmnhm.png"]}
 {"_e":"metro:client_log","_t":1794203232465,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478218/loadbalbin_profiles/pgmea8yxwaevwoh5uxgr.jpg"]}
 {"_e":"metro:client_log","_t":1794203257560,"level":"warn","data":["[API Connection] POST http://localhost:5000/api/routes/calculate-distance -> 400: No road route found between selected pickup and drop locations for heavy vehicles: Could not find routable point within a radius of 350.0 meters of specified coordinate 1: 79.4311520 28.0525910."]}
+{"_e":"metro:bundling:started","_t":1794208722600,"id":"p","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1794208722600,"id":"p","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1794208722636,"id":"p","total":1,"ms":35.7706}
+{"_e":"metro:client_log","_t":1794208724450,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1794208724450,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1794208724450,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1794208724920,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1794208727709,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1794208727709,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478628/loadbalbin_profiles/w3kdjgfqxfvtm3pbmnhm.png"]}
+{"_e":"metro:client_log","_t":1794208727710,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478218/loadbalbin_profiles/pgmea8yxwaevwoh5uxgr.jpg"]}
+{"_e":"metro:bundling:started","_t":1794209117763,"id":"x","platform":"web","environment":null,"entry":"src\\screens\\booking\\VehicleSelectionScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1794209588390,"id":"y","platform":"web","environment":null,"entry":"src\\services\\fareService.js"}
+{"_e":"metro:client_log","_t":1794209622248,"level":"warn","data":["[API Connection] POST http://localhost:5000/api/fares/quotes -> 404: Route not found: POST /api/fares/quotes"]}
+{"_e":"metro:bundling:started","_t":1794209622251,"id":"z","platform":"web","environment":null,"entry":"src\\screens\\booking\\VehicleSelectionScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1794209847845,"id":"10","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1794209847845,"id":"10","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1794209847868,"id":"10","total":1,"ms":23.2111}
+{"_e":"metro:client_log","_t":1794209857356,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1794209857356,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1794209857356,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1794209857356,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1794209858099,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1794209858100,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478628/loadbalbin_profiles/w3kdjgfqxfvtm3pbmnhm.png"]}
+{"_e":"metro:client_log","_t":1794209858100,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478218/loadbalbin_profiles/pgmea8yxwaevwoh5uxgr.jpg"]}
+{"_e":"metro:client_log","_t":1794209865061,"level":"warn","data":["[API Connection] POST http://localhost:5000/api/routes/calculate-distance -> 400: No road route found between selected pickup and drop locations for heavy vehicles: Could not find routable point within a radius of 350.0 meters of specified coordinate 0: 78.9697270 27.4887810."]}
+{"_e":"metro:client_log","_t":1794209869181,"level":"warn","data":["[API Connection] POST http://localhost:5000/api/routes/calculate-distance -> 400: No road route found between selected pickup and drop locations for heavy vehicles: Could not find routable point within a radius of 350.0 meters of specified coordinate 0: 78.9697270 27.4887810."]}
+{"_e":"metro:client_log","_t":1794209892568,"level":"warn","data":["[API Connection] POST http://localhost:5000/api/routes/calculate-distance -> 400: No road route found between selected pickup and drop locations for heavy vehicles: Could not find routable point within a radius of 350.0 meters of specified coordinate 0: 78.9697270 27.4887810."]}
+{"_e":"metro:bundling:started","_t":1794209896833,"id":"17","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1794209896833,"id":"17","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1794209896853,"id":"17","total":1,"ms":20.7268}
+{"_e":"metro:client_log","_t":1794209906263,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1794209906263,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1794209906263,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1794209906263,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1794209907159,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1794209907159,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478628/loadbalbin_profiles/w3kdjgfqxfvtm3pbmnhm.png"]}
+{"_e":"metro:client_log","_t":1794209907159,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478218/loadbalbin_profiles/pgmea8yxwaevwoh5uxgr.jpg"]}
+{"_e":"metro:bundling:started","_t":1794209908573,"id":"1e","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1794209908573,"id":"1e","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1794209908594,"id":"1e","total":1,"ms":20.6396}
+{"_e":"metro:client_log","_t":1794209917880,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1794209917880,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1794209917880,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1794209917880,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1794209918403,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1794209918404,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478628/loadbalbin_profiles/w3kdjgfqxfvtm3pbmnhm.png"]}
+{"_e":"metro:client_log","_t":1794209918404,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478218/loadbalbin_profiles/pgmea8yxwaevwoh5uxgr.jpg"]}
+{"_e":"metro:bundling:started","_t":1794210481488,"id":"1k","platform":"web","environment":null,"entry":"src\\screens\\booking\\VehicleSelectionScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1794210501489,"id":"1l","platform":"web","environment":null,"entry":"src\\screens\\booking\\VehicleSelectionScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1794210508789,"id":"1m","platform":"web","environment":null,"entry":"src\\screens\\booking\\VehicleSelectionScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1794210520407,"id":"1n","platform":"web","environment":null,"entry":"src\\screens\\booking\\VehicleSelectionScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1794210844166,"id":"1o","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1794210844166,"id":"1o","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1794210844189,"id":"1o","total":1,"ms":23.0139}
+{"_e":"metro:client_log","_t":1794210853635,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1794210853635,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1794210853635,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1794210853635,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1794210854344,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1794210854344,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478628/loadbalbin_profiles/w3kdjgfqxfvtm3pbmnhm.png"]}
+{"_e":"metro:client_log","_t":1794210854344,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478218/loadbalbin_profiles/pgmea8yxwaevwoh5uxgr.jpg"]}
+{"_e":"metro:client_log","_t":1794210879303,"level":"warn","data":["[API Connection] POST http://localhost:5000/api/routes/calculate-distance -> 400: No road route found between selected pickup and drop locations for heavy vehicles: Could not find routable point within a radius of 350.0 meters of specified coordinate 1: 80.5551910 26.8718560."]}
+{"_e":"metro:client_log","_t":1794210972479,"level":"warn","data":["[API Connection] GET http://localhost:5000/api/payments/6af17c9606a84002953e460d -> 404: Payment not found"]}
+{"_e":"metro:bundling:started","_t":1794211925013,"id":"1v","platform":"web","environment":null,"entry":"src\\services\\paymentService.js"}
+{"_e":"metro:bundling:started","_t":1794211950730,"id":"1w","platform":"web","environment":null,"entry":"src\\screens\\booking\\BookingConfirmScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1794211954721,"id":"1x","platform":"web","environment":null,"entry":"src\\screens\\booking\\BookingConfirmScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1794211961342,"id":"1y","platform":"web","environment":null,"entry":"src\\screens\\booking\\BookingConfirmScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1794211976692,"id":"1z","platform":"web","environment":null,"entry":"src\\screens\\booking\\BookingConfirmScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1794212039338,"id":"20","platform":"web","environment":null,"entry":"src\\screens\\booking\\BookingConfirmScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1794212074077,"id":"21","platform":"web","environment":null,"entry":"src\\screens\\bookings\\BookingDetailsScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1794212092275,"id":"22","platform":"web","environment":null,"entry":"src\\screens\\bookings\\BookingDetailsScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1794212118847,"id":"23","platform":"web","environment":null,"entry":"src\\screens\\bookings\\BookingDetailsScreen.jsx"}
+{"_e":"metro:bundling:started","_t":1794216811114,"id":"24","platform":"web","environment":null,"entry":"node_modules\\expo\\AppEntry.js"}
+{"_e":"metro:bundling:progress","_t":1794216811114,"id":"24","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1794216811116,"id":"24","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1794216811584,"id":"24","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1794216811778,"id":"24","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1794216811781,"id":"24","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1794216811881,"id":"24","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1794216812144,"id":"24","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:progress","_t":1794216812704,"id":"24","progress":0,"total":1,"current":0}
+{"_e":"metro:bundling:done","_t":1794216812733,"id":"24","total":1,"ms":1618.5612}
+{"_e":"metro:client_log","_t":1794216822227,"level":"info","data":["%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools","font-weight:bold"]}
+{"_e":"metro:client_log","_t":1794216822227,"level":"warn","data":["\"shadow*\" style props are deprecated. Use \"boxShadow\"."]}
+{"_e":"metro:client_log","_t":1794216822227,"level":"log","data":["Running application \"main\" with appParams:\n","{\"hydrate\": undefined, \"rootTag\": \"#root\"}","\nDevelopment-level warnings: ON.\nPerformance optimizations: OFF."]}
+{"_e":"metro:client_log","_t":1794216822227,"level":"warn","data":["props.pointerEvents is deprecated. Use style.pointerEvents"]}
+{"_e":"metro:client_log","_t":1794216822640,"level":"log","data":["[BannerCarousel] Loaded 2 banners."]}
+{"_e":"metro:client_log","_t":1794216822640,"level":"log","data":["[BannerCarousel] Banner 0: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478628/loadbalbin_profiles/w3kdjgfqxfvtm3pbmnhm.png"]}
+{"_e":"metro:client_log","_t":1794216822640,"level":"log","data":["[BannerCarousel] Banner 1: https://res.cloudinary.com/kj4rhwyt/image/upload/v1791478218/loadbalbin_profiles/pgmea8yxwaevwoh5uxgr.jpg"]}

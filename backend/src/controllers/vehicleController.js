@@ -9,6 +9,7 @@ import { sanitizeVehicleDocumentResponse } from "../utils/vehicleDocumentRespons
 import { extractCloudinaryAssetInfo } from "../utils/documentSigner.js";
 import { isDesignatedSuperAdmin } from "../utils/superAdmin.js";
 import { checkDriverAssignableToVehicle } from "../utils/driverEligibility.js";
+import { isValidVehicleModel, formatFullVehicleModel } from "../utils/vehicleValidation.js";
 
 const vehicleTypes = Vehicle.schema.path("vehicleType").enumValues;
 const bodyTypes = Vehicle.schema.path("bodyType").enumValues;
@@ -36,6 +37,7 @@ const pendingDocumentFilter = (documentPath) => ({
 });
 const vehicleFields = [
   "vehicleNumber",
+  "vehicleMake",
   "vehicleModel",
   "vehicleType",
   "loadCapacity",
@@ -105,11 +107,27 @@ const parseVehicleUpdates = (body, { creating = false, allowedFields }) => {
     updates.vehicleNumber = body.vehicleNumber.trim().toUpperCase();
   }
 
+  if (Object.hasOwn(body, "vehicleMake")) {
+    if (typeof body.vehicleMake !== "string") {
+      return { error: "Vehicle make must be a string" };
+    }
+    updates.vehicleMake = body.vehicleMake.trim();
+  }
+
   if (Object.hasOwn(body, "vehicleModel")) {
     if (typeof body.vehicleModel !== "string" || !body.vehicleModel.trim()) {
       return { error: "Vehicle model must be a non-empty string" };
     }
-    updates.vehicleModel = body.vehicleModel.trim();
+    const rawModel = body.vehicleModel.trim();
+    if (!isValidVehicleModel(rawModel, body.vehicleNumber)) {
+      return { error: "Vehicle model must be a valid name (e.g. Tata Ace Gold, Mahindra Jeeto), not a number or plate code" };
+    }
+    const make = updates.vehicleMake || body.vehicleMake || "";
+    const fullModel = formatFullVehicleModel(make, rawModel);
+    if (!isValidVehicleModel(fullModel, body.vehicleNumber)) {
+      return { error: "Vehicle model must be a valid name (e.g. Tata Ace Gold, Mahindra Jeeto), not a number or plate code" };
+    }
+    updates.vehicleModel = fullModel;
   }
 
   if (Object.hasOwn(body, "vehicleType")) {

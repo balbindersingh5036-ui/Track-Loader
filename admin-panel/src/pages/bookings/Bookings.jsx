@@ -98,7 +98,10 @@ function BookingTable({ bookings, onOpen }) {
                 <strong>{formatMoney(booking.finalFare)}</strong>
                 <span className="booking-cell-subtext">Est. {formatMoney(booking.estimatedFare)}</span>
               </td>
-              <td><span className={`booking-payment booking-payment-${booking.paymentStatus || 'unknown'}`}>{titleCase(booking.paymentStatus)}</span></td>
+              <td>
+                <span className={`booking-payment booking-payment-${booking.paymentStatus || 'unknown'}`}>{titleCase(booking.paymentStatus)}</span>
+                <span className="booking-cell-subtext">{booking.paymentMethod === 'COD' ? 'Cash (COD)' : booking.paymentMethod === 'ONLINE' ? 'Online' : '—'}</span>
+              </td>
               <td><BookingStatusBadge booking={booking} /></td>
               <td><AssignmentStatusBadge status={booking.assignmentStatus} /></td>
               <td><button className="booking-row-action" type="button" onClick={() => onOpen(booking)}>Details</button></td>

@@ -156,6 +156,14 @@ const bookingSchema = new mongoose.Schema(
       min: 0
     },
 
+    paymentMethod: {
+      type: String,
+      enum: ["COD", "ONLINE"],
+      default: "COD",
+      uppercase: true,
+      index: true
+    },
+
     paymentStatus: {
       type: String,
       enum: [
@@ -168,6 +176,61 @@ const bookingSchema = new mongoose.Schema(
       default: "pending",
       index: true
     },
+
+    cashCollectedAt: {
+      type: Date,
+      default: null
+    },
+
+    cashCollectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null
+    },
+
+    cashCollectionNotes: {
+      type: String,
+      default: "",
+      trim: true
+    },
+
+    paymentHistory: [{
+      action: {
+        type: String,
+        enum: ["initiated", "method_changed", "order_created", "paid", "cash_collected", "failed", "refunded"],
+        required: true
+      },
+      paymentMethod: {
+        type: String,
+        enum: ["COD", "ONLINE"],
+        default: "COD"
+      },
+      status: {
+        type: String,
+        default: "pending"
+      },
+      amount: {
+        type: Number,
+        default: 0
+      },
+      actor: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null
+      },
+      actorRole: {
+        type: String,
+        default: "system"
+      },
+      notes: {
+        type: String,
+        default: ""
+      },
+      occurredAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
 
     bookingMode: {
       type: String,

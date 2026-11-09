@@ -3,6 +3,8 @@ import {
   createOrder,
   verifyPayment,
   getPaymentStatus,
+  recordCashCollection,
+  updatePaymentMethod,
   processWebhook
 } from "../controllers/paymentController.js";
 import { protect } from "../middleware/authMiddleware.js";
@@ -12,6 +14,10 @@ const router = express.Router();
 
 router.post("/create-order", protect, customerOnly, createOrder);
 router.post("/verify", protect, customerOnly, verifyPayment);
+router.post("/cash-collection", protect, recordCashCollection);
+router.post("/:bookingId/cash-collection", protect, recordCashCollection);
+router.patch("/:bookingId/payment-method", protect, updatePaymentMethod);
+router.patch("/payment-method", protect, updatePaymentMethod);
 router.get("/:bookingId", protect, getPaymentStatus);
 
 // Webhook handles its own signature verification, no JWT protect needed

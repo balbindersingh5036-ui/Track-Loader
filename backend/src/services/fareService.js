@@ -41,15 +41,8 @@ export const getFareByVehicleType = async (vehicleTypeOrId) => {
     }
   }
 
-  const cacheKey = `fare_${targetType}`;
-  if (fareCache.has(cacheKey)) return fareCache.get(cacheKey);
-
-  const fare = await Fare.findOne({ vehicleType: targetType, isActive: true })
-    .populate("updatedBy", "name email")
-    .lean();
-  if (fare) {
-    fareCache.set(cacheKey, fare);
-  }
+  const query = Fare.findOne({ vehicleType: targetType, isActive: true });
+  const fare = await (typeof query?.lean === "function" ? query.lean() : query);
   return fare;
 };
 
@@ -223,4 +216,48 @@ export const calculateFareBreakdown = async ({ vehicleType, distanceKm, weightVa
 export const calculateEstimatedFare = async ({ vehicleType, distanceKm, weightValue, weightUnit }) => {
   const breakdown = await calculateFareBreakdown({ vehicleType, distanceKm, weightValue, weightUnit });
   return breakdown.finalFare;
+};
+
+export const calculateMultiVehicleFareQuotes = async ({ distanceKm, weightValue, weightUnit, vehicleType }) => {
+  const filter = { isActive: true };
+  if (vehicleType) {
+    filter.vehicleType = vehicleType;
+  }
+
+  const activeFares = await getAllFares(filter);
+  if (!activeFares.length) {
+    const error = new Error("No active fares configured");
+    error.status = 404;
+    throw error;
+  }
+
+  const quotes = [];
+  for (const fare of activeFares) {
+    try {
+      const breakdown = await calculateFareBreakdown({
+        vehicleType: fare.vehicleType,
+        distanceKm,
+        weightValue,
+        weightUnit
+      });
+      quotes.push({
+        vehicleType: fare.vehicleType,
+        category: fare.vehicleType,
+        ratePerKm: breakdown.ratePerKm,
+        ratePerTon: breakdown.ratePerTon,
+        minimumFare: breakdown.minimumFare,
+        distanceKm: breakdown.distanceKm,
+        cargoWeightKg: breakdown.cargoWeightKg,
+        weightInTon: breakdown.weightInTon,
+        distanceCharge: breakdown.distanceCharge,
+        weightCharge: breakdown.weightCharge,
+        calculatedFare: breakdown.calculatedFare,
+        finalFare: breakdown.finalFare
+      });
+    } catch (err) {
+      // Continue for other categories if a specific category calculation fails
+    }
+  }
+
+  return quotes;
 };

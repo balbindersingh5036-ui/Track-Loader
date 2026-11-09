@@ -33,6 +33,9 @@ export const createOrder = async (req, res) => {
     if (booking.paymentStatus === "paid") {
       return errorResponse(res, "Booking is already paid", 409);
     }
+    if (booking.paymentMethod === "COD") {
+      return errorResponse(res, "This booking is set to Cash on Delivery (COD) and cannot create an online payment order. Switch payment method to ONLINE if you wish to pay digitally.", 400);
+    }
 
     const amount = booking.estimatedFare;
     if (!amount || amount <= 0) return errorResponse(res, "Invalid booking amount", 400);
@@ -127,6 +130,19 @@ export const verifyPayment = async (req, res) => {
     await payment.save();
 
     booking.paymentStatus = "paid";
+    booking.paymentMethod = "ONLINE";
+    if (!Array.isArray(booking.paymentHistory)) {
+      booking.paymentHistory = [];
+    }
+    booking.paymentHistory.push({
+      action: "paid",
+      paymentMethod: "ONLINE",
+      status: "paid",
+      amount: payment.amount,
+      actor: req.user._id,
+      actorRole: req.user.role || "customer",
+      occurredAt: new Date()
+    });
     await booking.save();
 
     await notifyCustomer(booking.customer, "Payment Successful", `Your payment for booking ${booking.bookingId} was successful`, booking._id);
@@ -144,31 +160,231 @@ export const getPaymentStatus = async (req, res) => {
     const { bookingId } = req.params;
     if (!mongoose.Types.ObjectId.isValid(bookingId)) return errorResponse(res, "Invalid booking ID", 400);
 
-    const payment = await Payment.findOne({ booking: bookingId });
-    if (!payment) return errorResponse(res, "Payment not found", 404);
+    const booking = await Booking.findById(bookingId);
+    if (!booking) return errorResponse(res, "Booking not found", 404);
 
     // Verify access
-    if (req.user.role === "customer" && payment.customer.toString() !== req.user._id.toString()) {
+    if (req.user.role === "customer" && booking.customer.toString() !== req.user._id.toString()) {
       return errorResponse(res, "Access denied", 403);
     }
-    // Drivers generally shouldn't need payment details unless stated. Since rules say "Driver cannot access unless explicitly required", we deny.
-    if (req.user.role === "driver") return errorResponse(res, "Access denied", 403);
+
+    if (req.user.role === "driver") {
+      const Driver = mongoose.model("Driver");
+      const driver = await Driver.findOne({ user: req.user._id });
+      if (!driver || !booking.driver || booking.driver.toString() !== driver._id.toString()) {
+        return errorResponse(res, "Access denied", 403);
+      }
+    }
+
+    if (req.user.role === "agency") {
+      const Agency = mongoose.model("Agency");
+      const agency = await Agency.findOne({ owner: req.user._id });
+      if (!agency || !booking.agency || booking.agency.toString() !== agency._id.toString()) {
+        return errorResponse(res, "Access denied", 403);
+      }
+    }
+
+    const payment = await Payment.findOne({ booking: bookingId });
 
     return successResponse(res, {
-      bookingId: payment.booking,
-      paymentStatus: payment.status,
-      amount: payment.amount,
+      bookingId: booking._id,
+      paymentMethod: booking.paymentMethod || "COD",
+      paymentStatus: booking.paymentStatus,
+      amount: booking.finalFare || booking.estimatedFare,
       currency: "INR",
-      provider: payment.provider,
-      orderId: payment.orderId,
-      transactionId: payment.transactionId,
-      paidAt: payment.paidAt,
-      refundAmount: payment.refundAmount,
-      refundedAt: payment.refundedAt
+      provider: payment?.provider || (booking.paymentMethod === "COD" ? "cash" : "razorpay"),
+      orderId: payment?.orderId || "",
+      transactionId: payment?.transactionId || "",
+      paidAt: payment?.paidAt || booking.cashCollectedAt || null,
+      cashCollectedAt: booking.cashCollectedAt || null,
+      cashCollectedBy: booking.cashCollectedBy || null,
+      refundAmount: payment?.refundAmount || 0,
+      refundedAt: payment?.refundedAt || null
     }, "Payment status fetched");
   } catch (error) {
     console.error("Get payment status error:", error);
     return errorResponse(res, "Failed to fetch payment status", 500);
+  }
+};
+
+export const recordCashCollection = async (req, res) => {
+  try {
+    const bookingId = req.params.bookingId || req.body.bookingId;
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return errorResponse(res, "Invalid booking ID", 400);
+    }
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return errorResponse(res, "Booking not found", 404);
+    }
+
+    // Authorization check
+    let authorizedRole = null;
+    if (req.user.role === "admin") {
+      authorizedRole = "admin";
+    } else if (req.user.role === "driver") {
+      const Driver = mongoose.model("Driver");
+      const driver = await Driver.findOne({ user: req.user._id });
+      if (driver && booking.driver && booking.driver.toString() === driver._id.toString()) {
+        authorizedRole = "driver";
+      } else {
+        return errorResponse(res, "You are not the driver assigned to this booking", 403);
+      }
+    } else if (req.user.role === "agency") {
+      const Agency = mongoose.model("Agency");
+      const agency = await Agency.findOne({ owner: req.user._id });
+      if (agency && booking.agency && booking.agency.toString() === agency._id.toString()) {
+        authorizedRole = "agency";
+      } else {
+        return errorResponse(res, "You are not the agency owner assigned to this booking", 403);
+      }
+    } else {
+      return errorResponse(res, "Unauthorized to confirm cash collection", 403);
+    }
+
+    if (booking.bookingStatus === "cancelled") {
+      return errorResponse(res, "Cannot record cash collection for a cancelled booking", 400);
+    }
+
+    if (booking.paymentMethod !== "COD") {
+      return errorResponse(res, `This booking is set to ${booking.paymentMethod || "ONLINE"}, not Cash on Delivery`, 400);
+    }
+
+    if (booking.paymentStatus === "paid") {
+      return errorResponse(res, "Cash collection has already been recorded and marked as paid", 409);
+    }
+
+    const { notes } = req.body;
+    const amount = Number(booking.finalFare || booking.estimatedFare || 0);
+    const collectionTime = new Date();
+
+    booking.paymentStatus = "paid";
+    booking.cashCollectedAt = collectionTime;
+    booking.cashCollectedBy = req.user._id;
+    booking.cashCollectionNotes = notes ? String(notes).trim() : `Cash payment verified by ${authorizedRole}`;
+
+    if (!Array.isArray(booking.paymentHistory)) {
+      booking.paymentHistory = [];
+    }
+    booking.paymentHistory.push({
+      action: "cash_collected",
+      paymentMethod: "COD",
+      status: "paid",
+      amount,
+      actor: req.user._id,
+      actorRole: authorizedRole,
+      notes: booking.cashCollectionNotes,
+      occurredAt: collectionTime
+    });
+
+    await booking.save();
+
+    // Create or update payment record
+    let payment = await Payment.findOne({ booking: booking._id });
+    if (payment) {
+      payment.method = "cash";
+      payment.status = "success";
+      payment.amount = amount;
+      payment.paidAt = collectionTime;
+      await payment.save();
+    } else {
+      payment = await Payment.create({
+        booking: booking._id,
+        customer: booking.customer,
+        amount,
+        method: "cash",
+        provider: "cash",
+        status: "success",
+        paidAt: collectionTime
+      });
+    }
+
+    await notifyCustomer(
+      booking.customer,
+      "Cash Payment Collected",
+      `Cash payment of ₹${amount.toFixed(2)} has been confirmed for booking ${booking.bookingId}`,
+      booking._id
+    );
+
+    emitToBooking(booking._id, "payment:cash_collected", {
+      bookingId: booking._id,
+      paymentStatus: "paid",
+      paymentMethod: "COD",
+      amount,
+      collectedAt: collectionTime,
+      collectedBy: req.user._id
+    });
+
+    return successResponse(res, {
+      bookingId: booking._id,
+      paymentStatus: booking.paymentStatus,
+      paymentMethod: booking.paymentMethod,
+      amount,
+      cashCollectedAt: booking.cashCollectedAt,
+      cashCollectedBy: booking.cashCollectedBy
+    }, "Cash collection confirmed successfully");
+  } catch (error) {
+    console.error("Record cash collection error:", error);
+    return errorResponse(res, "Failed to record cash collection", 500);
+  }
+};
+
+export const updatePaymentMethod = async (req, res) => {
+  try {
+    const bookingId = req.params.bookingId || req.body.bookingId;
+    if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+      return errorResponse(res, "Invalid booking ID", 400);
+    }
+
+    const { paymentMethod } = req.body;
+    const normalized = String(paymentMethod || "").trim().toUpperCase();
+    if (!["COD", "ONLINE"].includes(normalized)) {
+      return errorResponse(res, "Invalid payment method. Supported methods are COD and ONLINE", 400);
+    }
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) return errorResponse(res, "Booking not found", 404);
+
+    if (req.user.role !== "admin" && String(booking.customer) !== String(req.user._id)) {
+      return errorResponse(res, "Access denied", 403);
+    }
+
+    if (booking.paymentStatus === "paid") {
+      return errorResponse(res, "Cannot change payment method for an already paid booking", 409);
+    }
+
+    if (booking.bookingStatus === "cancelled" || booking.bookingStatus === "completed") {
+      return errorResponse(res, `Cannot change payment method for a ${booking.bookingStatus} booking`, 400);
+    }
+
+    const previousMethod = booking.paymentMethod || "COD";
+    booking.paymentMethod = normalized;
+
+    if (!Array.isArray(booking.paymentHistory)) {
+      booking.paymentHistory = [];
+    }
+    booking.paymentHistory.push({
+      action: "method_changed",
+      paymentMethod: normalized,
+      status: booking.paymentStatus,
+      amount: booking.finalFare || booking.estimatedFare,
+      actor: req.user._id,
+      actorRole: req.user.role,
+      notes: `Payment method changed from ${previousMethod} to ${normalized}`,
+      occurredAt: new Date()
+    });
+
+    await booking.save();
+
+    return successResponse(res, {
+      bookingId: booking._id,
+      paymentMethod: booking.paymentMethod,
+      paymentStatus: booking.paymentStatus
+    }, `Payment method updated to ${normalized}`);
+  } catch (error) {
+    console.error("Update payment method error:", error);
+    return errorResponse(res, "Failed to update payment method", 500);
   }
 };
 

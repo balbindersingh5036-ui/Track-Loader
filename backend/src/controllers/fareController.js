@@ -79,6 +79,43 @@ export const getFareByVehicleType = async (req, res) => {
   }
 };
 
+export const getFareQuotes = async (req, res) => {
+  try {
+    const enabled = await fareService.isFareEnabled();
+    if (!enabled) {
+      return errorResponse(res, "Fare system is currently disabled", 403);
+    }
+
+    const distanceKm = req.body?.distanceKm ?? req.query?.distanceKm;
+    const weightValue = req.body?.weight?.value ?? req.body?.weightValue ?? req.query?.weightValue ?? req.query?.["weight[value]"];
+    const weightUnit = req.body?.weight?.unit ?? req.body?.weightUnit ?? req.query?.weightUnit ?? req.query?.["weight[unit]"] ?? "kg";
+    const vehicleType = req.body?.vehicleType ?? req.query?.vehicleType;
+
+    if (distanceKm === undefined || distanceKm === null || distanceKm === "") {
+      return errorResponse(res, "Distance in KM is required for fare quotation", 400);
+    }
+
+    if (weightValue === undefined || weightValue === null || weightValue === "") {
+      return errorResponse(res, "Cargo weight value is required for fare quotation", 400);
+    }
+
+    const quotes = await fareService.calculateMultiVehicleFareQuotes({
+      distanceKm,
+      weightValue,
+      weightUnit,
+      vehicleType
+    });
+
+    return successResponse(res, {
+      distanceKm: Number(distanceKm),
+      quotes
+    }, "Fare quotations generated successfully");
+  } catch (error) {
+    const statusCode = error.status || 500;
+    return errorResponse(res, error.message || "Failed to calculate fare quotations", statusCode);
+  }
+};
+
 // Admin Controllers
 
 const validateNumeric = (val, min = 0) => {

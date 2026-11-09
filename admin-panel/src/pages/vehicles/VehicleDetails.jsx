@@ -130,6 +130,7 @@ export default function VehicleDetails() {
       setHeroPhotoError(false);
       setForm({
         vehicleNumber: record.vehicleNumber || '',
+        vehicleMake: record.vehicleMake || '',
         vehicleModel: record.vehicleModel || '',
         vehicleType: record.vehicleType || types[0],
         capacityValue: String(record.loadCapacity?.value ?? ''),
@@ -152,8 +153,13 @@ export default function VehicleDetails() {
   const save = async (event) => {
     event.preventDefault();
     const capacity = Number(form.capacityValue);
-    if (!form.vehicleNumber.trim() || !form.vehicleModel.trim() || !Number.isFinite(capacity) || capacity < 0) {
+    const model = (form.vehicleModel || '').trim();
+    if (!form.vehicleNumber.trim() || !model || !Number.isFinite(capacity) || capacity < 0) {
       setError('Enter a registration, model, and non-negative capacity.');
+      return;
+    }
+    if (model.length < 2 || !/[a-zA-Z]/.test(model) || /^[0-9\s.,-]+$/.test(model)) {
+      setError('Vehicle model must be a legitimate vehicle name (e.g. Tata Ace Gold, Mahindra Jeeto), not a number or code.');
       return;
     }
     setSaving(true);
@@ -161,8 +167,9 @@ export default function VehicleDetails() {
     setNotice('');
     try {
       await vehicleService.updateVehicle(id, {
-        vehicleNumber: form.vehicleNumber,
-        vehicleModel: form.vehicleModel,
+        vehicleNumber: form.vehicleNumber.trim().toUpperCase(),
+        vehicleMake: (form.vehicleMake || '').trim(),
+        vehicleModel: model,
         vehicleType: form.vehicleType,
         loadCapacity: { value: capacity, unit: form.capacityUnit },
         bodyType: form.bodyType
@@ -309,7 +316,8 @@ export default function VehicleDetails() {
                 <summary>Edit vehicle information</summary>
                 <form onSubmit={save} className="vehicle-edit-form">
                   <label>Registration<input required value={form?.vehicleNumber || ''} onChange={(event) => updateForm('vehicleNumber', event.target.value)} /></label>
-                  <label>Model<input required value={form?.vehicleModel || ''} onChange={(event) => updateForm('vehicleModel', event.target.value)} /></label>
+                  <label>Make / Brand (Optional)<input placeholder="e.g. Tata, Mahindra" value={form?.vehicleMake || ''} onChange={(event) => updateForm('vehicleMake', event.target.value)} /></label>
+                  <label>Model<input required placeholder="e.g. Tata Ace Gold, Mahindra Jeeto" value={form?.vehicleModel || ''} onChange={(event) => updateForm('vehicleModel', event.target.value)} /></label>
                   <label>Category<select value={form?.vehicleType || types[0]} onChange={(event) => updateForm('vehicleType', event.target.value)}>{types.map((type) => <option key={type} value={type}>{type.replace('-', ' ')}</option>)}</select></label>
                   <label>Capacity<input required type="number" min="0" step="any" value={form?.capacityValue ?? ''} onChange={(event) => updateForm('capacityValue', event.target.value)} /></label>
                   <label>Capacity unit<select value={form?.capacityUnit || 'kg'} onChange={(event) => updateForm('capacityUnit', event.target.value)}><option value="kg">KG</option><option value="ton">TON</option></select></label>

@@ -73,11 +73,17 @@ export const createBooking = async (req, res) => {
       vehicle,
       customerNote,
       agencyId: requestedAgencyId,
-      bookingMode = "instant"
+      bookingMode = "instant",
+      paymentMethod = "COD"
     } = req.body;
 
     if (!["instant", "scheduled"].includes(bookingMode)) {
       return errorResponse(res, "Invalid booking mode. Must be instant or scheduled", 400);
+    }
+
+    const normalizedPaymentMethod = String(paymentMethod || "COD").trim().toUpperCase();
+    if (!["COD", "ONLINE"].includes(normalizedPaymentMethod)) {
+      return errorResponse(res, "Invalid payment method. Supported methods are COD and ONLINE", 400);
     }
 
     if (
@@ -309,6 +315,17 @@ export const createBooking = async (req, res) => {
       vehicleType,
       estimatedFare: parseFloat(estimatedFare.toFixed(2)),
       customerNote,
+      paymentMethod: normalizedPaymentMethod,
+      paymentStatus: "pending",
+      paymentHistory: [{
+        action: "initiated",
+        paymentMethod: normalizedPaymentMethod,
+        status: "pending",
+        amount: parseFloat(estimatedFare.toFixed(2)),
+        actor: req.user._id,
+        actorRole: "customer",
+        occurredAt: new Date()
+      }],
       assignmentHistory: [{
         action: "created",
         actor: req.user._id,

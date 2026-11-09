@@ -1,7 +1,50 @@
 import { extractCloudinaryAssetInfo, generateSignedDocumentUrl } from "./documentSigner.js";
 
+const CATEGORY_LABELS = {
+  "mini-truck": "Mini Truck",
+  "pickup": "Pickup Truck",
+  "small-truck": "Small Truck",
+  "medium-truck": "Medium Truck",
+  "large-truck": "Large Heavy Truck"
+};
+
+export const getCleanVehicleDisplayName = (vehicle) => {
+  if (!vehicle) return "Commercial Vehicle";
+
+  const rawModel = typeof vehicle.vehicleModel === "string" ? vehicle.vehicleModel.trim() : "";
+  const regNumber = typeof vehicle.vehicleNumber === "string" ? vehicle.vehicleNumber.trim() : "";
+  const vehicleId = vehicle._id ? String(vehicle._id).trim() : "";
+  const capacityVal = vehicle.loadCapacity?.value != null ? String(vehicle.loadCapacity.value).trim() : "";
+
+  // Reject arbitrary numeric strings (e.g. "300"), registration numbers, vehicle IDs, or capacity
+  const isNumericOnly = /^[0-9\s.,-]+$/.test(rawModel);
+  const hasLetters = /[a-zA-Z]/.test(rawModel);
+  const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawModel);
+  const matchesReg = Boolean(regNumber && rawModel.toUpperCase() === regNumber.toUpperCase());
+  const matchesId = Boolean(vehicleId && rawModel === vehicleId);
+  const matchesCapacity = Boolean(capacityVal && (rawModel === capacityVal || rawModel === `${capacityVal}kg` || rawModel === `${capacityVal}ton`));
+
+  const isValidModel =
+    rawModel.length >= 2 &&
+    hasLetters &&
+    !isNumericOnly &&
+    !isObjectId &&
+    !matchesReg &&
+    !matchesId &&
+    !matchesCapacity;
+
+  if (isValidModel) {
+    return rawModel;
+  }
+
+  const category = vehicle.vehicleType;
+  return CATEGORY_LABELS[category] || (category ? category.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "Commercial Vehicle");
+};
+
 export const sanitizeVehicleDocumentResponse = (vehicle, { includeSignedUrls = false } = {}) => {
   if (!vehicle) return vehicle;
+
+  vehicle.displayName = getCleanVehicleDisplayName(vehicle);
 
   delete vehicle.registrationDocument;
   delete vehicle.insuranceDocument;

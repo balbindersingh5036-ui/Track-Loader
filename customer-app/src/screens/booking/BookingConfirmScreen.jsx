@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Text, View, StyleSheet } from "react-native";
+import { Text, View, StyleSheet, Pressable } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import configService from "../../services/configService";
 import bookingService from "../../services/bookingService";
@@ -10,6 +10,7 @@ import { getErrorMessage } from "../../utils/errorMessage";
 export default function BookingConfirmScreen({ route, navigation }) {
   const details = route.params || {};
   const bookingMode = details.bookingMode || "instant";
+  const [paymentMethod, setPaymentMethod] = useState("COD");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [fareEstimate, setFareEstimate] = useState(null);
@@ -57,7 +58,8 @@ export default function BookingConfirmScreen({ route, navigation }) {
         preferredPickupDate: isInstant ? todayDate : details.preferredPickupDate,
         preferredPickupTime: isInstant ? currentTime : details.preferredPickupTime,
         vehicleType: details.vehicleType,
-        bookingMode
+        bookingMode,
+        paymentMethod
       };
       if (details.vehicleId) payload.vehicle = details.vehicleId;
       if (!details.vehicleId && details.agencyId) payload.agencyId = details.agencyId;
@@ -245,6 +247,81 @@ export default function BookingConfirmScreen({ route, navigation }) {
         ) : null}
       </Card>
 
+      {/* PAYMENT METHOD SELECTION CARD */}
+      <Card>
+        <View style={styles.cardHeaderRow}>
+          <Text style={styles.cardHeaderTitle}>Payment Method</Text>
+          <Ionicons name="wallet-outline" size={18} color={colors.primary} />
+        </View>
+
+        <View style={styles.paymentOptionList}>
+          {/* COD OPTION */}
+          <Pressable
+            style={[
+              styles.paymentOptionCard,
+              paymentMethod === "COD" && styles.paymentOptionCardActive
+            ]}
+            onPress={() => setPaymentMethod("COD")}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: paymentMethod === "COD" }}
+          >
+            <View style={styles.paymentRadioRow}>
+              <View style={[styles.radioDot, paymentMethod === "COD" && styles.radioDotActive]}>
+                {paymentMethod === "COD" ? <View style={styles.radioDotInner} /> : null}
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={styles.paymentOptionTitle}>Cash on Delivery (COD)</Text>
+                  <View style={styles.badgeSuccess}>
+                    <Text style={styles.badgeSuccessText}>Cash</Text>
+                  </View>
+                </View>
+                <Text style={styles.paymentOptionDesc}>
+                  Pay the driver in cash according to the booking payment terms.
+                </Text>
+              </View>
+              <MaterialCommunityIcons name="cash-multiple" size={24} color={paymentMethod === "COD" ? colors.primary : colors.textMuted} />
+            </View>
+          </Pressable>
+
+          {/* ONLINE OPTION */}
+          <Pressable
+            style={[
+              styles.paymentOptionCard,
+              paymentMethod === "ONLINE" && styles.paymentOptionCardActive
+            ]}
+            onPress={() => setPaymentMethod("ONLINE")}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: paymentMethod === "ONLINE" }}
+          >
+            <View style={styles.paymentRadioRow}>
+              <View style={[styles.radioDot, paymentMethod === "ONLINE" && styles.radioDotActive]}>
+                {paymentMethod === "ONLINE" ? <View style={styles.radioDotInner} /> : null}
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={styles.paymentOptionTitle}>Pay Online (Razorpay)</Text>
+                  <View style={styles.badgeInfo}>
+                    <Text style={styles.badgeInfoText}>Digital</Text>
+                  </View>
+                </View>
+                <Text style={styles.paymentOptionDesc}>
+                  Pay securely with UPI, Credit/Debit Card, or Net Banking.
+                </Text>
+              </View>
+              <Ionicons name="card-outline" size={22} color={paymentMethod === "ONLINE" ? colors.primary : colors.textMuted} />
+            </View>
+          </Pressable>
+        </View>
+
+        <View style={styles.selectedPaymentNotice}>
+          <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
+          <Text style={styles.selectedPaymentNoticeText}>
+            Selected: <Text style={{ fontWeight: "700" }}>{paymentMethod === "COD" ? "Cash on Delivery (COD)" : "Pay Online (Razorpay)"}</Text> · {paymentMethod === "COD" ? "Pay the driver in cash according to the booking payment terms." : "Secure digital payment."}
+          </Text>
+        </View>
+      </Card>
+
       <Notice message={error} />
 
       <Button
@@ -359,5 +436,91 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textTransform: "capitalize",
     marginTop: 1
+  },
+  paymentOptionList: {
+    gap: 10,
+    marginTop: 6
+  },
+  paymentOptionCard: {
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: colors.surface
+  },
+  paymentOptionCardActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.surfaceAlt
+  },
+  paymentRadioRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12
+  },
+  radioDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.line,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  radioDotActive: {
+    borderColor: colors.primary
+  },
+  radioDotInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary
+  },
+  paymentOptionTitle: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  paymentOptionDesc: {
+    color: colors.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+    lineHeight: 16
+  },
+  badgeSuccess: {
+    backgroundColor: colors.badgePaidBg || "#D1FADF",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4
+  },
+  badgeSuccessText: {
+    color: colors.badgePaidText || "#027A48",
+    fontSize: 10,
+    fontWeight: "700"
+  },
+  badgeInfo: {
+    backgroundColor: colors.badgePendingBg || "#E0F2FE",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4
+  },
+  badgeInfoText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: "700"
+  },
+  selectedPaymentNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceAlt
+  },
+  selectedPaymentNoticeText: {
+    flex: 1,
+    color: colors.textLight,
+    fontSize: 12,
+    lineHeight: 16
   }
 });

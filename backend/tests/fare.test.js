@@ -203,6 +203,49 @@ describe("Fare API", () => {
     assert.strictEqual(res.body.data.fare.isActive, false);
   });
 
+  it("15. Fare quotation calculation via GET /api/fares/quotes", async () => {
+    // mini-truck has perKmRate: 15, perTonRate: 50, minimumFare: 150
+    // distance = 100 km, weight = 2000 kg (2 ton)
+    // distanceCharge = 100 * 15 = 1500
+    // weightCharge = 2 * 50 = 100
+    // finalFare = max(1600, 150) = 1600
+    const res = await request(app).get("/api/fares/quotes?distanceKm=100&weightValue=2000&weightUnit=kg");
+    assert.strictEqual(res.status, 200);
+    assert.ok(res.body.success);
+    assert.ok(Array.isArray(res.body.data.quotes));
+    const miniTruckQuote = res.body.data.quotes.find(q => q.vehicleType === "mini-truck");
+    assert.ok(miniTruckQuote);
+    assert.strictEqual(miniTruckQuote.distanceCharge, 1500);
+    assert.strictEqual(miniTruckQuote.weightCharge, 100);
+    assert.strictEqual(miniTruckQuote.finalFare, 1600);
+  });
+
+  it("16. Fare quotation calculation via POST /api/fares/quotes with weight object", async () => {
+    const res = await request(app).post("/api/fares/quotes").send({
+      distanceKm: 5,
+      weight: { value: 100, unit: "kg" },
+      vehicleType: "mini-truck"
+    });
+    // 5 km * 15 = 75, 0.1 ton * 50 = 5 => 80. Minimum fare = 150 => finalFare = 150
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.data.quotes.length, 1);
+    assert.strictEqual(res.body.data.quotes[0].vehicleType, "mini-truck");
+    assert.strictEqual(res.body.data.quotes[0].calculatedFare, 80);
+    assert.strictEqual(res.body.data.quotes[0].finalFare, 150);
+  });
+
+  it("17. Fare quotation rejects missing distanceKm with 400", async () => {
+    const res = await request(app).get("/api/fares/quotes?weightValue=1000");
+    assert.strictEqual(res.status, 400);
+    assert.strictEqual(res.body.success, false);
+  });
+
+  it("18. Fare quotation rejects missing weight with 400", async () => {
+    const res = await request(app).get("/api/fares/quotes?distanceKm=10");
+    assert.strictEqual(res.status, 400);
+    assert.strictEqual(res.body.success, false);
+  });
+
   it("20. fare.enabled=false blocks booking/fare flow", async () => {
     await SystemSetting.findOneAndUpdate({ key: "fare.enabled" }, { value: false });
     clearCache("fare.enabled");

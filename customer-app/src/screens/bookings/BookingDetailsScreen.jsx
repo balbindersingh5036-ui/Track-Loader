@@ -23,6 +23,27 @@ export default function BookingDetailsScreen({ route, navigation }) {
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [paymentEnabled, setPaymentEnabled] = useState(false);
   const [hasRating, setHasRating] = useState(false);
+  const [switchingPayment, setSwitchingPayment] = useState(false);
+
+  const handleSwitchPaymentMethod = async (newMethod) => {
+    if (!booking || switchingPayment) return;
+    if (booking.paymentMethod === newMethod) return;
+    if (booking.paymentStatus === "paid") return;
+
+    setSwitchingPayment(true);
+    setError("");
+    try {
+      const res = await paymentService.updatePaymentMethod(booking._id, newMethod);
+      setBooking((prev) => ({
+        ...prev,
+        paymentMethod: res.paymentMethod || newMethod
+      }));
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setSwitchingPayment(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setError("");
@@ -409,6 +430,152 @@ export default function BookingDetailsScreen({ route, navigation }) {
         ) : null}
       </Card>
 
+      {/* PAYMENT & BILLING CARD */}
+      <Card>
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionTitle}>Payment & Billing</Text>
+          <Ionicons name="wallet-outline" size={18} color={colors.primary} />
+        </View>
+
+        <View style={styles.billingSummaryRow}>
+          <View>
+            <Text style={styles.billingAmountLabel}>Booking Amount</Text>
+            <Text style={styles.billingAmountValue}>
+              ₹{booking.finalFare || booking.estimatedFare}
+            </Text>
+          </View>
+          <View
+            style={[
+              styles.statusBadgeBase,
+              booking.paymentStatus === "paid" ? styles.paidBadge : styles.pendingBadge
+            ]}
+          >
+            <Ionicons
+              name={booking.paymentStatus === "paid" ? "checkmark-circle" : "time-outline"}
+              size={14}
+              color={booking.paymentStatus === "paid" ? "#027A48" : "#B54708"}
+            />
+            <Text
+              style={[
+                styles.statusBadgeTextBase,
+                booking.paymentStatus === "paid" ? styles.paidBadgeText : styles.pendingBadgeText
+              ]}
+            >
+              {booking.paymentStatus === "paid" ? "PAID" : "PENDING"}
+            </Text>
+          </View>
+        </View>
+
+        {booking.paymentStatus === "paid" ? (
+          <View style={styles.paymentCompletedBox}>
+            <Ionicons name="checkmark-done-circle" size={18} color="#027A48" />
+            <Text style={styles.paymentCompletedText}>
+              Payment confirmed via <Text style={{ fontWeight: "700" }}>{booking.paymentMethod === "COD" ? "Cash on Delivery" : "Online Payment (Razorpay)"}</Text>
+              {booking.cashCollectedAt ? ` on ${new Date(booking.cashCollectedAt).toLocaleString()}` : ""}.
+            </Text>
+          </View>
+        ) : (
+          <View style={{ marginTop: 10, gap: 10 }}>
+            <Text style={styles.paymentSelectLabel}>Payment Method:</Text>
+
+            {/* COD Option */}
+            <Pressable
+              style={[
+                styles.paymentOptionCard,
+                (booking.paymentMethod || "COD") === "COD" && styles.paymentOptionCardActive
+              ]}
+              disabled={switchingPayment}
+              onPress={() => handleSwitchPaymentMethod("COD")}
+            >
+              <View style={styles.paymentRadioRow}>
+                <View
+                  style={[
+                    styles.radioDot,
+                    (booking.paymentMethod || "COD") === "COD" && styles.radioDotActive
+                  ]}
+                >
+                  {(booking.paymentMethod || "COD") === "COD" ? (
+                    <View style={styles.radioDotInner} />
+                  ) : null}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={styles.paymentOptionTitle}>Cash on Delivery (COD)</Text>
+                    <View style={styles.badgeCash}>
+                      <Text style={styles.badgeCashText}>Cash</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.paymentOptionDesc}>
+                    Pay the driver in cash according to the booking payment terms.
+                  </Text>
+                </View>
+                <MaterialCommunityIcons
+                  name="cash-multiple"
+                  size={24}
+                  color={(booking.paymentMethod || "COD") === "COD" ? colors.primary : colors.textMuted}
+                />
+              </View>
+            </Pressable>
+
+            {/* Online Option */}
+            <Pressable
+              style={[
+                styles.paymentOptionCard,
+                booking.paymentMethod === "ONLINE" && styles.paymentOptionCardActive
+              ]}
+              disabled={switchingPayment}
+              onPress={() => handleSwitchPaymentMethod("ONLINE")}
+            >
+              <View style={styles.paymentRadioRow}>
+                <View
+                  style={[
+                    styles.radioDot,
+                    booking.paymentMethod === "ONLINE" && styles.radioDotActive
+                  ]}
+                >
+                  {booking.paymentMethod === "ONLINE" ? (
+                    <View style={styles.radioDotInner} />
+                  ) : null}
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Text style={styles.paymentOptionTitle}>Pay Online (Razorpay)</Text>
+                    <View style={styles.badgeDigital}>
+                      <Text style={styles.badgeDigitalText}>Digital</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.paymentOptionDesc}>
+                    Pay securely with UPI, Credit/Debit Card, or Net Banking.
+                  </Text>
+                </View>
+                <Ionicons
+                  name="card-outline"
+                  size={22}
+                  color={booking.paymentMethod === "ONLINE" ? colors.primary : colors.textMuted}
+                />
+              </View>
+            </Pressable>
+
+            {booking.paymentMethod === "ONLINE" && paymentEnabled ? (
+              <Button
+                title="Pay Online (Razorpay)"
+                loading={busy}
+                icon={<Ionicons name="card-outline" size={16} color={colors.white} />}
+                onPress={createPaymentOrder}
+                style={{ marginTop: 4 }}
+              />
+            ) : (
+              <View style={styles.codNoticeBox}>
+                <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
+                <Text style={styles.codNoticeText}>
+                  Pay the driver in cash according to the booking payment terms.
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+      </Card>
+
       {error ? <Notice message={error} /> : null}
 
       {/* ACTIONS */}
@@ -430,8 +597,8 @@ export default function BookingDetailsScreen({ route, navigation }) {
           />
         ) : null}
 
-        {/* ONLINE PAYMENT IF ENABLED */}
-        {paymentEnabled && booking.paymentStatus !== "paid" && paymentStatus?.paymentStatus !== "success" ? (
+        {/* ONLINE PAYMENT IF ENABLED AND METHOD IS ONLINE */}
+        {paymentEnabled && booking.paymentMethod === "ONLINE" && booking.paymentStatus !== "paid" && paymentStatus?.paymentStatus !== "success" ? (
           <Button
             title="Pay Online"
             loading={busy}
@@ -681,5 +848,152 @@ const styles = StyleSheet.create({
     color: colors.danger,
     fontSize: 13,
     fontWeight: "700"
+  },
+  billingSummaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 8
+  },
+  billingAmountLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: "500"
+  },
+  billingAmountValue: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "800",
+    marginTop: 2
+  },
+  statusBadgeBase: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6
+  },
+  statusBadgeTextBase: {
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  paidBadge: {
+    backgroundColor: colors.badgePaidBg || "#D1FADF"
+  },
+  paidBadgeText: {
+    color: colors.badgePaidText || "#027A48"
+  },
+  pendingBadge: {
+    backgroundColor: colors.badgePendingBg || "#FEF0C7"
+  },
+  pendingBadgeText: {
+    color: colors.badgePendingText || "#B54708"
+  },
+  paymentCompletedBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: colors.badgePaidBg || "#D1FADF",
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 10
+  },
+  paymentCompletedText: {
+    flex: 1,
+    color: colors.badgePaidText || "#027A48",
+    fontSize: 12,
+    lineHeight: 16
+  },
+  paymentSelectLabel: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 2
+  },
+  paymentOptionCard: {
+    borderWidth: 1.5,
+    borderColor: colors.line,
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: colors.surface
+  },
+  paymentOptionCardActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.surfaceAlt
+  },
+  paymentRadioRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12
+  },
+  radioDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: colors.line,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  radioDotActive: {
+    borderColor: colors.primary
+  },
+  radioDotInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.primary
+  },
+  paymentOptionTitle: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "700"
+  },
+  paymentOptionDesc: {
+    color: colors.textMuted,
+    fontSize: 12,
+    marginTop: 2,
+    lineHeight: 16
+  },
+  badgeCash: {
+    backgroundColor: colors.badgePaidBg || "#D1FADF",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4
+  },
+  badgeCashText: {
+    color: colors.badgePaidText || "#027A48",
+    fontSize: 10,
+    fontWeight: "700"
+  },
+  badgeDigital: {
+    backgroundColor: colors.badgePendingBg || "#E0F2FE",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4
+  },
+  badgeDigitalText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontWeight: "700"
+  },
+  codNoticeBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4,
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceAlt
+  },
+  codNoticeText: {
+    flex: 1,
+    color: colors.textLight,
+    fontSize: 12,
+    lineHeight: 16
   }
 });

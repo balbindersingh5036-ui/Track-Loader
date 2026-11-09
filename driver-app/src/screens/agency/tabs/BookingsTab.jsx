@@ -208,10 +208,15 @@ export default function BookingsTab({
 
                 <View style={{ alignItems: 'flex-end', gap: 2 }}>
                   <Text style={styles.fareAmount}>₹{fare}</Text>
-                  <StatusBadge
-                    status={booking.assignmentStatus || booking.bookingStatus}
-                    size="sm"
-                  />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Text style={{ color: theme.colors.muted, fontSize: 10, fontWeight: '700' }}>
+                      {booking.paymentMethod === 'ONLINE' ? 'ONLINE' : 'COD'}
+                    </Text>
+                    <StatusBadge
+                      status={booking.paymentStatus || 'pending'}
+                      size="sm"
+                    />
+                  </View>
                 </View>
               </View>
 
@@ -466,6 +471,7 @@ export default function BookingsTab({
               <Text style={styles.detailsText}>Travel: {selectedBookingForDetails?.preferredPickupDate ? new Date(selectedBookingForDetails.preferredPickupDate).toLocaleString() : 'Not specified'} {selectedBookingForDetails?.preferredPickupTime || ''}</Text>
               <Text style={styles.detailsText}>Vehicle category: {selectedBookingForDetails?.vehicleType || 'Not specified'}</Text>
               <Text style={styles.detailsText}>Fare: ₹{selectedBookingForDetails?.finalFare || selectedBookingForDetails?.estimatedFare || 0}</Text>
+              <Text style={styles.detailsText}>Payment: {(selectedBookingForDetails?.paymentMethod || 'COD') === 'COD' ? 'Cash on Delivery (COD)' : 'Pay Online (Razorpay)'} · {selectedBookingForDetails?.paymentStatus?.toUpperCase() || 'PENDING'}</Text>
               <Text style={styles.detailsText}>Booking status: {selectedBookingForDetails?.bookingStatus || 'Unknown'}</Text>
               <Text style={styles.detailsText}>Assignment status: {selectedBookingForDetails?.assignmentStatus || 'unassigned'}</Text>
               <Text style={styles.detailsText}>Driver: {selectedBookingForDetails?.driver?.fullName || selectedBookingForDetails?.driver?.name || 'Unassigned'}</Text>

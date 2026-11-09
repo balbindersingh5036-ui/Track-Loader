@@ -12,6 +12,10 @@ export const paymentService = {
   async getPaymentStatus(bookingId) {
     const { data } = await api.get(`/payments/${encodeURIComponent(bookingId)}`);
     return data.data;
+  },
+  async updatePaymentMethod(bookingId, paymentMethod) {
+    const { data } = await api.patch(`/payments/${encodeURIComponent(bookingId)}/payment-method`, { paymentMethod });
+    return data.data;
   }
 };
 export default paymentService;

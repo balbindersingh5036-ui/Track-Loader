@@ -24,6 +24,7 @@ import { getActualDriverUserFilter, isActualDriverProfile } from "../utils/actua
 import { notifyCustomer, notifyDriver } from "../services/notificationService.js";
 import { emitToUser } from "../sockets/socket.js";
 import { extractCloudinaryAssetInfo, generateSignedDocumentUrl } from "../utils/documentSigner.js";
+import { isValidVehicleModel, formatFullVehicleModel } from "../utils/vehicleValidation.js";
 import {
   removeUploadedAsset,
   uploadPrivateDocument,
@@ -487,6 +488,7 @@ export const createAgencyVehicle = async (req, res) => {
 
     const {
       vehicleNumber,
+      vehicleMake,
       vehicleModel,
       vehicleType,
       loadCapacity,
@@ -499,6 +501,11 @@ export const createAgencyVehicle = async (req, res) => {
 
     if (!vehicleNumber || !vehicleModel || !vehicleType || !parsedCapacity) {
       return errorResponse(res, "Required vehicle details missing", 400);
+    }
+
+    const fullModel = formatFullVehicleModel(vehicleMake, vehicleModel);
+    if (!isValidVehicleModel(fullModel, vehicleNumber)) {
+      return errorResponse(res, "Please provide a valid vehicle make and model (e.g. Tata Ace Gold, Mahindra Jeeto). Numbers or plate codes are not allowed.", 400);
     }
     if (vehicleImage !== undefined && typeof vehicleImage !== "string") {
       return errorResponse(res, "Vehicle image must be a URL string", 400);
@@ -526,7 +533,8 @@ export const createAgencyVehicle = async (req, res) => {
     const vehicle = await Vehicle.create({
       agency: agency._id,
       vehicleNumber: vehicleNumber.trim().toUpperCase(),
-      vehicleModel: vehicleModel.trim(),
+      vehicleMake: (vehicleMake || "").trim(),
+      vehicleModel: fullModel,
       vehicleType,
       loadCapacity: parsedCapacity,
       bodyType: bodyType || "open",
@@ -574,6 +582,7 @@ export const updateAgencyVehicle = async (req, res) => {
     }
 
     const {
+      vehicleMake,
       vehicleModel,
       vehicleType,
       loadCapacity,
@@ -597,7 +606,22 @@ export const updateAgencyVehicle = async (req, res) => {
       req.body.isActive = isActive === "true";
     }
 
-    if (vehicleModel) vehicle.vehicleModel = vehicleModel.trim();
+    if (vehicleModel !== undefined || vehicleMake !== undefined) {
+      const rawModel = vehicleModel !== undefined ? (vehicleModel || "").trim() : "";
+      if (vehicleModel !== undefined && !isValidVehicleModel(rawModel, vehicle.vehicleNumber, vehicle._id)) {
+        return errorResponse(res, "Please provide a valid vehicle make and model (e.g. Tata Ace Gold, Mahindra Jeeto). Numbers or plate codes are not allowed.", 400);
+      }
+      const existingMake = vehicle.vehicleMake || "";
+      const make = vehicleMake !== undefined ? (vehicleMake || "").trim() : existingMake;
+      const model = vehicleModel !== undefined ? rawModel : vehicle.vehicleModel;
+      const fullModel = formatFullVehicleModel(make, model);
+
+      if (!isValidVehicleModel(fullModel, vehicle.vehicleNumber, vehicle._id)) {
+        return errorResponse(res, "Please provide a valid vehicle make and model (e.g. Tata Ace Gold, Mahindra Jeeto). Numbers or plate codes are not allowed.", 400);
+      }
+      vehicle.vehicleModel = fullModel;
+      if (make) vehicle.vehicleMake = make;
+    }
     if (vehicleType) vehicle.vehicleType = vehicleType;
     if (parsedCapacity) vehicle.loadCapacity = parsedCapacity;
     if (bodyType) vehicle.bodyType = bodyType;

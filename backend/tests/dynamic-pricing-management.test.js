@@ -10,6 +10,7 @@ import Booking from "../src/models/Booking.js";
 import SystemSetting from "../src/models/SystemSetting.js";
 import { generateToken } from "../src/utils/generateToken.js";
 import { clearCache } from "../src/services/systemSettingService.js";
+import { env } from "../src/config/env.js";
 import * as fareService from "../src/services/fareService.js";
 
 describe("Dynamic Vehicle Pricing Management System", () => {
@@ -208,7 +209,9 @@ describe("Dynamic Vehicle Pricing Management System", () => {
   it("5. Unconfigured Super Admin returns 503 failsafe", async () => {
     const targetFare = await Fare.findOne({ vehicleType: "medium-truck" });
     const currentSuperAdmin = process.env.SUPER_ADMIN_USER_ID;
+    const currentEnvSuperAdmin = env.superAdminUserId;
     delete process.env.SUPER_ADMIN_USER_ID;
+    env.superAdminUserId = "";
 
     try {
       const res = await request(app)
@@ -220,6 +223,7 @@ describe("Dynamic Vehicle Pricing Management System", () => {
       assert.match(res.body.message, /not configured/i);
     } finally {
       process.env.SUPER_ADMIN_USER_ID = currentSuperAdmin;
+      env.superAdminUserId = currentEnvSuperAdmin;
     }
   });
 

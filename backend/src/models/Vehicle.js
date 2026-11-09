@@ -52,6 +52,12 @@ const vehicleSchema = new mongoose.Schema(
       index: true
     },
 
+    vehicleMake: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+
     vehicleModel: {
       type: String,
       required: true,

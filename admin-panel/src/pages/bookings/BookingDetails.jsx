@@ -83,6 +83,8 @@ export default function BookingDetails() {
   const [payment, setPayment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionSuccess, setActionSuccess] = useState('');
 
   const loadBooking = useCallback(async () => {
     setLoading(true);
@@ -99,6 +101,24 @@ export default function BookingDetails() {
       setLoading(false);
     }
   }, [id]);
+
+  const handleConfirmCashCollection = async () => {
+    if (!window.confirm(`Confirm cash collection of ${formatMoney(booking.finalFare || booking.estimatedFare)} for booking #${booking.bookingId}?`)) {
+      return;
+    }
+    setActionLoading(true);
+    setError('');
+    setActionSuccess('');
+    try {
+      await bookingService.confirmCashCollection(booking._id, 'Confirmed by Super Admin');
+      setActionSuccess('Cash collection confirmed successfully.');
+      await loadBooking();
+    } catch (err) {
+      setError(err.response?.data?.message || err.message || 'Failed to record cash collection.');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   useEffect(() => { loadBooking(); }, [loadBooking]);
 
@@ -146,6 +166,11 @@ export default function BookingDetails() {
       </header>
 
       {error && <div className="booking-alert" role="alert"><XCircle size={18} /><span>{error}</span><button type="button" onClick={loadBooking}>Retry</button></div>}
+      {actionSuccess && (
+        <div className="booking-alert" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', borderColor: '#10b981', color: '#10b981' }} role="status">
+          <Check size={18} /><span>{actionSuccess}</span>
+        </div>
+      )}
 
       <BookingTimeline booking={booking} />
 
@@ -219,15 +244,35 @@ export default function BookingDetails() {
           </div>
           <div className="booking-info-grid booking-payment-grid">
             <InfoField label="Payment status">{titleCase(booking.paymentStatus)}</InfoField>
-            <InfoField label="Payment method">{titleCase(payment?.method || (booking.paymentStatus === 'cash' ? 'cash' : null))}</InfoField>
+            <InfoField label="Payment method">
+              {booking.paymentMethod === 'COD'
+                ? 'Cash on Delivery (COD)'
+                : booking.paymentMethod === 'ONLINE'
+                  ? 'Online (Razorpay)'
+                  : titleCase(payment?.method || (booking.paymentStatus === 'cash' ? 'cash' : 'Not recorded'))}
+            </InfoField>
             <InfoField label="Recorded payment amount">{payment?.amount === null || payment?.amount === undefined ? 'Not available' : formatMoney(payment.amount)}</InfoField>
-            <InfoField label="Payment reference">{payment?.transactionId || payment?.orderId}</InfoField>
-            <InfoField label="Payment date">{paidDate}</InfoField>
+            <InfoField label="Payment reference">{payment?.transactionId || payment?.orderId || (booking.cashCollectedBy ? 'Direct Cash Collection' : null)}</InfoField>
+            <InfoField label="Payment date">{booking.cashCollectedAt ? formatTimestamp(booking.cashCollectedAt) : paidDate}</InfoField>
             <InfoField label="Refund status">{payment?.status === 'refunded' ? 'Refunded' : payment?.status ? 'Not refunded' : 'Not available'}</InfoField>
             <InfoField label="Refund amount">{payment?.refundAmount === null || payment?.refundAmount === undefined ? 'Not available' : formatMoney(payment.refundAmount)}</InfoField>
             <InfoField label="Cancellation charges">Not supported by booking data</InfoField>
           </div>
           {payment?.provider && <div className="booking-payment-provider"><CreditCard size={14} /> Provider: {payment.provider}</div>}
+
+          {booking.paymentMethod === 'COD' && booking.paymentStatus !== 'paid' && booking.bookingStatus !== 'cancelled' && (
+            <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color, #273549)' }}>
+              <button
+                type="button"
+                className="booking-button booking-button-primary"
+                disabled={actionLoading}
+                onClick={handleConfirmCashCollection}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff', fontWeight: 600, padding: '0.6rem 1rem', borderRadius: '6px', cursor: 'pointer' }}
+              >
+                <Check size={16} /> {actionLoading ? 'Recording…' : `Confirm Cash Collection (${formatMoney(booking.finalFare || booking.estimatedFare)})`}
+              </button>
+            </div>
+          )}
         </BookingCard>
 
         <BookingCard title="Booking activity" icon={Clock3} className="booking-activity-card">

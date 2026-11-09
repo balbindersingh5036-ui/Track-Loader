@@ -18,6 +18,17 @@ import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 import ConfirmationModal from '../components/ConfirmationModal';
 
+const isValidModelName = (model, vehicleNumber) => {
+  if (!model || typeof model !== 'string') return false;
+  const trimmed = model.trim();
+  if (trimmed.length < 2) return false;
+  if (!/[a-zA-Z]/.test(trimmed)) return false;
+  if (/^[0-9\s.,-]+$/.test(trimmed)) return false;
+  if (/^[0-9a-fA-F]{24}$/.test(trimmed)) return false;
+  if (vehicleNumber && trimmed.toUpperCase() === String(vehicleNumber).trim().toUpperCase()) return false;
+  return true;
+};
+
 const getVehiclePhotos = (vehicle) => {
   const photos = Array.isArray(vehicle?.vehicleImages)
     ? vehicle.vehicleImages.filter((photo) => typeof photo === 'string' && photo)
@@ -39,7 +50,7 @@ function VehiclePhotoGrid({ photos, onAdd, onRemove, onReplace, progress = 0, di
     if (Platform.OS === 'web' && photo.file && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
       try {
         return URL.createObjectURL(photo.file);
-      } catch {}
+      } catch { }
     }
     return photo.uri || null;
   };
@@ -159,6 +170,7 @@ export default function FleetTab({
   // Add vehicle form state
   const [vehicleForm, setVehicleForm] = useState({
     vehicleNumber: '',
+    vehicleMake: '',
     vehicleModel: '',
     vehicleType: 'mini-truck',
     capacity: '',
@@ -188,7 +200,7 @@ export default function FleetTab({
       if (Platform.OS === 'web' && asset.file && typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
         try {
           previewUri = URL.createObjectURL(asset.file);
-        } catch {}
+        } catch { }
       }
       return {
         uri: previewUri || asset.uri,
@@ -303,22 +315,36 @@ export default function FleetTab({
   const handleSaveAddVehicle = async () => {
     if (isSubmitting || Boolean(saving)) return;
     const capacity = Number(vehicleForm.capacity);
-    if (!vehicleForm.vehicleNumber.trim() || !vehicleForm.vehicleModel.trim() || !Number.isFinite(capacity) || capacity <= 0) {
-      setFormError('Please enter a vehicle number, model, and valid positive load capacity.');
+    const make = vehicleForm.vehicleMake.trim();
+    const model = vehicleForm.vehicleModel.trim();
+    const fullModel = make && !model.toLowerCase().startsWith(make.toLowerCase())
+      ? `${make} ${model}`
+      : model;
+
+    if (!vehicleForm.vehicleNumber.trim() || !fullModel || !Number.isFinite(capacity) || capacity <= 0) {
+      setFormError('Please enter a vehicle registration number, model, and valid positive load capacity.');
       return;
     }
+
+    if (!isValidModelName(fullModel, vehicleForm.vehicleNumber)) {
+      setFormError('Please enter a valid vehicle make and model (e.g. Tata Ace Gold, Mahindra Jeeto). Numbers or plate codes are not allowed.');
+      return;
+    }
+
     setFormError('');
     setIsSubmitting(true);
     try {
       await onAddVehicle({
         vehicleNumber: vehicleForm.vehicleNumber.trim(),
-        vehicleModel: vehicleForm.vehicleModel.trim(),
+        vehicleMake: make,
+        vehicleModel: fullModel,
         vehicleType: vehicleForm.vehicleType,
         loadCapacity: { value: capacity, unit: vehicleForm.capacityUnit },
         bodyType: vehicleForm.bodyType
       }, vehiclePhotos, setPhotoProgress);
       setVehicleForm({
         vehicleNumber: '',
+        vehicleMake: '',
         vehicleModel: '',
         vehicleType: 'mini-truck',
         capacity: '',
@@ -338,9 +364,22 @@ export default function FleetTab({
   const handleSaveEditVehicle = async () => {
     if (!editingVehicle || isSubmitting || Boolean(saving)) return;
     const capacity = Number(editingVehicle.capacity);
-    if (!editingVehicle.vehicleModel.trim() || !Number.isFinite(capacity) || capacity <= 0) {
+    const make = (editingVehicle.vehicleMake || '').trim();
+    const model = (editingVehicle.vehicleModel || '').trim();
+    const fullModel = make && !model.toLowerCase().startsWith(make.toLowerCase())
+      ? `${make} ${model}`
+      : model;
+
+    if (!fullModel || !Number.isFinite(capacity) || capacity <= 0) {
+      setFormError('Please enter a valid vehicle model and positive load capacity.');
       return;
     }
+
+    if (!isValidModelName(fullModel, editingVehicle.vehicleNumber)) {
+      setFormError('Please enter a valid vehicle make and model (e.g. Tata Ace Gold, Mahindra Jeeto). Numbers or plate codes are not allowed.');
+      return;
+    }
+
     setFormError('');
     setPhotoProgress(0);
     setIsSubmitting(true);
@@ -348,7 +387,8 @@ export default function FleetTab({
     const newPhotos = editingVehicle.photos.filter((photo) => typeof photo !== 'string');
     try {
       await onUpdateVehicle(editingVehicle.id, {
-        vehicleModel: editingVehicle.vehicleModel.trim(),
+        vehicleMake: make,
+        vehicleModel: fullModel,
         vehicleType: editingVehicle.vehicleType,
         loadCapacity: { value: capacity, unit: editingVehicle.capacityUnit },
         bodyType: editingVehicle.bodyType
@@ -611,6 +651,8 @@ export default function FleetTab({
                 <Pressable
                   onPress={() => setEditingVehicle({
                     id: vehicle._id,
+                    vehicleNumber: vehicle.vehicleNumber || '',
+                    vehicleMake: vehicle.vehicleMake || '',
                     vehicleModel: vehicle.vehicleModel || '',
                     vehicleType: vehicle.vehicleType || 'mini-truck',
                     capacity: String(vehicle.loadCapacity?.value || ''),
@@ -690,11 +732,22 @@ export default function FleetTab({
               </View>
 
               <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Vehicle Make / Brand (Optional)</Text>
+                <TextInput
+                  value={vehicleForm.vehicleMake}
+                  onChangeText={(val) => setVehicleForm((p) => ({ ...p, vehicleMake: val }))}
+                  placeholder="e.g. Tata, Mahindra, Ashok Leyland"
+                  placeholderTextColor={theme.colors.muted}
+                  style={styles.modalInput}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Vehicle Model *</Text>
                 <TextInput
                   value={vehicleForm.vehicleModel}
                   onChangeText={(val) => setVehicleForm((p) => ({ ...p, vehicleModel: val }))}
-                  placeholder="e.g. Tata Ace Gold"
+                  placeholder="e.g. Tata Ace Gold, Mahindra Jeeto"
                   placeholderTextColor={theme.colors.muted}
                   style={styles.modalInput}
                 />
@@ -826,10 +879,23 @@ export default function FleetTab({
                   </View>
                 ) : null}
                 <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Model</Text>
+                  <Text style={styles.inputLabel}>Vehicle Make / Brand (Optional)</Text>
+                  <TextInput
+                    value={editingVehicle.vehicleMake || ''}
+                    onChangeText={(val) => setEditingVehicle((p) => ({ ...p, vehicleMake: val }))}
+                    placeholder="e.g. Tata, Mahindra, Ashok Leyland"
+                    placeholderTextColor={theme.colors.muted}
+                    style={styles.modalInput}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Vehicle Model *</Text>
                   <TextInput
                     value={editingVehicle.vehicleModel}
                     onChangeText={(val) => setEditingVehicle((p) => ({ ...p, vehicleModel: val }))}
+                    placeholder="e.g. Tata Ace Gold, Mahindra Jeeto"
+                    placeholderTextColor={theme.colors.muted}
                     style={styles.modalInput}
                   />
                 </View>

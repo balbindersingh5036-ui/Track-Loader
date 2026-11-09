@@ -455,8 +455,9 @@ export default function App() {
       if (action === 'reject') await bookingService.rejectBooking(id, 'Driver declined the request.');
       if (action === 'start') await bookingService.startTrip(id);
       if (action === 'complete') await bookingService.completeTrip(id);
+      if (action === 'collect-cash') await bookingService.confirmCashCollection(id, 'Cash collected by driver');
       if (action === 'accept') joinBookingRoom(id);
-      setNotice(`Booking ${action === 'start' ? 'trip started' : action === 'complete' ? 'completed' : `${action}ed`}.`);
+      setNotice(`Booking ${action === 'start' ? 'trip started' : action === 'complete' ? 'completed' : action === 'collect-cash' ? 'cash collection confirmed' : `${action}ed`}.`);
       setRefreshKey((key) => key + 1);
     } catch (actionError) {
       setError(messageFor(actionError));
@@ -1065,15 +1066,30 @@ export default function App() {
               </View>
             ) : null}
 
-            {trips.map((booking) => (
-              <BookingCard
-                key={booking._id}
-                booking={booking}
-                onAction={runAction}
-                actions={booking.bookingStatus === 'accepted' ? ['start'] : booking.bookingStatus === 'in-progress' ? ['complete'] : []}
-                actionLoading={actionLoadingId === booking._id}
-              />
-            ))}
+            {trips.map((booking) => {
+              const actions = [];
+              if (booking.bookingStatus === 'accepted') {
+                actions.push('start');
+              } else if (booking.bookingStatus === 'in-progress') {
+                actions.push('complete');
+              }
+              if (
+                (booking.bookingStatus === 'in-progress' || booking.bookingStatus === 'completed') &&
+                (booking.paymentMethod || 'COD') === 'COD' &&
+                booking.paymentStatus !== 'paid'
+              ) {
+                actions.push('collect-cash');
+              }
+              return (
+                <BookingCard
+                  key={booking._id}
+                  booking={booking}
+                  onAction={runAction}
+                  actions={actions}
+                  actionLoading={actionLoadingId === booking._id}
+                />
+              );
+            })}
           </>
         )}
 
@@ -1655,9 +1671,35 @@ function BookingCard({ booking, actions, onAction, actionLoading }) {
           Customer: {booking.customer.name || 'Customer'}{booking.customer.phone ? ` · ${booking.customer.phone}` : ''}
         </Text>
       ) : null}
-      <Text style={[mutedText, { fontSize: 12, marginTop: 6 }]}>
-        Payment: {booking.paymentStatus || 'pending'} · ₹{booking.finalFare || booking.estimatedFare || 0}
-      </Text>
+
+      {/* PAYMENT INFO */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, padding: 10, backgroundColor: colors.card2, borderRadius: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <MaterialCommunityIcons
+            name={(booking.paymentMethod || 'COD') === 'COD' ? 'cash-multiple' : 'credit-card-outline'}
+            size={18}
+            color={(booking.paymentMethod || 'COD') === 'COD' ? colors.green : colors.primary}
+          />
+          <Text style={{ color: colors.ink, fontSize: 12, fontWeight: '700' }}>
+            {(booking.paymentMethod || 'COD') === 'COD' ? 'Cash on Delivery (COD)' : 'Paid Online (Razorpay)'}
+          </Text>
+        </View>
+        <View style={{
+          backgroundColor: booking.paymentStatus === 'paid' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+          paddingHorizontal: 8,
+          paddingVertical: 3,
+          borderRadius: 4
+        }}>
+          <Text style={{
+            color: booking.paymentStatus === 'paid' ? colors.green : colors.warning,
+            fontSize: 11,
+            fontWeight: '800',
+            textTransform: 'uppercase'
+          }}>
+            {booking.paymentStatus === 'paid' ? 'PAID' : 'PENDING'}
+          </Text>
+        </View>
+      </View>
 
       {/* CUSTOMER NOTE */}
       {booking.customerNote ? (
@@ -1676,14 +1718,25 @@ function BookingCard({ booking, actions, onAction, actionLoading }) {
         <View style={{ flexDirection: 'row', gap: 12, marginTop: 18 }}>
           {actions.map((action) => {
             const isReject = action === 'reject';
-            const label = action === 'accept' ? 'Accept Booking' : action === 'start' ? 'Start Trip' : action === 'complete' ? 'Complete Trip' : 'Reject Booking';
+            const isCollectCash = action === 'collect-cash';
+            const label = action === 'accept'
+              ? 'Accept Booking'
+              : action === 'start'
+                ? 'Start Trip'
+                : action === 'complete'
+                  ? 'Complete Trip'
+                  : action === 'collect-cash'
+                    ? `Confirm Cash Collection (₹${booking.finalFare || booking.estimatedFare || 0})`
+                    : 'Reject Booking';
             return (
               <View key={action} style={!isReject ? { flex: 2 } : { flex: 1 }}>
                 <ActionButton
                   label={actionLoading ? 'Processing…' : label}
                   secondary={isReject}
+                  danger={false}
                   disabled={actionLoading}
                   onPress={() => onAction(action, booking)}
+                  style={isCollectCash ? { backgroundColor: colors.green, borderColor: colors.green } : {}}
                   textStyle={!isReject ? { color: '#000000', fontWeight: '800' } : {}}
                 />
               </View>
