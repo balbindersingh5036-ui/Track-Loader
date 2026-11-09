@@ -2,12 +2,12 @@
   "expo": {
     "name": "LoadBalbin Customer",
     "slug": "loadbalbin-customer",
-    "version": "1.0.1",
+    "version": "1.0.3",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "android": {
       "package": "com.loadbalbin.customer",
-      "versionCode": 4,
+      "versionCode": 6,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION"

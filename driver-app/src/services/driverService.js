@@ -18,6 +18,7 @@ export const driverService = {
       onUploadProgress
     }),
   updateLocation: (coords) => api.patch('/driver/location', coords),
+  getRatings: (params) => api.get('/driver/ratings', { params }),
   /**
    * On-demand single location snapshot.
    * Never runs continuous background tracking or causes battery drain.

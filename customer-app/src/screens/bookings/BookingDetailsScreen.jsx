@@ -10,6 +10,8 @@ import { joinBookingRoom, subscribeToBookingEvents } from "../../services/socket
 import { getErrorMessage } from "../../utils/errorMessage";
 import { Button, Card, Field, Heading, Loading, Notice, Screen, Status } from "../../components/Phase12UI";
 import { colors, shadows } from "../../theme/theme";
+import { getCleanVehicleDisplayName } from "../../utils/vehicleDisplay";
+import RazorpayCheckoutModal from "../../components/RazorpayCheckoutModal";
 
 export default function BookingDetailsScreen({ route, navigation }) {
   const bookingId = route.params?.bookingId || route.params?.id;
@@ -24,6 +26,8 @@ export default function BookingDetailsScreen({ route, navigation }) {
   const [paymentEnabled, setPaymentEnabled] = useState(false);
   const [hasRating, setHasRating] = useState(false);
   const [switchingPayment, setSwitchingPayment] = useState(false);
+  const [checkoutModalVisible, setCheckoutModalVisible] = useState(false);
+  const [activeCheckoutOrder, setActiveCheckoutOrder] = useState(null);
 
   const handleSwitchPaymentMethod = async (newMethod) => {
     if (!booking || switchingPayment) return;
@@ -136,90 +140,17 @@ export default function BookingDetailsScreen({ route, navigation }) {
     );
   };
 
-  const loadRazorpayScript = () => {
-    return new Promise((resolve) => {
-      if (typeof window === "undefined") return resolve(false);
-      if (window.Razorpay) return resolve(true);
-      const script = document.createElement("script");
-      script.src = "https://checkout.razorpay.com/v1/checkout.js";
-      script.async = true;
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
-  const launchRazorpayCheckout = async (order) => {
-    if (typeof window !== "undefined") {
-      const loaded = await loadRazorpayScript();
-      if (!loaded || !window.Razorpay) {
-        Alert.alert(
-          "Payment Order Created",
-          `Order ID: ${order.orderId}\nAmount: ₹${order.amount ? (order.amount / 100).toFixed(2) : booking.estimatedFare}\n\nPlease proceed to complete payment with your payment provider.`
-        );
-        return;
-      }
-
-      const options = {
-        key: order.keyId,
-        amount: order.amount,
-        currency: order.currency || "INR",
-        name: "LoadBalbin Logistics",
-        description: `Booking #${booking.bookingId}`,
-        order_id: order.orderId,
-        handler: async (response) => {
-          setBusy(true);
-          try {
-            await paymentService.verifyPayment({
-              bookingId: booking._id,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature
-            });
-            Alert.alert("Payment Successful", "Your payment was verified successfully!");
-            await load();
-          } catch (verifyErr) {
-            setError(getErrorMessage(verifyErr));
-          } finally {
-            setBusy(false);
-          }
-        },
-        modal: {
-          ondismiss: () => {
-            setBusy(false);
-          }
-        },
-        prefill: {
-          name: booking.customer?.fullName || booking.customer?.name || "",
-          contact: booking.customer?.phone || ""
-        },
-        theme: {
-          color: colors.primary || "#0071AB"
-        }
-      };
-
-      try {
-        const rzp = new window.Razorpay(options);
-        rzp.on("payment.failed", (response) => {
-          setError(response.error?.description || "Payment failed at gateway.");
-        });
-        rzp.open();
-      } catch (e) {
-        setError("Could not launch payment window. Please try again.");
-      }
-    } else {
-      Alert.alert(
-        "Payment Order Created",
-        `Order ID: ${order.orderId}\nAmount: ₹${order.amount ? (order.amount / 100).toFixed(2) : booking.estimatedFare}`
-      );
-    }
-  };
-
   const createPaymentOrder = async () => {
     if (!booking || busy) return;
     setBusy(true);
     setError("");
     try {
+      // Ensure backend booking paymentMethod is set to ONLINE before creating order
+      if (booking.paymentMethod !== "ONLINE") {
+        await paymentService.updatePaymentMethod(booking._id, "ONLINE");
+        setBooking((prev) => ({ ...prev, paymentMethod: "ONLINE" }));
+      }
+
       const order = await paymentService.createOrder(booking._id);
       if (!order?.orderId) {
         throw new Error("Payment order could not be established by the gateway.");
@@ -234,13 +165,55 @@ export default function BookingDetailsScreen({ route, navigation }) {
         // Safe fallback
       }
 
-      await launchRazorpayCheckout(order);
+      setActiveCheckoutOrder({
+        orderId: order.orderId,
+        amount: order.amount,
+        currency: order.currency || "INR",
+        keyId: order.keyId,
+        bookingRef: booking.bookingId || booking._id,
+        customerName: booking.customer?.fullName || booking.customer?.name || "",
+        customerPhone: booking.customer?.phone || ""
+      });
+      setCheckoutModalVisible(true);
     } catch (requestError) {
       setPaymentInfo(null);
       setError(getErrorMessage(requestError));
     } finally {
       setBusy(false);
     }
+  };
+
+  const handlePaymentSuccess = async (response) => {
+    setCheckoutModalVisible(false);
+    setBusy(true);
+    setError("");
+    try {
+      await paymentService.verifyPayment({
+        bookingId: booking._id,
+        razorpay_order_id: response.razorpay_order_id,
+        razorpay_payment_id: response.razorpay_payment_id,
+        razorpay_signature: response.razorpay_signature
+      });
+      Alert.alert("Payment Successful", "Your payment was verified successfully!");
+      await load();
+    } catch (verifyErr) {
+      setError(getErrorMessage(verifyErr));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handlePaymentError = (errPayload) => {
+    setCheckoutModalVisible(false);
+    const msg =
+      typeof errPayload === "string"
+        ? errPayload
+        : errPayload?.description || errPayload?.message || "Payment could not be completed.";
+    setError(msg);
+  };
+
+  const handlePaymentDismiss = () => {
+    setCheckoutModalVisible(false);
   };
 
   if (loading) {
@@ -375,9 +348,7 @@ export default function BookingDetailsScreen({ route, navigation }) {
         <View style={styles.vehicleInfoRow}>
           <Text style={styles.infoLabel}>Vehicle Model:</Text>
           <Text style={styles.infoValue}>
-            {booking.vehicle?.vehicleModel ||
-              booking.vehicleType?.replace(/-/g, " ") ||
-              "Fleet Standard"}
+            {getCleanVehicleDisplayName(booking, booking.vehicleType)}
           </Text>
         </View>
 
@@ -597,16 +568,6 @@ export default function BookingDetailsScreen({ route, navigation }) {
           />
         ) : null}
 
-        {/* ONLINE PAYMENT IF ENABLED AND METHOD IS ONLINE */}
-        {paymentEnabled && booking.paymentMethod === "ONLINE" && booking.paymentStatus !== "paid" && paymentStatus?.paymentStatus !== "success" ? (
-          <Button
-            title="Pay Online"
-            loading={busy}
-            icon={<Ionicons name="card-outline" size={16} color={colors.white} />}
-            onPress={createPaymentOrder}
-          />
-        ) : null}
-
         {/* CANCEL BOOKING (IF PERMITTED) */}
         {isCancellable ? (
           <View style={styles.cancelSection}>
@@ -645,6 +606,14 @@ export default function BookingDetailsScreen({ route, navigation }) {
           </View>
         ) : null}
       </View>
+
+      <RazorpayCheckoutModal
+        visible={checkoutModalVisible}
+        order={activeCheckoutOrder}
+        onSuccess={handlePaymentSuccess}
+        onError={handlePaymentError}
+        onDismiss={handlePaymentDismiss}
+      />
     </Screen>
   );
 }

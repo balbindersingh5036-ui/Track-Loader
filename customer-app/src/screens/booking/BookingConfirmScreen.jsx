@@ -6,6 +6,7 @@ import bookingService from "../../services/bookingService";
 import { Button, Card, Heading, Notice, Screen } from "../../components/Phase12UI";
 import { colors } from "../../theme/theme";
 import { getErrorMessage } from "../../utils/errorMessage";
+import { getCleanVehicleDisplayName, formatVehicleCategory } from "../../utils/vehicleDisplay";
 
 export default function BookingConfirmScreen({ route, navigation }) {
   const details = route.params || {};
@@ -25,9 +26,33 @@ export default function BookingConfirmScreen({ route, navigation }) {
     }
   }, [details.vehicleType]);
 
+  const distanceKm = Number(details.distanceKm) || 0;
+  const weightVal = Number(details.weight?.value) || 0;
+  const weightInTon = details.weight?.unit === "ton" ? weightVal : weightVal / 1000;
+  const distanceCharge = distanceKm * (fareEstimate?.perKmRate || 0);
+  const weightCharge = weightInTon * (fareEstimate?.perTonRate || 0);
+  const calculatedFare = distanceCharge + weightCharge;
+  const estimatedTotal = fareEstimate
+    ? Math.max(calculatedFare, fareEstimate.minimumFare || 0)
+    : null;
+
+  const resolvedVehicleModel = getCleanVehicleDisplayName(
+    details.vehicle || {
+      displayName: details.vehicle?.displayName,
+      vehicleModel: details.vehicle?.vehicleModel || details.vehicleModel,
+      vehicleType: details.vehicleType
+    }
+  );
+
   const submit = async () => {
     if (busy) return;
     setError("");
+
+    if (!distanceKm || distanceKm <= 0) {
+      setError("Valid road distance is required before confirming booking. Please return to the Route screen and re-select your pickup and drop locations.");
+      return;
+    }
+
     setBusy(true);
     try {
       try {
@@ -59,7 +84,8 @@ export default function BookingConfirmScreen({ route, navigation }) {
         preferredPickupTime: isInstant ? currentTime : details.preferredPickupTime,
         vehicleType: details.vehicleType,
         bookingMode,
-        paymentMethod
+        paymentMethod,
+        vehicleModel: resolvedVehicleModel
       };
       if (details.vehicleId) payload.vehicle = details.vehicleId;
       if (!details.vehicleId && details.agencyId) payload.agencyId = details.agencyId;
@@ -77,16 +103,6 @@ export default function BookingConfirmScreen({ route, navigation }) {
       setBusy(false);
     }
   };
-
-  const distanceKm = Number(details.distanceKm) || 0;
-  const weightVal = Number(details.weight?.value) || 0;
-  const weightInTon = details.weight?.unit === "ton" ? weightVal : weightVal / 1000;
-  const distanceCharge = distanceKm * (fareEstimate?.perKmRate || 0);
-  const weightCharge = weightInTon * (fareEstimate?.perTonRate || 0);
-  const calculatedFare = distanceCharge + weightCharge;
-  const estimatedTotal = fareEstimate
-    ? Math.max(calculatedFare, fareEstimate.minimumFare || 0)
-    : null;
 
   return (
     <Screen>
@@ -200,10 +216,10 @@ export default function BookingConfirmScreen({ route, navigation }) {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.vehicleTitle}>
-              {details.vehicle?.vehicleModel || "Automatic Driver Assignment"}
+              {resolvedVehicleModel}
             </Text>
             <Text style={styles.vehicleSubtitle}>
-              Category: {details.vehicleType?.replace(/-/g, " ")}
+              Category: {formatVehicleCategory(details.vehicleType)}
             </Text>
           </View>
         </View>
@@ -322,12 +338,20 @@ export default function BookingConfirmScreen({ route, navigation }) {
         </View>
       </Card>
 
+      {distanceKm <= 0 ? (
+        <Notice
+          type="error"
+          message="Road distance is 0 km. OpenRouteService distance could not be determined. Please go back to the Route screen to verify pickup and destination points."
+        />
+      ) : null}
+
       <Notice message={error} />
 
       <Button
         title="Confirm & Submit Request"
         icon={<Ionicons name="checkmark-circle" size={18} color={colors.white} />}
         loading={busy}
+        disabled={busy || distanceKm <= 0}
         onPress={submit}
         style={{ marginTop: 8 }}
       />

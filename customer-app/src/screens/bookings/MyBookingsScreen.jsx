@@ -12,6 +12,7 @@ import { joinBookingRoom, subscribeToBookingEvents } from "../../services/socket
 import { getErrorMessage } from "../../utils/errorMessage";
 import { Button, Card, Empty, Heading, Loading, Notice, Screen, Status } from "../../components/Phase12UI";
 import { colors, shadows } from "../../theme/theme";
+import { getCleanVehicleDisplayName } from "../../utils/vehicleDisplay";
 
 const filterTabs = [
   { label: "All", value: "" },
@@ -163,9 +164,7 @@ export default function MyBookingsScreen({ navigation }) {
                     ) : null}
                   </View>
                   <Text style={styles.vehicleType}>
-                    {booking.vehicle?.vehicleModel ||
-                      booking.vehicleType?.replace(/-/g, " ") ||
-                      "Fleet Vehicle"}
+                    {getCleanVehicleDisplayName(booking, booking.vehicleType)}
                   </Text>
                 </View>
                 <Status value={booking.bookingStatus} assignmentStatus={booking.assignmentStatus} assigned={Boolean(booking.driver)} />

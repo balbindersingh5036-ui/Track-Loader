@@ -9,7 +9,7 @@ import {
   TextInput,
   View
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { colors, shadows } from "../theme/theme";
 
@@ -24,9 +24,12 @@ export const Screen = ({
   edges = ["top", "left", "right"],
   contentContainerStyle
 }) => {
+  const insets = useSafeAreaInsets();
+  const safeBottom = Math.max(insets.bottom, 20) + 48;
+
   const content = scroll ? (
     <ScrollView
-      contentContainerStyle={[styles.content, contentContainerStyle, style]}
+      contentContainerStyle={[styles.content, { paddingBottom: safeBottom }, contentContainerStyle, style]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
       refreshControl={
@@ -43,7 +46,7 @@ export const Screen = ({
       {children}
     </ScrollView>
   ) : (
-    <View style={[styles.content, style]}>{children}</View>
+    <View style={[styles.content, { paddingBottom: safeBottom }, style]}>{children}</View>
   );
 
   return (

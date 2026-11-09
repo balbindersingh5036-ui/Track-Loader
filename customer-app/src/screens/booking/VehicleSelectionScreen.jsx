@@ -6,19 +6,9 @@ import fareService from "../../services/fareService";
 import { Button, Heading, Loading, Notice, Screen } from "../../components/Phase12UI";
 import { colors, shadows } from "../../theme/theme";
 import { getErrorMessage } from "../../utils/errorMessage";
+import { getCleanVehicleDisplayName, formatVehicleCategory } from "../../utils/vehicleDisplay";
 
-const CATEGORY_LABELS = {
-  "mini-truck": "Mini Truck",
-  "pickup": "Pickup Truck",
-  "small-truck": "Small Truck",
-  "medium-truck": "Medium Truck",
-  "large-truck": "Large Heavy Truck"
-};
-
-const formatCategory = (category) => {
-  if (!category) return "Commercial Vehicle";
-  return CATEGORY_LABELS[category] || category.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-};
+const formatCategory = (category) => formatVehicleCategory(category);
 
 const formatCapacity = (loadCapacity) => {
   if (!loadCapacity || loadCapacity.value == null) return "Standard Capacity";
@@ -26,43 +16,7 @@ const formatCapacity = (loadCapacity) => {
   return `Capacity: ${loadCapacity.value} ${unitStr}`;
 };
 
-/**
- * Resolves a proper vehicle display name.
- * Rejects arbitrary numeric strings (e.g. "300"), registration numbers, vehicle IDs, or capacity values.
- * Falls back to clean category-based fallback (e.g. "Mini Truck").
- */
-const getVehicleDisplayName = (vehicle) => {
-  if (!vehicle) return "Commercial Vehicle";
-
-  const rawModel = (vehicle.displayName || vehicle.vehicleModel || vehicle.model || "").trim();
-  const regNumber = (vehicle.vehicleNumber || "").trim();
-  const vehicleId = (vehicle._id || vehicle.id || "").toString().trim();
-  const capacityVal = vehicle.loadCapacity?.value != null ? String(vehicle.loadCapacity.value).trim() : "";
-
-  // Never use arbitrary numeric strings, registration numbers, vehicle IDs, or capacity as the vehicle name
-  const isNumericOnly = /^[0-9\s.,-]+$/.test(rawModel);
-  const hasLetters = /[a-zA-Z]/.test(rawModel);
-  const isObjectId = /^[0-9a-fA-F]{24}$/.test(rawModel);
-  const matchesReg = Boolean(regNumber && rawModel.toUpperCase() === regNumber.toUpperCase());
-  const matchesId = Boolean(vehicleId && rawModel === vehicleId);
-  const matchesCapacity = Boolean(capacityVal && (rawModel === capacityVal || rawModel === `${capacityVal}kg` || rawModel === `${capacityVal}ton`));
-
-  const isValidModelName =
-    rawModel.length >= 2 &&
-    hasLetters &&
-    !isNumericOnly &&
-    !isObjectId &&
-    !matchesReg &&
-    !matchesId &&
-    !matchesCapacity;
-
-  if (isValidModelName) {
-    return rawModel;
-  }
-
-  // Fallback to clean, category-based name
-  return formatCategory(vehicle.vehicleType);
-};
+const getVehicleDisplayName = (vehicle) => getCleanVehicleDisplayName(vehicle);
 
 /**
  * Determines whether a registration plate is valid to display separately.
@@ -184,7 +138,15 @@ export default function VehicleSelectionScreen({ route, navigation }) {
 
   const continueToConfirm = () => {
     const selected = cargoCompatibleVehicles.find((vehicle) => vehicle._id === selectedId) || cargoCompatibleVehicles[0];
-    if (!selected) return;
+    if (!selected) {
+      setError("Please select an eligible vehicle to continue.");
+      return;
+    }
+
+    if (!distanceKm || distanceKm <= 0) {
+      setError("Road distance is required to calculate fare. Please return to the Route screen to verify locations.");
+      return;
+    }
 
     const selectedAgencyId = selected.agency?._id || selected.agency || null;
     const estimatedFare = fareQuotes[selected.vehicleType] ?? null;
@@ -192,6 +154,7 @@ export default function VehicleSelectionScreen({ route, navigation }) {
 
     navigation.navigate("BookingConfirm", {
       ...route.params,
+      distanceKm,
       vehicleType: selected.vehicleType || route.params?.vehicleType || "mini-truck",
       vehicleId: selected._id,
       agencyId: selectedAgencyId,
@@ -244,7 +207,12 @@ export default function VehicleSelectionScreen({ route, navigation }) {
             <Text style={styles.metricText}>Cargo: <Text style={styles.metricBold}>{weightObj?.value} {weightObj?.unit}</Text></Text>
           </View>
         </View>
-      ) : null}
+      ) : (
+        <Notice
+          type="error"
+          message="Road distance is 0 or could not be determined. Please go back to the Route screen and re-select your pickup and drop locations."
+        />
+      )}
 
       {loading ? (
         <Loading label="Finding available vehicles..." />
@@ -367,7 +335,7 @@ export default function VehicleSelectionScreen({ route, navigation }) {
           icon={<Ionicons name="arrow-forward" size={16} color={colors.white} />}
           iconPosition="right"
           onPress={continueToConfirm}
-          disabled={!selectedId}
+          disabled={!selectedId || !distanceKm}
           style={{ marginTop: 16 }}
         />
       ) : null}

@@ -43,13 +43,13 @@ const tabs = [
   { id: 'Profile', icon: 'account-outline', activeIcon: 'account', label: 'Profile', family: 'MaterialCommunityIcons' }
 ];
 
-const colors = { 
-  ink: '#FFFFFF', 
-  muted: '#8A98A8', 
+const colors = {
+  ink: '#FFFFFF',
+  muted: '#8A98A8',
   teal: '#14B8A6',
-  green: '#22C55E', 
-  border: '#25364A', 
-  bg: '#08111F', 
+  green: '#22C55E',
+  border: '#25364A',
+  bg: '#08111F',
   danger: '#EF4444',
   primary: '#08A9F5',
   accent: '#FF7A00',
@@ -149,7 +149,7 @@ function Login({ onLogin, onRetry, onRegister, onAgencyRegister, initialError, i
             </Pressable>
           ))}
         </View>
-        
+
         <TextInput
           accessibilityLabel="Phone number or email"
           value={identifier}
@@ -161,7 +161,7 @@ function Login({ onLogin, onRetry, onRegister, onAgencyRegister, initialError, i
           autoCorrect={false}
           style={inputStyle}
         />
-        
+
         <View style={{ position: 'relative', justifyContent: 'center' }}>
           <TextInput
             accessibilityLabel="Password"
@@ -183,12 +183,12 @@ function Login({ onLogin, onRetry, onRegister, onAgencyRegister, initialError, i
         </View>
 
         {error ? <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
-        
-        <ActionButton 
-          label={loading ? 'Signing in…' : 'Sign in'} 
-          onPress={submit} 
-          disabled={loading || !identifier.trim() || !password} 
-          style={{ backgroundColor: colors.primary, borderColor: colors.primary }} 
+
+        <ActionButton
+          label={loading ? 'Signing in…' : 'Sign in'}
+          onPress={submit}
+          disabled={loading || !identifier.trim() || !password}
+          style={{ backgroundColor: colors.primary, borderColor: colors.primary }}
         />
         <Pressable accessibilityRole="button" onPress={onRegister} style={{ padding: 6, alignItems: 'center' }}>
           <Text style={{ color: colors.primary, fontWeight: '700' }}>Register as a driver</Text>
@@ -196,7 +196,7 @@ function Login({ onLogin, onRetry, onRegister, onAgencyRegister, initialError, i
         <Pressable accessibilityRole="button" onPress={onAgencyRegister} style={{ padding: 6, alignItems: 'center' }}>
           <Text style={{ color: colors.primary, fontWeight: '700' }}>Register as an Agency Owner</Text>
         </Pressable>
-        
+
         {initialError && onRetry ? (
           <ActionButton label="Retry previous session" secondary onPress={onRetry} disabled={loading} />
         ) : null}
@@ -250,6 +250,23 @@ export default function App() {
   const [agenciesLoading, setAgenciesLoading] = useState(false);
   const [changeAgencySubmitting, setChangeAgencySubmitting] = useState(false);
   const [changeAgencyError, setChangeAgencyError] = useState('');
+  const [selectedTripDetails, setSelectedTripDetails] = useState(null);
+  const [tripFilter, setTripFilter] = useState('all');
+  const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
+  const [driverRatingsData, setDriverRatingsData] = useState(null);
+  const [ratingsLoading, setRatingsLoading] = useState(false);
+
+  const fetchRatings = useCallback(async () => {
+    setRatingsLoading(true);
+    try {
+      const res = await driverService.getRatings();
+      setDriverRatingsData(res.data?.data || null);
+    } catch (err) {
+      // quiet fallback
+    } finally {
+      setRatingsLoading(false);
+    }
+  }, []);
 
   const logout = useCallback(async () => {
     disconnectSocket();
@@ -367,9 +384,12 @@ export default function App() {
           : current);
 
         if (activeTab === 'Home') {
-          const summaryResponse = await earningsService.getSummary()
-            .catch(() => ({ data: { data: null } }));
+          const [summaryResponse, tripsResponse] = await Promise.all([
+            earningsService.getSummary().catch(() => ({ data: { data: null } })),
+            bookingService.getMyBookings({ page: 1, limit: 10 }).catch(() => ({ data: { data: { bookings: [] } } }))
+          ]);
           setEarningsSummary(summaryResponse.data?.data || null);
+          setTrips(tripsResponse.data?.data?.bookings || []);
         }
 
         if (!eligibility.eligible) return;
@@ -395,6 +415,7 @@ export default function App() {
         setDriver(driverProfile);
         setBookingEligibility(getDriverBookingEligibility(driverProfile));
         setProfile(driverProfile);
+        fetchRatings();
       }
     } catch (loadError) {
       setError(messageFor(loadError));
@@ -402,7 +423,7 @@ export default function App() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [activeTab, refreshKey, user, fetchUnreadNotificationsCount]);
+  }, [activeTab, refreshKey, user, fetchUnreadNotificationsCount, fetchRatings]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -411,7 +432,7 @@ export default function App() {
       disconnectSocket();
       return undefined;
     }
-    let unsubscribe = () => {};
+    let unsubscribe = () => { };
     try {
       const activeSocket = connectSocket(token, user?.role);
       if (!activeSocket) {
@@ -658,7 +679,7 @@ export default function App() {
       </SafeAreaView>
     );
   }
-  
+
   if (!user) {
     if (showAgencyRegistration) {
       return (
@@ -891,7 +912,7 @@ export default function App() {
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: driver?.isOnline ? colors.green : colors.muted }} />
             <Text style={{ color: driver?.isOnline ? colors.green : colors.muted, fontWeight: '700', fontSize: 10 }}>{driver?.isOnline ? 'ONLINE' : 'OFFLINE'}</Text>
           </View>
-          <Pressable 
+          <Pressable
             accessibilityLabel="Notifications"
             onPress={openNotifications}
             style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', position: 'relative' }}
@@ -986,6 +1007,239 @@ export default function App() {
               </View>
             </View>
 
+            {/* QUICK ACTIONS ROW */}
+            <View style={{ marginTop: 12 }}>
+              <Text style={[sectionTitle, { marginBottom: 8 }]}>QUICK ACTIONS</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setActiveTab('Requests')}
+                  style={[cardStyle, { flex: 1, padding: 10, alignItems: 'center', justifyContent: 'center' }]}
+                >
+                  <View style={{ position: 'relative' }}>
+                    <Ionicons name="cube-outline" size={22} color={colors.primary} />
+                    {requests.length > 0 && (
+                      <View style={{ position: 'absolute', top: -4, right: -10, backgroundColor: colors.accent, borderRadius: 8, paddingHorizontal: 4, paddingVertical: 1 }}>
+                        <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>{requests.length}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 11, marginTop: 4 }}>Requests</Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setActiveTab('Trips')}
+                  style={[cardStyle, { flex: 1, padding: 10, alignItems: 'center', justifyContent: 'center' }]}
+                >
+                  <MaterialCommunityIcons name="truck-outline" size={22} color={colors.teal} />
+                  <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 11, marginTop: 4 }}>Trips</Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setActiveTab('Earnings')}
+                  style={[cardStyle, { flex: 1, padding: 10, alignItems: 'center', justifyContent: 'center' }]}
+                >
+                  <Ionicons name="wallet-outline" size={22} color={colors.accent} />
+                  <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 11, marginTop: 4 }}>Earnings</Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setActiveTab('Profile')}
+                  style={[cardStyle, { flex: 1, padding: 10, alignItems: 'center', justifyContent: 'center' }]}
+                >
+                  <Ionicons name="shield-checkmark-outline" size={22} color={colors.green} />
+                  <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 11, marginTop: 4 }}>KYC Docs</Text>
+                </Pressable>
+
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => Linking.openURL('tel:18001234567').catch(() => { })}
+                  style={[cardStyle, { flex: 1, padding: 10, alignItems: 'center', justifyContent: 'center' }]}
+                >
+                  <Ionicons name="headset-outline" size={22} color={colors.warning} />
+                  <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 11, marginTop: 4 }}>Support</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* ACTIVE TRIP CARD */}
+            {(() => {
+              const activeTrip = trips.find((t) => ['accepted', 'in-progress'].includes(t.bookingStatus));
+              if (!activeTrip) return null;
+              const isInProgress = activeTrip.bookingStatus === 'in-progress';
+              const isCOD = (activeTrip.paymentMethod || 'COD') === 'COD';
+              const isPaid = activeTrip.paymentStatus === 'paid';
+
+              return (
+                <View style={{ marginTop: 12 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <Text style={[sectionTitle, { color: isInProgress ? colors.accent : colors.teal }]}>
+                      {isInProgress ? 'ACTIVE TRIP IN PROGRESS' : 'TRIP ACCEPTED · READY TO START'}
+                    </Text>
+                    <Pressable onPress={() => setSelectedTripDetails(activeTrip)}>
+                      <Text style={{ color: colors.primary, fontSize: 11, fontWeight: '700' }}>View Details ›</Text>
+                    </Pressable>
+                  </View>
+
+                  <View style={[cardStyle, { borderColor: isInProgress ? colors.accent : colors.teal, borderWidth: 1.5, padding: 16 }]}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={{ color: colors.teal, fontWeight: '800', fontSize: 14 }}>#{activeTrip.bookingId}</Text>
+                        <Text style={{ color: colors.ink, fontWeight: '800', fontSize: 16 }}>₹{activeTrip.finalFare || activeTrip.estimatedFare || 0}</Text>
+                      </View>
+                      <View style={{
+                        backgroundColor: isInProgress ? 'rgba(255, 122, 0, 0.15)' : 'rgba(20, 184, 166, 0.15)',
+                        paddingHorizontal: 8,
+                        paddingVertical: 3,
+                        borderRadius: 6
+                      }}>
+                        <Text style={{
+                          color: isInProgress ? colors.accent : colors.teal,
+                          fontSize: 10,
+                          fontWeight: '800',
+                          textTransform: 'uppercase'
+                        }}>
+                          {isInProgress ? 'EN ROUTE' : 'ACCEPTED'}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Route snippet */}
+                    <View style={{ gap: 4, marginTop: 10 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.green, marginTop: 5 }} />
+                        <Text style={[bodyText, { flex: 1, fontSize: 13 }]} numberOfLines={1}>{activeTrip.pickup?.address || 'Pickup'}</Text>
+                      </View>
+                      <View style={{ width: 1, height: 6, backgroundColor: colors.border, marginLeft: 3 }} />
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent, marginTop: 5 }} />
+                        <Text style={[bodyText, { flex: 1, fontSize: 13 }]} numberOfLines={1}>{activeTrip.drop?.address || 'Drop'}</Text>
+                      </View>
+                    </View>
+
+                    {/* Customer & Call button */}
+                    {activeTrip.customer ? (
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, padding: 8, backgroundColor: colors.card2, borderRadius: 8 }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 12 }}>{activeTrip.customer.name || 'Customer'}</Text>
+                          <Text style={{ color: colors.muted, fontSize: 11, marginTop: 1 }}>{activeTrip.customer.phone || 'No phone'}</Text>
+                        </View>
+                        {activeTrip.customer.phone ? (
+                          <Pressable
+                            onPress={() => Linking.openURL(`tel:${activeTrip.customer.phone}`).catch(() => { })}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.primary, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 }}
+                          >
+                            <Ionicons name="call" size={13} color="#fff" />
+                            <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>Call</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
+                    ) : null}
+
+                    {/* Action Buttons */}
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+                      {!isInProgress ? (
+                        <ActionButton
+                          label={actionLoadingId === activeTrip._id ? 'Starting…' : 'Start Trip'}
+                          disabled={actionLoadingId === activeTrip._id}
+                          onPress={() => runAction('start', activeTrip)}
+                          style={{ flex: 1, backgroundColor: colors.teal, borderColor: colors.teal }}
+                          textStyle={{ color: '#000' }}
+                        />
+                      ) : (
+                        <ActionButton
+                          label={actionLoadingId === activeTrip._id ? 'Completing…' : 'Complete Trip'}
+                          disabled={actionLoadingId === activeTrip._id}
+                          onPress={() => runAction('complete', activeTrip)}
+                          style={{ flex: 1, backgroundColor: colors.green, borderColor: colors.green }}
+                          textStyle={{ color: '#000' }}
+                        />
+                      )}
+
+                      {isCOD && !isPaid && isInProgress && (
+                        <ActionButton
+                          label={actionLoadingId === activeTrip._id ? '…' : `Collect Cash (₹${activeTrip.finalFare || activeTrip.estimatedFare || 0})`}
+                          disabled={actionLoadingId === activeTrip._id}
+                          onPress={() => runAction('collect-cash', activeTrip)}
+                          style={{ flex: 1, backgroundColor: colors.warning, borderColor: colors.warning }}
+                          textStyle={{ color: '#000' }}
+                        />
+                      )}
+                    </View>
+                  </View>
+                </View>
+              );
+            })()}
+
+            {/* ASSIGNED VEHICLE CARD */}
+            <View style={{ marginTop: 12 }}>
+              <Text style={[sectionTitle, { marginBottom: 8 }]}>ASSIGNED VEHICLE</Text>
+              {driver?.vehicles && driver.vehicles.length > 0 ? (
+                <View style={[cardStyle, { padding: 14 }]}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: 'rgba(8, 169, 245, 0.12)', alignItems: 'center', justifyContent: 'center' }}>
+                        <MaterialCommunityIcons name="truck" size={22} color={colors.primary} />
+                      </View>
+                      <View>
+                        <Text style={[bodyText, { fontSize: 15 }]}>{driver.vehicles[0].vehicleModel || 'Fleet Vehicle'}</Text>
+                        <Text style={{ color: colors.teal, fontWeight: '700', fontSize: 12, marginTop: 2 }}>{driver.vehicles[0].vehicleNumber}</Text>
+                      </View>
+                    </View>
+                    <View style={{ backgroundColor: colors.card2, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: colors.border }}>
+                      <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '700', textTransform: 'capitalize' }}>
+                        {driver.vehicles[0].vehicleType || 'Truck'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Ionicons name="speedometer-outline" size={13} color={colors.muted} />
+                      <Text style={{ color: colors.muted, fontSize: 11 }}>
+                        Cap: <Text style={{ color: colors.ink, fontWeight: '700' }}>{driver.vehicles[0].loadCapacity?.value || '—'} {driver.vehicles[0].loadCapacity?.unit || 'kg'}</Text>
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Ionicons
+                        name={driver.vehicles[0].documents?.registration?.status === 'approved' ? 'checkmark-circle' : 'alert-circle'}
+                        size={13}
+                        color={driver.vehicles[0].documents?.registration?.status === 'approved' ? colors.green : colors.warning}
+                      />
+                      <Text style={{ color: colors.muted, fontSize: 11 }}>
+                        RC: <Text style={{ color: driver.vehicles[0].documents?.registration?.status === 'approved' ? colors.green : colors.warning, fontWeight: '700' }}>
+                          {driver.vehicles[0].documents?.registration?.status === 'approved' ? 'Verified' : 'Pending'}
+                        </Text>
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Ionicons
+                        name={driver.vehicles[0].documents?.insurance?.status === 'approved' ? 'checkmark-circle' : 'alert-circle'}
+                        size={13}
+                        color={driver.vehicles[0].documents?.insurance?.status === 'approved' ? colors.green : colors.warning}
+                      />
+                      <Text style={{ color: colors.muted, fontSize: 11 }}>
+                        Ins: <Text style={{ color: driver.vehicles[0].documents?.insurance?.status === 'approved' ? colors.green : colors.warning, fontWeight: '700' }}>
+                          {driver.vehicles[0].documents?.insurance?.status === 'approved' ? 'Verified' : 'Pending'}
+                        </Text>
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ) : (
+                <View style={[cardStyle, { padding: 14, alignItems: 'center' }]}>
+                  <MaterialCommunityIcons name="truck-off" size={24} color={colors.muted} style={{ marginBottom: 4 }} />
+                  <Text style={[bodyText, { fontSize: 13 }]}>No vehicle assigned</Text>
+                  <Text style={[mutedText, { fontSize: 11, textAlign: 'center', marginTop: 2 }]}>
+                    Contact your fleet agency or upload vehicle details in the Profile tab.
+                  </Text>
+                </View>
+              )}
+            </View>
+
             {renderBookingEligibility()}
 
             {requests.length > 0 && (
@@ -1003,12 +1257,13 @@ export default function App() {
                   </View>
                 </View>
                 {requests.slice(0, 3).map((booking) => (
-                  <BookingCard 
-                    key={booking._id} 
-                    booking={booking} 
-                    onAction={runAction} 
-                    actions={['accept', 'reject']} 
+                  <BookingCard
+                    key={booking._id}
+                    booking={booking}
+                    onAction={runAction}
+                    actions={['accept', 'reject']}
                     actionLoading={actionLoadingId === booking._id}
+                    onViewDetails={() => setSelectedTripDetails(booking)}
                   />
                 ))}
               </>
@@ -1038,12 +1293,13 @@ export default function App() {
             ) : null}
 
             {requests.map((booking) => (
-              <BookingCard 
-                key={booking._id} 
-                booking={booking} 
-                onAction={runAction} 
-                actions={['accept', 'reject']} 
+              <BookingCard
+                key={booking._id}
+                booking={booking}
+                onAction={runAction}
+                actions={['accept', 'reject']}
                 actionLoading={actionLoadingId === booking._id}
+                onViewDetails={() => setSelectedTripDetails(booking)}
               />
             ))}
           </>
@@ -1058,6 +1314,36 @@ export default function App() {
               <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Your trips</Text>
             </View>
 
+            {/* SEGMENTED FILTER CHIPS */}
+            <View style={{ flexDirection: 'row', gap: 8, marginVertical: 8, flexWrap: 'wrap' }}>
+              {[
+                { id: 'all', label: `All (${trips.length})` },
+                { id: 'active', label: `Active (${trips.filter((t) => ['accepted', 'in-progress'].includes(t.bookingStatus)).length})` },
+                { id: 'scheduled', label: `Scheduled (${trips.filter((t) => t.bookingMode === 'scheduled').length})` },
+                { id: 'completed', label: `Completed (${trips.filter((t) => t.bookingStatus === 'completed').length})` }
+              ].map((filter) => {
+                const isSelected = tripFilter === filter.id;
+                return (
+                  <Pressable
+                    key={filter.id}
+                    onPress={() => setTripFilter(filter.id)}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 16,
+                      backgroundColor: isSelected ? colors.primary : colors.card,
+                      borderWidth: 1,
+                      borderColor: isSelected ? colors.primary : colors.border
+                    }}
+                  >
+                    <Text style={{ color: isSelected ? '#FFFFFF' : colors.muted, fontSize: 12, fontWeight: '700' }}>
+                      {filter.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
             {!loading && trips.length === 0 ? (
               <View style={[cardStyle, { alignItems: 'center', padding: 32 }]}>
                 <Ionicons name="truck-outline" size={36} color={colors.muted} style={{ marginBottom: 10 }} />
@@ -1066,30 +1352,38 @@ export default function App() {
               </View>
             ) : null}
 
-            {trips.map((booking) => {
-              const actions = [];
-              if (booking.bookingStatus === 'accepted') {
-                actions.push('start');
-              } else if (booking.bookingStatus === 'in-progress') {
-                actions.push('complete');
-              }
-              if (
-                (booking.bookingStatus === 'in-progress' || booking.bookingStatus === 'completed') &&
-                (booking.paymentMethod || 'COD') === 'COD' &&
-                booking.paymentStatus !== 'paid'
-              ) {
-                actions.push('collect-cash');
-              }
-              return (
-                <BookingCard
-                  key={booking._id}
-                  booking={booking}
-                  onAction={runAction}
-                  actions={actions}
-                  actionLoading={actionLoadingId === booking._id}
-                />
-              );
-            })}
+            {trips
+              .filter((booking) => {
+                if (tripFilter === 'active') return ['accepted', 'in-progress'].includes(booking.bookingStatus);
+                if (tripFilter === 'scheduled') return booking.bookingMode === 'scheduled';
+                if (tripFilter === 'completed') return booking.bookingStatus === 'completed';
+                return true;
+              })
+              .map((booking) => {
+                const actions = [];
+                if (booking.bookingStatus === 'accepted') {
+                  actions.push('start');
+                } else if (booking.bookingStatus === 'in-progress') {
+                  actions.push('complete');
+                }
+                if (
+                  (booking.bookingStatus === 'in-progress' || booking.bookingStatus === 'completed') &&
+                  (booking.paymentMethod || 'COD') === 'COD' &&
+                  booking.paymentStatus !== 'paid'
+                ) {
+                  actions.push('collect-cash');
+                }
+                return (
+                  <BookingCard
+                    key={booking._id}
+                    booking={booking}
+                    onAction={runAction}
+                    actions={actions}
+                    actionLoading={actionLoadingId === booking._id}
+                    onViewDetails={() => setSelectedTripDetails(booking)}
+                  />
+                );
+              })}
           </>
         )}
 
@@ -1105,16 +1399,16 @@ export default function App() {
             {earningsSummary ? (
               <View style={cardStyle}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 16, marginBottom: 16 }}>
-                   <Text style={[labelStyle, { textTransform: 'none' }]}>Completed trips</Text>
-                   <Text style={bodyText}>{(earningsSummary.completedTrips ?? 0).toString().padStart(2, '0')}</Text>
+                  <Text style={[labelStyle, { textTransform: 'none' }]}>Completed trips</Text>
+                  <Text style={bodyText}>{(earningsSummary.completedTrips ?? 0).toString().padStart(2, '0')}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 16, marginBottom: 16 }}>
-                   <Text style={[labelStyle, { textTransform: 'none' }]}>Total earnings</Text>
-                   <Text style={bodyText}>₹{earningsSummary.totalEarnings ?? 0}</Text>
+                  <Text style={[labelStyle, { textTransform: 'none' }]}>Total earnings</Text>
+                  <Text style={bodyText}>₹{earningsSummary.totalEarnings ?? 0}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                   <Text style={[labelStyle, { textTransform: 'none' }]}>This month's period</Text>
-                   <Text style={[bodyText, { color: colors.teal }]}>₹{earningsSummary.currentPeriodEarnings ?? 0}</Text>
+                  <Text style={[labelStyle, { textTransform: 'none' }]}>This month's period</Text>
+                  <Text style={[bodyText, { color: colors.teal }]}>₹{earningsSummary.currentPeriodEarnings ?? 0}</Text>
                 </View>
               </View>
             ) : !loading ? <Text style={mutedText}>No earnings data available.</Text> : null}
@@ -1147,7 +1441,7 @@ export default function App() {
               </Text>
               <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Your account</Text>
             </View>
-            
+
             {/* VERIFICATION & AGENCY STATUS BANNER */}
             {driver?.approvalStatus !== 'approved' && (
               <View style={[cardStyle, {
@@ -1195,16 +1489,16 @@ export default function App() {
                   Going online is disabled until Super Admin approves your account.
                 </Text>
               ) : null}
-              <ActionButton 
+              <ActionButton
                 style={{
                   width: '100%',
                   backgroundColor: driver?.isOnline ? 'transparent' : (driver?.approvalStatus === 'approved' ? colors.primary : colors.surface),
                   borderColor: driver?.isOnline ? colors.border : (driver?.approvalStatus === 'approved' ? colors.primary : colors.border)
                 }}
                 disabled={driver?.approvalStatus !== 'approved' || onlineLoading}
-                label={onlineLoading ? 'Updating…' : (driver?.isOnline ? 'Go Offline' : 'Go Online')} 
+                label={onlineLoading ? 'Updating…' : (driver?.isOnline ? 'Go Offline' : 'Go Online')}
                 secondary={driver?.isOnline || driver?.approvalStatus !== 'approved'}
-                onPress={toggleOnline} 
+                onPress={toggleOnline}
               />
             </View>
 
@@ -1242,7 +1536,7 @@ export default function App() {
                     <Text style={[mutedText, { fontSize: 12 }]}>Independent Driver (No Agency Linked)</Text>
                   </View>
                 )}
-                
+
                 {/* KYC & Identity Verification */}
                 <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 24, marginBottom: 8 }}>
                   KYC DOCUMENTS
@@ -1387,10 +1681,58 @@ export default function App() {
                 ))}
               </View>
             ) : !loading ? <Text style={mutedText}>Driver profile unavailable.</Text> : null}
-            
-            <View style={cardStyle}>
-              <Text style={bodyText}>Customer Support</Text>
-              <Text style={mutedText}>help@loadbalbin.com</Text>
+
+            {/* RATINGS & REVIEWS CARD */}
+            <View style={[cardStyle, { marginTop: 10 }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View>
+                  <Text style={[sectionTitle, { marginBottom: 4 }]}>CUSTOMER REVIEWS</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+                    <Text style={{ color: colors.ink, fontSize: 24, fontWeight: '800' }}>
+                      {driverRatingsData?.summary?.rating || driver?.rating || 5.0} ★
+                    </Text>
+                    <Text style={{ color: colors.muted, fontSize: 12 }}>
+                      ({driverRatingsData?.summary?.ratingCount || driver?.ratingCount || 0} reviews · {driverRatingsData?.summary?.totalTrips || driver?.totalTrips || 0} trips)
+                    </Text>
+                  </View>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setReviewsModalOpen(true);
+                    fetchRatings();
+                  }}
+                  style={{ backgroundColor: 'rgba(8, 169, 245, 0.15)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: colors.primary }}
+                >
+                  <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '800' }}>See Reviews</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            {/* CUSTOMER SUPPORT */}
+            <View style={[cardStyle, { marginTop: 10 }]}>
+              <Text style={bodyText}>Customer Support & Assistance</Text>
+              <Text style={[mutedText, { marginTop: 4, marginBottom: 12, fontSize: 12 }]}>
+                Have questions about trips, cash collections, or KYC verification? Reach our 24/7 transport support desk.
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => Linking.openURL('tel:18001234567').catch(() => { })}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, paddingVertical: 10, borderRadius: 8 }}
+                >
+                  <Ionicons name="call-outline" size={15} color={colors.primary} />
+                  <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 12 }}>Call Helpline</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => Linking.openURL('mailto:help@loadbalbin.com').catch(() => { })}
+                  style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, paddingVertical: 10, borderRadius: 8 }}
+                >
+                  <Ionicons name="mail-outline" size={15} color={colors.teal} />
+                  <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 12 }}>Email Support</Text>
+                </Pressable>
+              </View>
             </View>
             <ActionButton label="Sign out" secondary onPress={logout} style={{ marginTop: 8 }} />
           </>
@@ -1453,7 +1795,7 @@ export default function App() {
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
           <View style={{ paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={{ color: colors.ink, fontSize: 18, fontWeight: '800' }}>Notifications</Text>
-            <Pressable 
+            <Pressable
               accessibilityLabel="Close notifications"
               onPress={() => setShowNotificationsModal(false)}
               style={{ padding: 6 }}
@@ -1461,7 +1803,7 @@ export default function App() {
               <Ionicons name="close" size={24} color={colors.ink} />
             </Pressable>
           </View>
-          
+
           <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
             {notifications.length === 0 ? (
               <View style={[cardStyle, { alignItems: 'center', padding: 32 }]}>
@@ -1550,24 +1892,333 @@ export default function App() {
         </View>
       </Modal>
 
+      {/* TRIP DETAILS MODAL */}
+      <Modal
+        visible={Boolean(selectedTripDetails)}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSelectedTripDetails(null)}
+      >
+        <Pressable
+          onPress={() => setSelectedTripDetails(null)}
+          style={{ flex: 1, backgroundColor: '#000A', justifyContent: 'flex-end' }}
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: colors.surface,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              borderTopWidth: 1,
+              borderTopColor: colors.border,
+              maxHeight: '85%',
+              padding: 20
+            }}
+          >
+            {selectedTripDetails && (
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+                {/* Header */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: 10 }}>
+                  <View>
+                    <Text style={{ color: colors.teal, fontSize: 15, fontWeight: '800' }}>
+                      #{selectedTripDetails.bookingId || 'BOOKING'}
+                    </Text>
+                    <Text style={{ color: colors.muted, fontSize: 11, marginTop: 1 }}>
+                      {selectedTripDetails.bookingMode === 'scheduled' ? 'Scheduled Booking' : 'Instant Dispatch'}
+                    </Text>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setSelectedTripDetails(null)}
+                    style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Ionicons name="close" size={20} color={colors.muted} />
+                  </Pressable>
+                </View>
+
+                {/* Status & Fare */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: colors.card, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border }}>
+                  <View>
+                    <Text style={[labelStyle, { fontSize: 10 }]}>Fare Amount</Text>
+                    <Text style={{ color: colors.accent, fontSize: 22, fontWeight: '800', marginTop: 2 }}>
+                      ₹{selectedTripDetails.finalFare || selectedTripDetails.estimatedFare || 0}
+                    </Text>
+                    <Text style={{ color: (selectedTripDetails.paymentMethod || 'COD') === 'COD' ? colors.green : colors.primary, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+                      {(selectedTripDetails.paymentMethod || 'COD') === 'COD' ? 'Cash on Delivery (COD)' : 'Paid Online (Razorpay)'}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <View style={{
+                      backgroundColor: selectedTripDetails.paymentStatus === 'paid' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(245, 158, 11, 0.15)',
+                      paddingHorizontal: 8,
+                      paddingVertical: 3,
+                      borderRadius: 6,
+                      marginBottom: 4
+                    }}>
+                      <Text style={{
+                        color: selectedTripDetails.paymentStatus === 'paid' ? colors.green : colors.warning,
+                        fontSize: 10,
+                        fontWeight: '800',
+                        textTransform: 'uppercase'
+                      }}>
+                        {selectedTripDetails.paymentStatus === 'paid' ? 'PAID' : 'PAYMENT PENDING'}
+                      </Text>
+                    </View>
+                    <Text style={{ color: colors.muted, fontSize: 11, textTransform: 'capitalize' }}>
+                      Status: <Text style={{ color: colors.ink, fontWeight: '700' }}>{selectedTripDetails.bookingStatus}</Text>
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Route details */}
+                <View style={{ backgroundColor: colors.card, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, gap: 8 }}>
+                  <Text style={sectionTitle}>TRIP ROUTE</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.green, marginTop: 5 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[labelStyle, { fontSize: 10 }]}>Pickup Location</Text>
+                      <Text style={[bodyText, { marginTop: 1, fontSize: 13 }]}>{selectedTripDetails.pickup?.address || 'Pickup address'}</Text>
+                    </View>
+                  </View>
+                  <View style={{ width: 1, height: 8, backgroundColor: colors.border, marginLeft: 3 }} />
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent, marginTop: 5 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[labelStyle, { fontSize: 10 }]}>Drop Location</Text>
+                      <Text style={[bodyText, { marginTop: 1, fontSize: 13 }]}>{selectedTripDetails.drop?.address || 'Drop address'}</Text>
+                    </View>
+                  </View>
+                  {selectedTripDetails.distanceKm ? (
+                    <Text style={{ color: colors.muted, fontSize: 11, marginTop: 2 }}>
+                      Estimated Road Distance: <Text style={{ color: colors.ink, fontWeight: '700' }}>{selectedTripDetails.distanceKm} km</Text>
+                    </Text>
+                  ) : null}
+                  {selectedTripDetails.bookingMode === 'scheduled' && selectedTripDetails.preferredPickupDate && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, backgroundColor: 'rgba(245, 158, 11, 0.12)', padding: 8, borderRadius: 6 }}>
+                      <Ionicons name="calendar" size={13} color={colors.warning} />
+                      <Text style={{ color: colors.warning, fontSize: 11, fontWeight: '700' }}>
+                        Pickup: {new Date(selectedTripDetails.preferredPickupDate).toLocaleDateString()} {selectedTripDetails.preferredPickupTime ? `at ${selectedTripDetails.preferredPickupTime}` : ''}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Customer Details */}
+                <View style={{ backgroundColor: colors.card, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, gap: 8 }}>
+                  <Text style={sectionTitle}>CUSTOMER DETAILS</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View>
+                      <Text style={[bodyText, { fontSize: 14 }]}>{selectedTripDetails.customer?.name || 'Customer'}</Text>
+                      <Text style={[mutedText, { marginTop: 1, fontSize: 12 }]}>{selectedTripDetails.customer?.phone || 'Phone unavailable'}</Text>
+                    </View>
+                    {selectedTripDetails.customer?.phone ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => Linking.openURL(`tel:${selectedTripDetails.customer.phone}`).catch(() => { })}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 }}
+                      >
+                        <Ionicons name="call" size={14} color="#fff" />
+                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '800' }}>Call Customer</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                  {selectedTripDetails.customerNote ? (
+                    <View style={{ backgroundColor: colors.card2, padding: 8, borderRadius: 6, marginTop: 2 }}>
+                      <Text style={[labelStyle, { fontSize: 10, marginBottom: 1 }]}>Customer Note</Text>
+                      <Text style={[mutedText, { fontSize: 11, color: colors.ink }]}>{selectedTripDetails.customerNote}</Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                {/* Cargo & Vehicle */}
+                <View style={{ backgroundColor: colors.card, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, gap: 6 }}>
+                  <Text style={sectionTitle}>CARGO SPECIFICATIONS</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={mutedText}>Goods / Material:</Text>
+                    <Text style={[bodyText, { fontSize: 12 }]}>{selectedTripDetails.goods || 'General Cargo'}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={mutedText}>Weight:</Text>
+                    <Text style={[bodyText, { fontSize: 12 }]}>{selectedTripDetails.weight?.value || 0} {selectedTripDetails.weight?.unit || 'kg'}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={mutedText}>Required Vehicle Type:</Text>
+                    <Text style={[bodyText, { fontSize: 12, textTransform: 'capitalize' }]}>{selectedTripDetails.vehicleType || 'Truck'}</Text>
+                  </View>
+                  {selectedTripDetails.vehicle ? (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 4, borderTopWidth: 1, borderTopColor: colors.border }}>
+                      <Text style={mutedText}>Assigned Vehicle:</Text>
+                      <Text style={[bodyText, { fontSize: 12 }]}>{selectedTripDetails.vehicle.vehicleNumber || selectedTripDetails.vehicle.vehicleModel}</Text>
+                    </View>
+                  ) : null}
+                </View>
+
+                {/* Action buttons inside details modal */}
+                <View style={{ gap: 8, marginTop: 4, marginBottom: 16 }}>
+                  {selectedTripDetails.bookingStatus === 'pending' && (
+                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                      <ActionButton
+                        label="Reject"
+                        secondary
+                        disabled={Boolean(actionLoadingId)}
+                        onPress={async () => {
+                          await runAction('reject', selectedTripDetails);
+                          setSelectedTripDetails(null);
+                        }}
+                        style={{ flex: 1 }}
+                      />
+                      <ActionButton
+                        label="Accept Booking"
+                        disabled={Boolean(actionLoadingId)}
+                        onPress={async () => {
+                          await runAction('accept', selectedTripDetails);
+                          setSelectedTripDetails(null);
+                        }}
+                        style={{ flex: 2 }}
+                      />
+                    </View>
+                  )}
+
+                  {selectedTripDetails.bookingStatus === 'accepted' && (
+                    <ActionButton
+                      label="Start Trip"
+                      disabled={Boolean(actionLoadingId)}
+                      onPress={async () => {
+                        await runAction('start', selectedTripDetails);
+                        setSelectedTripDetails(null);
+                      }}
+                      style={{ backgroundColor: colors.teal, borderColor: colors.teal }}
+                      textStyle={{ color: '#000' }}
+                    />
+                  )}
+
+                  {selectedTripDetails.bookingStatus === 'in-progress' && (
+                    <ActionButton
+                      label="Complete Trip"
+                      disabled={Boolean(actionLoadingId)}
+                      onPress={async () => {
+                        await runAction('complete', selectedTripDetails);
+                        setSelectedTripDetails(null);
+                      }}
+                      style={{ backgroundColor: colors.green, borderColor: colors.green }}
+                      textStyle={{ color: '#000' }}
+                    />
+                  )}
+
+                  {(selectedTripDetails.paymentMethod || 'COD') === 'COD' && selectedTripDetails.paymentStatus !== 'paid' && ['in-progress', 'completed'].includes(selectedTripDetails.bookingStatus) && (
+                    <ActionButton
+                      label={`Confirm Cash Collection (₹${selectedTripDetails.finalFare || selectedTripDetails.estimatedFare || 0})`}
+                      disabled={Boolean(actionLoadingId)}
+                      onPress={async () => {
+                        await runAction('collect-cash', selectedTripDetails);
+                        setSelectedTripDetails(null);
+                      }}
+                      style={{ backgroundColor: colors.warning, borderColor: colors.warning }}
+                      textStyle={{ color: '#000' }}
+                    />
+                  )}
+                </View>
+              </ScrollView>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* CUSTOMER REVIEWS MODAL */}
+      <Modal
+        visible={reviewsModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setReviewsModalOpen(false)}
+      >
+        <Pressable
+          onPress={() => setReviewsModalOpen(false)}
+          style={{ flex: 1, backgroundColor: '#000A', justifyContent: 'flex-end' }}
+        >
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: colors.surface,
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              borderTopWidth: 1,
+              borderTopColor: colors.border,
+              maxHeight: '80%',
+              padding: 20
+            }}
+          >
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: 12 }}>
+              <Text style={{ color: colors.ink, fontSize: 18, fontWeight: '800' }}>Customer Reviews & Ratings</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setReviewsModalOpen(false)}
+                style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.card, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Ionicons name="close" size={20} color={colors.muted} />
+              </Pressable>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingVertical: 14 }}>
+              {ratingsLoading ? (
+                <ActivityIndicator color={colors.primary} style={{ marginVertical: 24 }} />
+              ) : !driverRatingsData?.ratings || driverRatingsData.ratings.length === 0 ? (
+                <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+                  <Ionicons name="star-outline" size={40} color={colors.muted} style={{ marginBottom: 10 }} />
+                  <Text style={bodyText}>No customer reviews yet.</Text>
+                  <Text style={[mutedText, { marginTop: 4, textAlign: 'center' }]}>
+                    Customer feedback and ratings will appear here after you complete trips.
+                  </Text>
+                </View>
+              ) : (
+                driverRatingsData.ratings.map((rev) => (
+                  <View key={rev._id} style={{ backgroundColor: colors.card, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.border, gap: 6 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={[bodyText, { fontSize: 14 }]}>{rev.customer?.name || 'Verified Customer'}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Ionicons
+                            key={star}
+                            name={star <= rev.rating ? 'star' : 'star-outline'}
+                            size={14}
+                            color={star <= rev.rating ? colors.accent : colors.muted}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                    {rev.feedback ? (
+                      <Text style={{ color: colors.ink, fontSize: 13, lineHeight: 18, fontStyle: 'italic', marginTop: 2 }}>
+                        &ldquo;{rev.feedback}&rdquo;
+                      </Text>
+                    ) : null}
+                    <Text style={{ color: colors.muted, fontSize: 10, marginTop: 4 }}>
+                      {new Date(rev.createdAt).toLocaleDateString()} {rev.booking?.bookingId ? `· Booking #${rev.booking.bookingId}` : ''}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* BOTTOM NAVIGATION FIXED TO BOTTOM */}
-      <View style={{ 
-        position: 'absolute', 
-        bottom: 0, 
-        left: 0, 
-        right: 0, 
-        backgroundColor: colors.bg, 
-        borderTopWidth: 1, 
-        borderColor: colors.border, 
-        flexDirection: 'row', 
+      <View style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        backgroundColor: colors.bg,
+        borderTopWidth: 1,
+        borderColor: colors.border,
+        flexDirection: 'row',
         paddingBottom: Platform.OS === 'ios' ? 24 : 16,
         paddingTop: 16
       }}>
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
-            <Pressable 
-              key={tab.id} 
+            <Pressable
+              key={tab.id}
               onPress={() => {
                 const returningFromProfile = activeTab === 'Profile' && tab.id !== 'Profile';
                 setActiveTab(tab.id);
@@ -1578,18 +2229,18 @@ export default function App() {
               style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
             >
               {tab.family === 'MaterialCommunityIcons' ? (
-                <MaterialCommunityIcons 
-                  name={isActive ? tab.activeIcon : tab.icon} 
-                  size={24} 
-                  color={isActive ? colors.primary : colors.muted} 
-                  style={{ marginBottom: 6 }} 
+                <MaterialCommunityIcons
+                  name={isActive ? tab.activeIcon : tab.icon}
+                  size={24}
+                  color={isActive ? colors.primary : colors.muted}
+                  style={{ marginBottom: 6 }}
                 />
               ) : (
-                <Ionicons 
-                  name={isActive ? tab.activeIcon : tab.icon} 
-                  size={24} 
-                  color={isActive ? colors.primary : colors.muted} 
-                  style={{ marginBottom: 6 }} 
+                <Ionicons
+                  name={isActive ? tab.activeIcon : tab.icon}
+                  size={24}
+                  color={isActive ? colors.primary : colors.muted}
+                  style={{ marginBottom: 6 }}
                 />
               )}
               <Text style={{ color: isActive ? colors.primary : colors.muted, fontWeight: '700', fontSize: 10 }}>{tab.label}</Text>
@@ -1601,11 +2252,12 @@ export default function App() {
   );
 }
 
-function BookingCard({ booking, actions, onAction, actionLoading }) {
-  const pickupDateFormatted = booking.preferredPickupDate 
+function BookingCard({ booking, actions = [], onAction, actionLoading, onViewDetails }) {
+  const pickupDateFormatted = booking.preferredPickupDate
     ? new Date(booking.preferredPickupDate).toLocaleDateString()
     : null;
   const isScheduled = booking.bookingMode === 'scheduled';
+  const isPending = booking.bookingStatus === 'pending';
 
   return (
     <View style={cardStyle}>
@@ -1631,6 +2283,16 @@ function BookingCard({ booking, actions, onAction, actionLoading }) {
         </View>
       </View>
 
+      {/* URGENCY / DISPATCH BADGE FOR PENDING REQUESTS */}
+      {isPending && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: isScheduled ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginTop: 8 }}>
+          <Ionicons name={isScheduled ? 'calendar' : 'flash'} size={13} color={isScheduled ? colors.warning : colors.accent} />
+          <Text style={{ color: isScheduled ? colors.warning : colors.accent, fontSize: 10, fontWeight: '800' }}>
+            {isScheduled ? 'SCHEDULED DISPATCH · PLEASE CONFIRM PICKUP' : 'INSTANT DISPATCH · PLEASE RESPOND PROMPTLY'}
+          </Text>
+        </View>
+      )}
+
       {/* SCHEDULED TIME DETAILS */}
       {isScheduled && pickupDateFormatted && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
@@ -1640,9 +2302,9 @@ function BookingCard({ booking, actions, onAction, actionLoading }) {
           </Text>
         </View>
       )}
-      
+
       {/* LOCATIONS */}
-      <View style={{ gap: 4, marginTop: 14 }}>
+      <View style={{ gap: 4, marginTop: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
           <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.green, marginTop: 5 }} />
           <Text style={[bodyText, { flex: 1 }]} numberOfLines={2}>{booking.pickup?.address || 'Pickup location'}</Text>
@@ -1653,9 +2315,9 @@ function BookingCard({ booking, actions, onAction, actionLoading }) {
           <Text style={[bodyText, { flex: 1 }]} numberOfLines={2}>{booking.drop?.address || 'Drop location'}</Text>
         </View>
       </View>
-      
+
       {/* SPECIFICATIONS */}
-      <Text style={[mutedText, { fontSize: 12, marginTop: 14 }]}>
+      <Text style={[mutedText, { fontSize: 12, marginTop: 12 }]}>
         {booking.vehicleType || 'Truck'} · {booking.goods || 'General Cargo'} · {booking.weight?.value || 0} {booking.weight?.unit || 'kg'}
         {booking.distanceKm ? ` · ${booking.distanceKm} km` : ''}
       </Text>
@@ -1666,10 +2328,25 @@ function BookingCard({ booking, actions, onAction, actionLoading }) {
           {booking.vehicle.loadCapacity?.value ? ` · Capacity ${booking.vehicle.loadCapacity.value} ${booking.vehicle.loadCapacity.unit || 'kg'}` : ''}
         </Text>
       ) : null}
+
+      {/* CUSTOMER INFO & CALL BUTTON */}
       {booking.customer ? (
-        <Text style={[mutedText, { fontSize: 12, marginTop: 6 }]}>
-          Customer: {booking.customer.name || 'Customer'}{booking.customer.phone ? ` · ${booking.customer.phone}` : ''}
-        </Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10, padding: 8, backgroundColor: colors.card2, borderRadius: 8 }}>
+          <View style={{ flex: 1 }}>
+            <Text style={[bodyText, { fontSize: 12 }]}>{booking.customer.name || 'Customer'}</Text>
+            <Text style={[mutedText, { fontSize: 11 }]}>{booking.customer.phone || 'No phone'}</Text>
+          </View>
+          {booking.customer.phone ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => Linking.openURL(`tel:${booking.customer.phone}`).catch(() => { })}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.primary, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 }}
+            >
+              <Ionicons name="call" size={12} color="#fff" />
+              <Text style={{ color: '#fff', fontSize: 11, fontWeight: '800' }}>Call</Text>
+            </Pressable>
+          ) : null}
+        </View>
       ) : null}
 
       {/* PAYMENT INFO */}
@@ -1713,9 +2390,20 @@ function BookingCard({ booking, actions, onAction, actionLoading }) {
         </Text>
       ) : null}
 
+      {/* VIEW FULL DETAILS BUTTON */}
+      {onViewDetails ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => onViewDetails(booking)}
+          style={{ marginTop: 10, alignItems: 'center', paddingVertical: 4 }}
+        >
+          <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '700' }}>View Full Route & Cargo Details ›</Text>
+        </Pressable>
+      ) : null}
+
       {/* ACTIONS */}
       {actions.length > 0 && (
-        <View style={{ flexDirection: 'row', gap: 12, marginTop: 18 }}>
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
           {actions.map((action) => {
             const isReject = action === 'reject';
             const isCollectCash = action === 'collect-cash';

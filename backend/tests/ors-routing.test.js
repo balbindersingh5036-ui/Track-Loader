@@ -566,6 +566,7 @@ describe("OpenRouteService (ORS) Routing & Pricing Test Suite", () => {
       distanceKm: 85.43,
       status: "pending",
       bookingMode: "instant",
+      paymentMethod: "ONLINE",
       pricingSnapshot: {
         ratePerKm: 25,
         ratePerTon: 80,
@@ -666,6 +667,7 @@ describe("OpenRouteService (ORS) Routing & Pricing Test Suite", () => {
       distanceKm: 61.7,
       status: "pending",
       bookingMode: "instant",
+      paymentMethod: "ONLINE",
       pricingSnapshot: {
         ratePerKm: 25,
         ratePerTon: 80,

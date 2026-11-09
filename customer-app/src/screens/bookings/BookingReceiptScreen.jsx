@@ -3,6 +3,7 @@ import { Text, View, StyleSheet } from "react-native";
 import { MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
 import { Button, Card, Heading, Screen, Status } from "../../components/Phase12UI";
 import { colors, shadows } from "../../theme/theme";
+import { getCleanVehicleDisplayName } from "../../utils/vehicleDisplay";
 
 export default function BookingReceiptScreen({ route, navigation }) {
   const booking = route.params?.booking || {};
@@ -68,9 +69,7 @@ export default function BookingReceiptScreen({ route, navigation }) {
           <View style={styles.specRow}>
             <Text style={styles.specKey}>Vehicle:</Text>
             <Text style={styles.specVal}>
-              {booking.vehicle?.vehicleModel ||
-                booking.vehicleType?.replace(/-/g, " ") ||
-                "Standard Fleet"}
+              {getCleanVehicleDisplayName(booking, booking.vehicleType)}
             </Text>
           </View>
           <View style={styles.specRow}>

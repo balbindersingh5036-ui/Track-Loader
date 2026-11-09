@@ -170,9 +170,15 @@ export default function LocationScreen({ route, navigation }) {
             setCalculatingRoute(false);
           }
         })
-        .catch(() => {
+        .catch((err) => {
           if (isMounted) {
+            setRouteData(null);
             setCalculatingRoute(false);
+            setError(
+              err?.response?.data?.message ||
+              err?.message ||
+              "Failed to calculate road route. Please verify addresses or coordinates."
+            );
           }
         });
 
@@ -192,6 +198,14 @@ export default function LocationScreen({ route, navigation }) {
       setError("Please enter the drop-off location address.");
       return;
     }
+    if (calculatingRoute) {
+      setError("Please wait while the road distance is being calculated.");
+      return;
+    }
+    if (!routeData?.distanceKm || routeData.distanceKm <= 0) {
+      setError("Unable to calculate road distance between the selected locations. Please check the locations and try again.");
+      return;
+    }
 
     const pickup = {
       address: pickupAddress.trim(),
@@ -209,10 +223,12 @@ export default function LocationScreen({ route, navigation }) {
       bookingMode,
       pickup,
       drop,
-      distanceKm: routeData?.distanceKm,
-      durationSeconds: routeData?.durationSeconds,
-      durationFormatted: routeData?.durationFormatted,
-      routeGeometry: routeData?.geometry,
+      distanceKm: routeData.distanceKm,
+      distanceMeters: routeData.distanceMeters,
+      durationSeconds: routeData.durationSeconds,
+      durationFormatted: routeData.durationFormatted,
+      routeGeometry: routeData.geometry,
+      routingProfile: routeData.routingProfile,
       vehicleType: route.params?.vehicleType,
       vehicleId: route.params?.vehicleId
     });
