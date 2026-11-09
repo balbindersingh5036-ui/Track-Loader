@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ArrowLeft, CarFront, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import vehicleService from '../../services/vehicleService';
 import './vehicles.css';
 import './vehicleDetails.css';

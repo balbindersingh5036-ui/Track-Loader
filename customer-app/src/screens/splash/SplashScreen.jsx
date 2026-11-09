@@ -5,7 +5,7 @@ import { Button, Notice } from "../../components/Phase12UI";
 import LoadBalbinLogo from "../../components/LoadBalbinLogo";
 import { colors } from "../../theme/theme";
 
-export default function SplashScreen({ error, onRetry }) {
+export default function SplashScreen({ error, onRetry, onSignOut }) {
   return (
     <View style={styles.container}>
       <View style={styles.logoWrap}>
@@ -20,6 +20,14 @@ export default function SplashScreen({ error, onRetry }) {
           <View style={styles.errorBox}>
             <Notice message={error} />
             <Button title="Try Again" onPress={onRetry} style={{ marginTop: 12 }} />
+            {typeof onSignOut === "function" && (
+              <Button
+                title="Go to Login"
+                variant="outline"
+                onPress={onSignOut}
+                style={{ marginTop: 8 }}
+              />
+            )}
           </View>
         ) : (
           <ActivityIndicator size="small" color={colors.primary} />

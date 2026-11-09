@@ -12,8 +12,10 @@ import { clearCache } from "../src/services/systemSettingService.js";
 describe("Fare API", () => {
   let customerToken, driverToken, adminToken;
   let adminId, customerId;
+  let previousSuperAdminUserId;
 
   before(async () => {
+    previousSuperAdminUserId = process.env.SUPER_ADMIN_USER_ID;
     await mongoose.connect(process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/loadbalbin_test");
     await User.deleteMany({ phone: { $in: ["+911234567891", "+911234567892", "+911234567893"] } });
     await Fare.deleteMany({ vehicleType: { $in: ["pickup", "small-truck"] } });
@@ -31,6 +33,8 @@ describe("Fare API", () => {
 
     customerId = customer._id;
     adminId = admin._id;
+
+    process.env.SUPER_ADMIN_USER_ID = admin._id.toString();
 
     customerToken = generateToken({ userId: customer._id, role: customer.role });
     driverToken = generateToken({ userId: driver._id, role: driver.role });
@@ -52,6 +56,11 @@ describe("Fare API", () => {
   });
 
   after(async () => {
+    if (previousSuperAdminUserId !== undefined) {
+      process.env.SUPER_ADMIN_USER_ID = previousSuperAdminUserId;
+    } else {
+      delete process.env.SUPER_ADMIN_USER_ID;
+    }
     await User.deleteMany({ phone: { $in: ["+911234567891", "+911234567892", "+911234567893"] } });
     const { defaultFares } = await import("../seeds/fareSeed.js");
     for (const f of defaultFares) {

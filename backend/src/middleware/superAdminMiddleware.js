@@ -20,3 +20,20 @@ export const superAdminOnly = (req, res, next) => {
 
   next();
 };
+export const superAdminPricingOnly = (req, res, next) => {
+  if (!isSuperAdminConfigured()) {
+    return res.status(503).json({
+      success: false,
+      message: "Super Admin pricing management is not configured"
+    });
+  }
+
+  if (!isDesignatedSuperAdmin(req.user)) {
+    return res.status(403).json({
+      success: false,
+      message: "Only the designated Super Admin may manage pricing"
+    });
+  }
+
+  next();
+};

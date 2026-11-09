@@ -7,6 +7,7 @@ import User from "../models/User.js";
 import Payment from "../models/Payment.js";
 import Fare from "../models/Fare.js";
 import * as fareService from "../services/fareService.js";
+import { calculateRoadRoute } from "../services/routingService.js";
 import generateBookingId from "../utils/generateBookingId.js";
 import { errorResponse, successResponse } from "../utils/response.js";
 import { notifyCustomer, notifyDriver, notifyAdmins } from "../services/notificationService.js";
@@ -17,15 +18,6 @@ import {
   isDriverEligibleForAssignment,
   isVehicleEligibleForBookings
 } from "../utils/driverEligibility.js";
-
-const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const p = 0.017453292519943295;
-  const c = Math.cos;
-  const a = 0.5 - c((lat2 - lat1) * p)/2 + 
-          c(lat1 * p) * c(lat2 * p) * 
-          (1 - c((lon2 - lon1) * p))/2;
-  return 12742 * Math.asin(Math.sqrt(a)); 
-};
 
 const isFiniteNumericInput = (value) =>
   (typeof value === "number" || (typeof value === "string" && value.trim() !== "")) &&
@@ -145,7 +137,7 @@ export const createBooking = async (req, res) => {
         ])
         : await selectedVehicleQuery;
       if (!vehicleDoc) return errorResponse(res, "Vehicle not found", 404);
-      
+
       const isSelectedAvailable = vehicleDoc.isActive && vehicleDoc.isAvailable && vehicleDoc.vehicleType === vehicleType;
       agencyId = vehicleDoc.agency?._id || vehicleDoc.agency || null;
       const selectedCapacityKg = vehicleDoc.loadCapacity?.unit === "ton"
@@ -155,7 +147,7 @@ export const createBooking = async (req, res) => {
       if (isSelectedAvailable && selectedCapacityKg < requestedWeightKg) {
         return errorResponse(res, "Selected vehicle capacity is insufficient for the requested cargo", 400);
       }
-      
+
       if (!isSelectedAvailable) {
         if (bookingMode === "instant") {
           // Automatic same-type alternative vehicle search
@@ -249,11 +241,27 @@ export const createBooking = async (req, res) => {
       agencyId = requestedAgency._id;
     }
 
-    const distanceKm = calculateDistance(pickup.latitude, pickup.longitude, drop.latitude, drop.longitude);
-    
-    let estimatedFare;
+    let routeResult;
     try {
-      estimatedFare = await fareService.calculateEstimatedFare({
+      routeResult = await calculateRoadRoute({
+        pickup,
+        drop,
+        vehicleType
+      });
+    } catch (routeErr) {
+      const statusCode = routeErr.status || (routeErr.isRateLimited ? 429 : 400);
+      return errorResponse(
+        res,
+        routeErr.message || "Unable to calculate actual road distance between pickup and drop points via routing service.",
+        statusCode
+      );
+    }
+
+    const distanceKm = routeResult.distanceKm;
+
+    let fareBreakdown;
+    try {
+      fareBreakdown = await fareService.calculateFareBreakdown({
         vehicleType,
         distanceKm,
         weightValue: weight.value,
@@ -262,6 +270,8 @@ export const createBooking = async (req, res) => {
     } catch (err) {
       return errorResponse(res, err.message, 400);
     }
+
+    const estimatedFare = fareBreakdown.finalFare;
 
     const bookingId = await generateBookingId();
     const booking = new Booking({
@@ -274,6 +284,24 @@ export const createBooking = async (req, res) => {
       pickup,
       drop,
       distanceKm: Math.max(0, parseFloat(distanceKm.toFixed(2))),
+      routeGeometry: routeResult.geometry || "",
+      pricingSnapshot: {
+        category: vehicleType,
+        ratePerKm: fareBreakdown.ratePerKm,
+        ratePerTon: fareBreakdown.ratePerTon,
+        minimumFare: fareBreakdown.minimumFare,
+        distanceKm: fareBreakdown.distanceKm,
+        distanceMeters: routeResult.distanceMeters,
+        cargoWeightKg: fareBreakdown.cargoWeightKg,
+        weightInTon: fareBreakdown.weightInTon,
+        distanceCharge: fareBreakdown.distanceCharge,
+        weightCharge: fareBreakdown.weightCharge,
+        calculatedFare: fareBreakdown.calculatedFare,
+        finalFare: fareBreakdown.finalFare,
+        durationSeconds: routeResult.durationSeconds,
+        routingProfile: routeResult.profile,
+        calculatedAt: new Date()
+      },
       goods,
       weight,
       preferredPickupDate,
@@ -664,7 +692,7 @@ export const completeTrip = async (req, res) => {
       { new: true }
     );
     if (!booking) return errorResponse(res, "Not in progress", 400);
-    
+
     booking.finalFare = booking.estimatedFare;
     await booking.save();
     await Driver.findByIdAndUpdate(driver._id, { $inc: { totalTrips: 1 } });

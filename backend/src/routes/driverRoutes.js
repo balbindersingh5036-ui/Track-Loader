@@ -52,6 +52,47 @@ router.patch("/bookings/:id/reject", protect, driverOnly, rejectBooking);
 router.patch("/bookings/:id/start", protect, driverOnly, startTrip);
 router.patch("/bookings/:id/complete", protect, driverOnly, completeTrip);
 
+router.patch("/location", protect, driverOnly, async (req, res) => {
+  try {
+    const { latitude, longitude, address } = req.body;
+    const lat = Number(latitude);
+    const lon = Number(longitude);
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lon) || lon < -180 || lon > 180) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid latitude or longitude coordinates"
+      });
+    }
+
+    const driver = await Driver.findOne({ user: req.user._id });
+    if (!driver) {
+      return res.status(404).json({
+        success: false,
+        message: "Driver profile not found"
+      });
+    }
+
+    driver.currentLocation = {
+      latitude: lat,
+      longitude: lon,
+      address: typeof address === "string" ? address.trim() : "",
+      updatedAt: new Date()
+    };
+    await driver.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Driver location updated successfully",
+      data: { currentLocation: driver.currentLocation }
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update driver location"
+    });
+  }
+});
+
 router.patch("/status", protect, driverOnly, async (req, res) => {
   try {
     const { isOnline } = req.body;

@@ -15,6 +15,7 @@ export const AuthProvider = ({ children }) => {
     await removeToken();
     disconnectSocket();
     setUser(null);
+    setRestoreError("");
   }, []);
 
   const restoreSession = useCallback(async () => {
@@ -22,14 +23,40 @@ export const AuthProvider = ({ children }) => {
     setRestoreError("");
     try {
       const token = await getToken();
-      if (token) setUser(await authService.getMe());
-      else setUser(null);
-    } catch (error) {
-      if (error?.response?.status === 401) {
+      if (!token || typeof token !== "string" || !token.trim() || token === "null" || token === "undefined") {
+        await removeToken();
         disconnectSocket();
         setUser(null);
+        setRestoreError("");
+        return;
+      }
+
+      const currentUser = await authService.getMe();
+      setUser(currentUser);
+      setRestoreError("");
+    } catch (error) {
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        // Authenticated token is invalid or expired: clear session and show login screen
+        await removeToken();
+        disconnectSocket();
+        setUser(null);
+        setRestoreError("");
       } else {
-        setRestoreError(error?.response?.data?.message || "Unable to restore your session.");
+        // Network timeout, offline, or Render cold start: preserve token and show retryable notice
+        const isTimeout = error?.code === "ECONNABORTED" || error?.message?.toLowerCase().includes("timeout");
+        const isNetwork = !error?.response || error?.code === "ERR_NETWORK";
+        let message = error?.response?.data?.message;
+        if (!message) {
+          if (isTimeout) {
+            message = "LoadBalbin server is waking up. Please tap Try Again.";
+          } else if (isNetwork) {
+            message = "Unable to connect to server. Please check your internet connection and tap Try Again.";
+          } else {
+            message = "Service is temporarily busy. Please tap Try Again.";
+          }
+        }
+        setRestoreError(message);
       }
     } finally {
       setReady(true);

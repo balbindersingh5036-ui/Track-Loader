@@ -16,7 +16,29 @@ export const driverService = {
     api.post(`/documents/vehicle/${vehicleId}/${docType}`, data, {
       timeout: 120000,
       onUploadProgress
-    })
+    }),
+  updateLocation: (coords) => api.patch('/driver/location', coords),
+  /**
+   * On-demand single location snapshot.
+   * Never runs continuous background tracking or causes battery drain.
+   */
+  requestLocationSnapshot: () => {
+    return new Promise((resolve, reject) => {
+      if (typeof navigator === 'undefined' || !navigator.geolocation) {
+        return reject(new Error('Geolocation is not supported on this platform'));
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          resolve({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude
+          });
+        },
+        (err) => reject(err),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      );
+    });
+  }
 };
 
 export default driverService;

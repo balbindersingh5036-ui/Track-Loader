@@ -1,6 +1,11 @@
 import dotenv from "dotenv";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
 const requiredEnv = ["MONGODB_URI", "JWT_SECRET"];
 
@@ -34,5 +39,10 @@ export const env = {
 
   clientUrl: process.env.CLIENT_URL || "",
   customerAppUrl: process.env.CUSTOMER_APP_URL || "",
-  driverAppUrl: process.env.DRIVER_APP_URL || ""
+  driverAppUrl: process.env.DRIVER_APP_URL || "",
+
+  ors: {
+    apiKey: (process.env.ORS_API_KEY || "").trim(),
+    baseUrl: (process.env.ORS_BASE_URL || "https://api.heigit.org/openrouteservice/v2").trim().replace(/\/+$/, "")
+  }
 };

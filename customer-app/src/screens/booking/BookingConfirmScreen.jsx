@@ -76,6 +76,16 @@ export default function BookingConfirmScreen({ route, navigation }) {
     }
   };
 
+  const distanceKm = Number(details.distanceKm) || 0;
+  const weightVal = Number(details.weight?.value) || 0;
+  const weightInTon = details.weight?.unit === "ton" ? weightVal : weightVal / 1000;
+  const distanceCharge = distanceKm * (fareEstimate?.perKmRate || 0);
+  const weightCharge = weightInTon * (fareEstimate?.perTonRate || 0);
+  const calculatedFare = distanceCharge + weightCharge;
+  const estimatedTotal = fareEstimate
+    ? Math.max(calculatedFare, fareEstimate.minimumFare || 0)
+    : null;
+
   return (
     <Screen>
       <Heading
@@ -108,6 +118,22 @@ export default function BookingConfirmScreen({ route, navigation }) {
               <Text style={styles.routeAddressText}>{details.drop?.address}</Text>
             </View>
           </View>
+
+          {details.distanceKm != null && (
+            <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.line, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons name="navigate-circle-outline" size={16} color={colors.primary} />
+                <Text style={{ fontSize: 13, fontWeight: "700", color: colors.text }}>
+                  Road Distance: {details.distanceKm} km
+                </Text>
+              </View>
+              {details.durationFormatted ? (
+                <Text style={{ fontSize: 12, color: colors.textMuted }}>
+                  Est: {details.durationFormatted}
+                </Text>
+              ) : null}
+            </View>
+          )}
         </View>
       </Card>
 
@@ -196,18 +222,24 @@ export default function BookingConfirmScreen({ route, navigation }) {
             </Text>
           </View>
           <View style={styles.gridItem}>
-            <Text style={styles.gridLabel}>Base Fare</Text>
-            <Text style={styles.gridValue}>
-              {fareEstimate?.baseFare ? `₹${fareEstimate.baseFare}` : "Calculating..."}
+            <Text style={styles.gridLabel}>Estimated Total</Text>
+            <Text style={[styles.gridValue, { color: colors.primaryDark || "#0071AB", fontWeight: "800" }]}>
+              {estimatedTotal != null ? `₹${estimatedTotal.toFixed(2)}` : "Calculating..."}
             </Text>
           </View>
         </View>
 
         {fareEstimate ? (
           <View style={styles.noteBox}>
-            <Text style={styles.noteLabel}>Rate Details:</Text>
+            <Text style={styles.noteLabel}>Road Pricing Breakdown:</Text>
             <Text style={styles.noteText}>
-              ₹{fareEstimate.perKmRate}/km · ₹{fareEstimate.perTonRate || 0}/ton · Min ₹{fareEstimate.minimumFare || fareEstimate.baseFare}
+              • Distance: {distanceKm} km × ₹{fareEstimate.perKmRate}/km = ₹{distanceCharge.toFixed(2)}
+            </Text>
+            <Text style={styles.noteText}>
+              • Cargo Weight: {weightInTon.toFixed(2)} ton × ₹{fareEstimate.perTonRate || 0}/ton = ₹{weightCharge.toFixed(2)}
+            </Text>
+            <Text style={styles.noteText}>
+              • Minimum Fare: ₹{fareEstimate.minimumFare} (Applied if calculated total is less)
             </Text>
           </View>
         ) : null}

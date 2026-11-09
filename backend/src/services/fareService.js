@@ -14,8 +14,20 @@ export const clearFareCache = () => {
   fareCache.clear();
 };
 
+export const getAvailableVehicleCategories = async () => {
+  const schemaEnums = Vehicle.schema.path("vehicleType")?.enumValues || [];
+  let distinctTypes = [];
+  try {
+    distinctTypes = await Vehicle.distinct("vehicleType");
+  } catch (err) {
+    // Fallback gracefully if database is unavailable
+  }
+  const merged = Array.from(new Set([...schemaEnums, ...distinctTypes.filter(Boolean)]));
+  return merged;
+};
+
 export const getAllFares = async (filter = {}) => {
-  return Fare.find(filter).lean();
+  return Fare.find(filter).populate("updatedBy", "name email").lean();
 };
 
 export const getFareByVehicleType = async (vehicleTypeOrId) => {
@@ -32,7 +44,9 @@ export const getFareByVehicleType = async (vehicleTypeOrId) => {
   const cacheKey = `fare_${targetType}`;
   if (fareCache.has(cacheKey)) return fareCache.get(cacheKey);
 
-  const fare = await Fare.findOne({ vehicleType: targetType, isActive: true }).lean();
+  const fare = await Fare.findOne({ vehicleType: targetType, isActive: true })
+    .populate("updatedBy", "name email")
+    .lean();
   if (fare) {
     fareCache.set(cacheKey, fare);
   }
@@ -40,18 +54,59 @@ export const getFareByVehicleType = async (vehicleTypeOrId) => {
 };
 
 export const getFareById = async (id) => {
-  return Fare.findById(id).lean();
+  return Fare.findById(id).populate("updatedBy", "name email").lean();
 };
 
-export const createFare = async (data) => {
-  const fare = new Fare(data);
+export const createFare = async (data, createdBy = null) => {
+  const payload = { ...data };
+  if (createdBy) {
+    payload.updatedBy = createdBy;
+    payload.history = [
+      {
+        perKmRate: Number(data.perKmRate),
+        perTonRate: Number(data.perTonRate || 0),
+        minimumFare: Number(data.minimumFare),
+        updatedBy: createdBy,
+        updatedAt: new Date()
+      }
+    ];
+  }
+  const fare = new Fare(payload);
   await fare.save();
   clearFareCache();
   return fare;
 };
 
-export const updateFare = async (id, data) => {
-  const fare = await Fare.findByIdAndUpdate(id, data, { new: true, runValidators: true });
+export const updateFare = async (id, data, updatedBy = null) => {
+  const current = await Fare.findById(id);
+  if (!current) return null;
+
+  const updatePayload = { ...data };
+  if (updatedBy) {
+    updatePayload.updatedBy = updatedBy;
+  }
+
+  // Record history when rate fields are modified
+  if (
+    data.perKmRate !== undefined ||
+    data.perTonRate !== undefined ||
+    data.minimumFare !== undefined
+  ) {
+    const historyEntry = {
+      perKmRate: data.perKmRate !== undefined ? Number(data.perKmRate) : current.perKmRate,
+      perTonRate: data.perTonRate !== undefined ? Number(data.perTonRate) : current.perTonRate,
+      minimumFare: data.minimumFare !== undefined ? Number(data.minimumFare) : current.minimumFare,
+      updatedBy: updatedBy || null,
+      updatedAt: new Date()
+    };
+    updatePayload.$push = { history: historyEntry };
+  }
+
+  const fare = await Fare.findByIdAndUpdate(id, updatePayload, {
+    new: true,
+    runValidators: true
+  }).populate("updatedBy", "name email");
+
   clearFareCache();
   return fare;
 };
@@ -87,7 +142,7 @@ const toFiniteNumber = (value) => {
   return Number(value);
 };
 
-export const calculateEstimatedFare = async ({ vehicleType, distanceKm, weightValue, weightUnit }) => {
+export const calculateFareBreakdown = async ({ vehicleType, distanceKm, weightValue, weightUnit }) => {
   const numericDistance = toFiniteNumber(distanceKm);
   const numericWeight = toFiniteNumber(weightValue);
 
@@ -122,22 +177,50 @@ export const calculateEstimatedFare = async ({ vehicleType, distanceKm, weightVa
     throw error;
   }
 
-  let estimatedFare = fareConfig.baseFare + (numericDistance * fareConfig.perKmRate);
-  
-  const weightInTon = weightUnit === "ton" ? numericWeight : numericWeight / 1000;
-  estimatedFare += (weightInTon * fareConfig.perTonRate);
-  
-  estimatedFare += fareConfig.loadingCharge + fareConfig.unloadingCharge;
+  const ratePerKm = Number(fareConfig.perKmRate || 0);
+  const ratePerTon = Number(fareConfig.perTonRate || 0);
+  const minimumFare = Number(fareConfig.minimumFare || 0);
 
-  if (!Number.isFinite(estimatedFare)) {
+  // Cargo Weight in KG & Weight in Ton
+  // Weight in Ton = Cargo Weight in KG / 1000
+  const cargoWeightKg = Number((weightUnit === "ton" ? numericWeight * 1000 : numericWeight).toFixed(2));
+  const weightInTon = Number((cargoWeightKg / 1000).toFixed(4));
+
+  // Distance Charge = Actual ORS Road Distance KM × Rate Per KM
+  const distanceCharge = Number((numericDistance * ratePerKm).toFixed(2));
+
+  // Weight Charge = Weight in Ton × Rate Per Ton
+  const weightCharge = Number((weightInTon * ratePerTon).toFixed(2));
+
+  // Calculated Fare = Distance Charge + Weight Charge
+  const calculatedFare = Number((distanceCharge + weightCharge).toFixed(2));
+
+  // Final Fare = MAX(Calculated Fare, Minimum Fare)
+  const finalFare = Number(Math.max(calculatedFare, minimumFare).toFixed(2));
+
+  if (!Number.isFinite(finalFare)) {
     const error = new Error("Fare calculation produced an invalid amount");
     error.status = 400;
     throw error;
   }
-  
-  if (estimatedFare < fareConfig.minimumFare) {
-    estimatedFare = fareConfig.minimumFare;
-  }
 
-  return Number(estimatedFare.toFixed(2));
+  return {
+    category: vehicleType,
+    fareConfig,
+    ratePerKm,
+    ratePerTon,
+    minimumFare,
+    distanceKm: numericDistance,
+    cargoWeightKg,
+    weightInTon,
+    distanceCharge,
+    weightCharge,
+    calculatedFare,
+    finalFare
+  };
+};
+
+export const calculateEstimatedFare = async ({ vehicleType, distanceKm, weightValue, weightUnit }) => {
+  const breakdown = await calculateFareBreakdown({ vehicleType, distanceKm, weightValue, weightUnit });
+  return breakdown.finalFare;
 };

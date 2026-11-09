@@ -78,6 +78,29 @@ const bookingSchema = new mongoose.Schema(
       min: 0
     },
 
+    routeGeometry: {
+      type: String,
+      default: ""
+    },
+
+    pricingSnapshot: {
+      category: { type: String, default: "" },
+      ratePerKm: { type: Number, default: 0 },
+      ratePerTon: { type: Number, default: 0 },
+      minimumFare: { type: Number, default: 0 },
+      distanceKm: { type: Number, default: 0 },
+      distanceMeters: { type: Number, default: 0 },
+      cargoWeightKg: { type: Number, default: 0 },
+      weightInTon: { type: Number, default: 0 },
+      distanceCharge: { type: Number, default: 0 },
+      weightCharge: { type: Number, default: 0 },
+      calculatedFare: { type: Number, default: 0 },
+      finalFare: { type: Number, default: 0 },
+      durationSeconds: { type: Number, default: 0 },
+      routingProfile: { type: String, default: "driving-hgv" },
+      calculatedAt: { type: Date, default: Date.now }
+    },
+
     goods: {
       type: String,
       required: true,

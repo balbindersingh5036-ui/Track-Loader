@@ -31,7 +31,9 @@ export default function RegisterScreen({ navigation }) {
     configService
       .getPublicConfig()
       .then(setConfig)
-      .catch((requestError) => setError(getErrorMessage(requestError)));
+      .catch((requestError) => {
+        console.warn("[Register] Public config load notice:", requestError?.message);
+      });
   }, []);
 
   const submit = async () => {

@@ -4,7 +4,7 @@ import { useSelector } from 'react-redux';
 import {
   LayoutDashboard, Users, Car, Truck, Map, CreditCard,
   Settings, Bell, AlertTriangle, FileText, TrendingUp, Star, Image, Building2,
-  UserPlus, PlusCircle, ShieldCheck, MapPin
+  UserPlus, PlusCircle, ShieldCheck, MapPin, Banknote
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -23,6 +23,7 @@ export default function Sidebar() {
     { path: '/customers', name: 'Customers', icon: <Users /> },
     { path: '/drivers', name: 'Drivers', icon: <Users /> },
     { path: '/vehicles', name: 'Vehicles', icon: <Car /> },
+    { path: '/fares', name: 'Fare Pricing', icon: <Banknote /> },
     { path: '/payments', name: 'Payments', icon: <CreditCard /> },
     { path: '/ratings', name: 'Ratings', icon: <Star /> },
     { path: '/earnings', name: 'Earnings', icon: <TrendingUp /> },

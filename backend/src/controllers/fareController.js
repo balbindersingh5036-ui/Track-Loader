@@ -2,13 +2,13 @@ import { successResponse, errorResponse } from "../utils/response.js";
 import * as fareService from "../services/fareService.js";
 import mongoose from "mongoose";
 
-const validVehicleTypes = [
-  "mini-truck",
-  "pickup",
-  "small-truck",
-  "medium-truck",
-  "large-truck"
-];
+const CATEGORY_METADATA = {
+  "mini-truck": { label: "Mini Truck", desc: "e.g. Tata Ace, Mahindra Jeeto (Up to 1.5 Tons)" },
+  "pickup": { label: "Pickup Truck", desc: "e.g. Bolero Pik-Up, Dost (Up to 2.5 Tons)" },
+  "small-truck": { label: "Small Truck", desc: "e.g. Tata 407, Eicher Pro 2049 (Up to 5 Tons)" },
+  "medium-truck": { label: "Medium Truck", desc: "e.g. Eicher 17ft/19ft, BharatBenz 1217C (Up to 10 Tons)" },
+  "large-truck": { label: "Large Heavy Truck", desc: "e.g. 10/12/14 Wheeler Multi-Axle (10+ Tons)" }
+};
 
 export const getFares = async (req, res) => {
   try {
@@ -31,15 +31,15 @@ export const getFares = async (req, res) => {
 
     const fares = await fareService.getAllFares(filter);
     
-    // Do not expose admin/internal metadata unnecessarily
+    // Return authoritative 3-tier rates while maintaining legacy compatibility fields
     const publicFares = fares.map(f => ({
       vehicleType: f.vehicleType,
-      baseFare: f.baseFare,
       perKmRate: f.perKmRate,
       perTonRate: f.perTonRate,
       minimumFare: f.minimumFare,
-      loadingCharge: f.loadingCharge,
-      unloadingCharge: f.unloadingCharge
+      baseFare: f.baseFare || 0,
+      loadingCharge: f.loadingCharge || 0,
+      unloadingCharge: f.unloadingCharge || 0
     }));
 
     return successResponse(res, { fares: publicFares }, "Active fares fetched");
@@ -65,12 +65,12 @@ export const getFareByVehicleType = async (req, res) => {
 
     const publicFare = {
       vehicleType: fare.vehicleType,
-      baseFare: fare.baseFare,
       perKmRate: fare.perKmRate,
       perTonRate: fare.perTonRate,
       minimumFare: fare.minimumFare,
-      loadingCharge: fare.loadingCharge,
-      unloadingCharge: fare.unloadingCharge
+      baseFare: fare.baseFare || 0,
+      loadingCharge: fare.loadingCharge || 0,
+      unloadingCharge: fare.unloadingCharge || 0
     };
 
     return successResponse(res, { fare: publicFare }, "Fare fetched");
@@ -91,6 +91,41 @@ const validateNumeric = (val, min = 0) => {
 
   const num = Number(val);
   return Number.isFinite(num) && num >= min;
+};
+
+export const getFareVehicleCategories = async (req, res) => {
+  try {
+    const availableCategories = await fareService.getAvailableVehicleCategories();
+    const existingFares = await fareService.getAllFares();
+
+    const fareMap = new Map(existingFares.map(f => [f.vehicleType, f]));
+
+    const categories = availableCategories.map(cat => {
+      const existing = fareMap.get(cat);
+      const meta = CATEGORY_METADATA[cat] || {
+        label: cat.replace(/-/g, " ").replace(/\b\w/g, l => l.toUpperCase()),
+        desc: `Vehicle category: ${cat}`
+      };
+
+      return {
+        type: cat,
+        label: meta.label,
+        desc: meta.desc,
+        hasFare: Boolean(existing),
+        fareId: existing?._id || null,
+        perKmRate: existing?.perKmRate ?? null,
+        perTonRate: existing?.perTonRate ?? null,
+        minimumFare: existing?.minimumFare ?? null,
+        isActive: existing?.isActive ?? false,
+        updatedAt: existing?.updatedAt || null,
+        updatedBy: existing?.updatedBy || null
+      };
+    });
+
+    return successResponse(res, { categories }, "Vehicle categories fetched");
+  } catch (error) {
+    return errorResponse(res, "Failed to fetch vehicle categories", 500);
+  }
 };
 
 export const adminGetFares = async (req, res) => {
@@ -118,14 +153,26 @@ export const adminGetFareById = async (req, res) => {
 
 export const adminCreateFare = async (req, res) => {
   try {
-    const { vehicleType, baseFare, perKmRate, perTonRate, minimumFare, loadingCharge, unloadingCharge } = req.body;
-    
-    if (!validVehicleTypes.includes(vehicleType)) {
+    const {
+      vehicleType,
+      perKmRate,
+      perTonRate,
+      minimumFare,
+      baseFare = 0,
+      loadingCharge = 0,
+      unloadingCharge = 0
+    } = req.body;
+
+    const availableCategories = await fareService.getAvailableVehicleCategories();
+    if (!availableCategories.includes(vehicleType)) {
       return errorResponse(res, "Invalid vehicle type", 400);
     }
 
-    if (!validateNumeric(baseFare) || !validateNumeric(perKmRate) || !validateNumeric(perTonRate) || 
-        !validateNumeric(minimumFare) || !validateNumeric(loadingCharge) || !validateNumeric(unloadingCharge)) {
+    if (!validateNumeric(perKmRate) || !validateNumeric(perTonRate) || !validateNumeric(minimumFare)) {
+      return errorResponse(res, "Invalid numeric values. Must be >= 0 and finite.", 400);
+    }
+
+    if (!validateNumeric(baseFare) || !validateNumeric(loadingCharge) || !validateNumeric(unloadingCharge)) {
       return errorResponse(res, "Invalid numeric values. Must be >= 0 and finite.", 400);
     }
 
@@ -134,9 +181,18 @@ export const adminCreateFare = async (req, res) => {
       return errorResponse(res, "Fare already exists for this vehicle type", 409);
     }
 
-    const fare = await fareService.createFare({
-      vehicleType, baseFare, perKmRate, perTonRate, minimumFare, loadingCharge, unloadingCharge
-    });
+    const fare = await fareService.createFare(
+      {
+        vehicleType,
+        baseFare: Number(baseFare),
+        perKmRate: Number(perKmRate),
+        perTonRate: Number(perTonRate),
+        minimumFare: Number(minimumFare),
+        loadingCharge: Number(loadingCharge),
+        unloadingCharge: Number(unloadingCharge)
+      },
+      req.user?._id || null
+    );
 
     return successResponse(res, { fare }, "Fare created", 201);
   } catch (error) {
@@ -158,34 +214,34 @@ export const adminUpdateFare = async (req, res) => {
     
     if (baseFare !== undefined) {
       if (!validateNumeric(baseFare)) return errorResponse(res, "Invalid baseFare", 400);
-      updateData.baseFare = baseFare;
+      updateData.baseFare = Number(baseFare);
     }
     if (perKmRate !== undefined) {
       if (!validateNumeric(perKmRate)) return errorResponse(res, "Invalid perKmRate", 400);
-      updateData.perKmRate = perKmRate;
+      updateData.perKmRate = Number(perKmRate);
     }
     if (perTonRate !== undefined) {
       if (!validateNumeric(perTonRate)) return errorResponse(res, "Invalid perTonRate", 400);
-      updateData.perTonRate = perTonRate;
+      updateData.perTonRate = Number(perTonRate);
     }
     if (minimumFare !== undefined) {
       if (!validateNumeric(minimumFare)) return errorResponse(res, "Invalid minimumFare", 400);
-      updateData.minimumFare = minimumFare;
+      updateData.minimumFare = Number(minimumFare);
     }
     if (loadingCharge !== undefined) {
       if (!validateNumeric(loadingCharge)) return errorResponse(res, "Invalid loadingCharge", 400);
-      updateData.loadingCharge = loadingCharge;
+      updateData.loadingCharge = Number(loadingCharge);
     }
     if (unloadingCharge !== undefined) {
       if (!validateNumeric(unloadingCharge)) return errorResponse(res, "Invalid unloadingCharge", 400);
-      updateData.unloadingCharge = unloadingCharge;
+      updateData.unloadingCharge = Number(unloadingCharge);
     }
     if (isActive !== undefined) {
       if (typeof isActive !== 'boolean') return errorResponse(res, "isActive must be boolean", 400);
       updateData.isActive = isActive;
     }
 
-    const fare = await fareService.updateFare(id, updateData);
+    const fare = await fareService.updateFare(id, updateData, req.user?._id || null);
     if (!fare) return errorResponse(res, "Fare not found", 404);
 
     return successResponse(res, { fare }, "Fare updated");
@@ -204,10 +260,10 @@ export const adminToggleFareStatus = async (req, res) => {
       return errorResponse(res, "isActive must be a boolean", 400);
     }
 
-    const fare = await fareService.updateFare(id, { isActive });
+    const fare = await fareService.updateFare(id, { isActive }, req.user?._id || null);
     if (!fare) return errorResponse(res, "Fare not found", 404);
 
-    return successResponse(res, { fare }, `Fare status updated`);
+    return successResponse(res, { fare }, "Fare status updated");
   } catch (error) {
     return errorResponse(res, "Failed to update fare status", 500);
   }

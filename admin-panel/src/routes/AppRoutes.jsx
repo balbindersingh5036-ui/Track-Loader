@@ -23,6 +23,7 @@ import VehicleDetails from '../pages/vehicles/VehicleDetails';
 import PaymentDetails from '../pages/payments/PaymentDetails';
 import RatingDetails from '../pages/ratings/RatingDetails';
 import ComplaintDetails from '../pages/complaints/ComplaintDetails';
+import FareManagement from '../pages/fares/FareManagement';
 
 import Agencies from '../pages/agencies/Agencies';
 import AgencyDetails from '../pages/agencies/AgencyDetails';
@@ -73,6 +74,7 @@ export default function AppRoutes() {
         <Route path="vehicles/:id" element={<ProtectedRoute allowedRoles={['admin']}><VehicleDetails /></ProtectedRoute>} />
         <Route path="payments" element={<ProtectedRoute allowedRoles={['admin']}><Payments /></ProtectedRoute>} />
         <Route path="payments/:id" element={<ProtectedRoute allowedRoles={['admin']}><PaymentDetails /></ProtectedRoute>} />
+        <Route path="fares" element={<ProtectedRoute allowedRoles={['admin']}><FareManagement /></ProtectedRoute>} />
         <Route path="ratings" element={<ProtectedRoute allowedRoles={['admin']}><Ratings /></ProtectedRoute>} />
         <Route path="ratings/:id" element={<ProtectedRoute allowedRoles={['admin']}><RatingDetails /></ProtectedRoute>} />
         <Route path="earnings" element={<ProtectedRoute allowedRoles={['admin']}><Earnings /></ProtectedRoute>} />

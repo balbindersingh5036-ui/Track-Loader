@@ -160,6 +160,13 @@ const driverSchema = new mongoose.Schema(
       type: Number,
       default: 0,
       min: 0
+    },
+
+    currentLocation: {
+      latitude: { type: Number, default: null },
+      longitude: { type: Number, default: null },
+      address: { type: String, default: "" },
+      updatedAt: { type: Date, default: null }
     }
   },
   {
