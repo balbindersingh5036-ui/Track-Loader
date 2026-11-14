@@ -3,6 +3,23 @@ import { env } from "../config/env.js";
 import User from "../models/User.js";
 import Driver from "../models/Driver.js";
 
+const isValidProfileImage = (file) => {
+  const mimeType = String(file?.mimetype || "").toLowerCase();
+  const buffer = file?.buffer;
+  if (!Buffer.isBuffer(buffer)) return false;
+
+  const isPng = mimeType === "image/png" &&
+    buffer.length >= 8 &&
+    buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  const isJpeg = ["image/jpeg", "image/jpg"].includes(mimeType) &&
+    buffer.length >= 3 &&
+    buffer[0] === 0xff &&
+    buffer[1] === 0xd8 &&
+    buffer[2] === 0xff;
+
+  return isPng || isJpeg;
+};
+
 export const uploadImage = async (req, res, next) => {
   try {
     if (!req.file) {
@@ -12,16 +29,6 @@ export const uploadImage = async (req, res, next) => {
       });
     }
 
-    if (!env.cloudinary.apiKey || !env.cloudinary.apiSecret || !env.cloudinary.cloudName) {
-      return res.status(503).json({
-        success: false,
-        message: "Image upload service is not configured"
-      });
-    }
-
-    const b64 = Buffer.from(req.file.buffer).toString("base64");
-    const dataURI = "data:" + req.file.mimetype + ";base64," + b64;
-    
     const isSensitiveKYC = [
       "aadhaar",
       "ownerAadhaar",
@@ -47,6 +54,26 @@ export const uploadImage = async (req, res, next) => {
       "kyc"
     ].includes(req.body?.purpose);
 
+    if (!isDocumentOrFleet && !isValidProfileImage(req.file)) {
+      return res.status(400).json({
+        success: false,
+        message: "Profile photos must be valid JPG, JPEG, or PNG images."
+      });
+    }
+
+    if (!env.cloudinary.apiKey || !env.cloudinary.apiSecret || !env.cloudinary.cloudName) {
+      return res.status(503).json({
+        success: false,
+        message: "Image upload service is not configured"
+      });
+    }
+
+    const uploadMimeType = req.file.mimetype.toLowerCase() === "image/jpg"
+      ? "image/jpeg"
+      : req.file.mimetype.toLowerCase();
+    const b64 = Buffer.from(req.file.buffer).toString("base64");
+    const dataURI = "data:" + uploadMimeType + ";base64," + b64;
+
     // Sensitive KYC documents use private authenticated storage in a dedicated folder
     // Public media (profile photos, fleet vehicles, banners) continue to use public upload
     const uploadOptions = isSensitiveKYC
@@ -65,7 +92,7 @@ export const uploadImage = async (req, res, next) => {
     const secureUrl = result.secure_url;
     const publicId = result.public_id;
     const resourceType = result.resource_type || "image";
-    const format = result.format || (req.file.mimetype === "application/pdf" ? "pdf" : "jpg");
+    const format = result.format || (uploadMimeType === "image/png" ? "png" : "jpg");
 
     // Save image to authenticated user profile only when purpose is profile update
     if (req.user?._id && !isDocumentOrFleet) {

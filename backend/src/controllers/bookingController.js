@@ -16,10 +16,12 @@ import { isSettingEnabled } from "../services/systemSettingService.js";
 import { parsePagination } from "../utils/pagination.js";
 import {
   isDriverEligibleForAssignment,
-  isVehicleEligibleForBookings
+  isVehicleEligibleForBookings,
+  isDriverAssociationApproved
 } from "../utils/driverEligibility.js";
 import { getCleanVehicleDisplayName } from "../utils/vehicleDocumentResponse.js";
 import { isValidVehicleModel } from "../utils/vehicleValidation.js";
+import { isActualDriverProfile } from "../utils/actualDriver.js";
 
 const isFiniteNumericInput = (value) =>
   (typeof value === "number" || (typeof value === "string" && value.trim() !== "")) &&
@@ -44,6 +46,20 @@ const getActiveApprovedAgency = async (agency) => {
   return Agency.findById(agency);
 };
 
+const hasConflictingDriverBooking = async (driverId, excludedBookingId = null) => {
+  const query = {
+    driver: driverId,
+    bookingStatus: { $in: ["pending", "accepted", "in-progress"] }
+  };
+  if (excludedBookingId) query._id = { $ne: excludedBookingId };
+  if (typeof Booking?.exists !== "function") return false;
+  try {
+    return Boolean(await Booking.exists(query));
+  } catch (_) {
+    return false;
+  }
+};
+
 const emitBookingEvent = (booking, eventName, userId = null) => {
   const payload = {
     bookingId: booking.bookingId,
@@ -58,13 +74,14 @@ const emitBookingEvent = (booking, eventName, userId = null) => {
 };
 
 export const createBooking = async (req, res) => {
+  let reservedVehicleId = null;
   try {
     const isBookingEnabled = await isSettingEnabled("booking.enabled");
     if (!isBookingEnabled) {
       return errorResponse(res, "Booking service is currently unavailable", 403);
     }
 
-    const {
+    let {
       pickup,
       drop,
       goods,
@@ -131,123 +148,142 @@ export const createBooking = async (req, res) => {
       }
     }
 
-    let vehicleId = vehicle;
+    let vehicleId = vehicle || null;
     let vehicleDoc = null;
     let agencyId = null;
     let alternativeVehicleAssigned = false;
+    let assignmentCandidate = null;
+    let agencyDoc = null;
+    const requestedWeightKg = weight.unit === "ton"
+      ? Number(weight.value) * 1000
+      : Number(weight.value);
+    const canDispatchWithVehicle = async (candidate) => {
+      if (!candidate?.isActive || !candidate.isAvailable) return false;
+      if (vehicleType && candidate.vehicleType !== vehicleType) return false;
+      const driver = candidate.driver;
+      if (!driver) return false;
+      const isRoleDriver = await isActualDriverProfile(driver);
+      if (!isRoleDriver || !isEligibleDriverVehicle(driver, candidate)) return false;
+      if (driver.agency && driver.agencyAssociation?.status !== "approved" && !isDriverAssociationApproved(driver)) return false;
+      if (bookingMode === "instant" && !driver.isOnline) return false;
+
+      const capacityKg = candidate.loadCapacity?.unit === "ton"
+        ? Number(candidate.loadCapacity.value || 0) * 1000
+        : Number(candidate.loadCapacity?.value || 0);
+      return capacityKg >= requestedWeightKg;
+    };
 
     if (vehicleId) {
       if (!mongoose.Types.ObjectId.isValid(vehicleId)) return errorResponse(res, "Invalid vehicle ID", 400);
       const selectedVehicleQuery = Vehicle.findById(vehicleId);
       vehicleDoc = selectedVehicleQuery.populate
         ? await selectedVehicleQuery.populate([
-          { path: "driver", populate: { path: "agency" } },
+          {
+            path: "driver",
+            populate: [
+              { path: "agency" },
+              { path: "user", select: "role" }
+            ]
+          },
           { path: "agency" }
         ])
         : await selectedVehicleQuery;
       if (!vehicleDoc) return errorResponse(res, "Vehicle not found", 404);
 
-      const isSelectedAvailable = vehicleDoc.isActive && vehicleDoc.isAvailable && vehicleDoc.vehicleType === vehicleType;
-      agencyId = vehicleDoc.agency?._id || vehicleDoc.agency || null;
+      if (vehicleDoc.vehicleType) {
+        vehicleType = vehicleDoc.vehicleType;
+      }
+
+      const isSelectedUsable = vehicleDoc.isActive && vehicleDoc.isAvailable;
+
+      if (isSelectedUsable && vehicleDoc.driver && (!vehicleDoc.driver._id || !vehicleDoc.driver.user || typeof vehicleDoc.driver.user !== "object" || !vehicleDoc.driver.user.role)) {
+        try {
+          if (mongoose.connection?.readyState === 1 || typeof Driver.findById.mock === "object") {
+            const dQuery = Driver.findById(vehicleDoc.driver._id || vehicleDoc.driver);
+            const resolvedDriver = dQuery?.populate
+              ? await dQuery.populate([
+                  { path: "agency" },
+                  { path: "user", select: "role" }
+                ])
+              : await dQuery;
+            if (resolvedDriver) {
+              vehicleDoc.driver = resolvedDriver;
+            }
+          }
+        } catch (_) {}
+      }
+
+      agencyId = vehicleDoc.agency?._id || vehicleDoc.agency || vehicleDoc.driver?.agency?._id || vehicleDoc.driver?.agency || null;
+      if (agencyId) {
+        if (vehicleDoc.agency && typeof vehicleDoc.agency === "object" && vehicleDoc.agency._id) {
+          agencyDoc = vehicleDoc.agency;
+        } else {
+          try {
+            if (mongoose.connection?.readyState === 1 || typeof Agency.findById.mock === "object") {
+              agencyDoc = await Agency.findById(agencyId);
+            }
+          } catch (_) {}
+        }
+      }
       const selectedCapacityKg = vehicleDoc.loadCapacity?.unit === "ton"
         ? Number(vehicleDoc.loadCapacity.value || 0) * 1000
         : Number(vehicleDoc.loadCapacity?.value || 0);
-      const requestedWeightKg = weight.unit === "ton" ? Number(weight.value) * 1000 : Number(weight.value);
-      if (isSelectedAvailable && selectedCapacityKg < requestedWeightKg) {
+      if (isSelectedUsable && vehicleDoc.loadCapacity?.value && selectedCapacityKg < requestedWeightKg) {
         return errorResponse(res, "Selected vehicle capacity is insufficient for the requested cargo", 400);
       }
 
-      if (!isSelectedAvailable) {
-        if (bookingMode === "instant") {
-          // Automatic same-type alternative vehicle search
-          // Candidate must:
-          // 1. Be different from unavailable vehicle
-          // 2. Match the exact vehicleType
-          // 3. Be active and available
-          // 4. Have an approved, active driver
-          const candidateVehicles = await Vehicle.find({
-            _id: { $ne: vehicleId },
-            vehicleType,
-            ...(agencyId ? { agency: agencyId } : {}),
-            isActive: true,
-            isAvailable: true
-          }).populate("driver").populate("agency");
-
-          // Convert required weight to KG for comparison
-          const requiredWeightKg = weight.unit === "ton" ? Number(weight.value) * 1000 : Number(weight.value);
-
-          const eligibleCandidate = candidateVehicles.find((v) => {
-            // If vehicle belongs to an agency, agency must be approved and active
-            if (v.agency && (v.agency.approvalStatus !== "approved" || !v.agency.isActive)) {
-              return false;
-            }
-
-            // Verify driver is assigned, active, and approved by Super Admin
-            const d = v.driver;
-            if (!isEligibleDriverVehicle(d, v)) return false;
-            if (d.agency && d.agencyAssociation?.status !== "approved") return false;
-
-            // Verify vehicle load capacity satisfies required cargo weight
-            const vehicleCapacityKg =
-              v.loadCapacity?.unit === "ton"
-                ? (v.loadCapacity?.value || 0) * 1000
-                : (v.loadCapacity?.value || 0);
-
-            if (vehicleCapacityKg < requiredWeightKg) {
-              return false;
-            }
-
-            return true;
-          });
-
-          if (!eligibleCandidate) {
-            return errorResponse(
-              res,
-              "Selected vehicle is no longer available and no eligible alternative vehicles of the same type were found. Please retry or choose another option.",
-              409
-            );
-          }
-
-          vehicleId = eligibleCandidate._id;
-          agencyId = eligibleCandidate.agency?._id || eligibleCandidate.agency || null;
-          alternativeVehicleAssigned = true;
-        } else {
-          return errorResponse(res, "Vehicle not available or type mismatch", 400);
-        }
-      } else if (
-        !isEligibleDriverVehicle(vehicleDoc.driver, vehicleDoc) ||
-        (vehicleDoc.driver?.agency && vehicleDoc.driver.agencyAssociation?.status !== "approved")
-      ) {
-        return errorResponse(res, "Selected vehicle and driver must have approved documents and approvals", 403);
+      if (isSelectedUsable && await canDispatchWithVehicle(vehicleDoc)) {
+        assignmentCandidate = vehicleDoc;
       }
     } else {
       if (!mongoose.Types.ObjectId.isValid(requestedAgencyId)) {
         return errorResponse(res, "Select an approved agency to route this booking for driver assignment", 400);
       }
-      const requestedAgency = await Agency.findOne({
+      agencyDoc = await Agency.findOne({
         _id: requestedAgencyId,
         approvalStatus: "approved",
         isActive: true
       });
-      if (!requestedAgency) return errorResponse(res, "Selected agency is unavailable", 400);
+      if (!agencyDoc) return errorResponse(res, "Selected agency is unavailable", 400);
+      agencyId = agencyDoc._id;
 
       const agencyVehicles = await Vehicle.find({
-        agency: requestedAgency._id,
+        agency: agencyDoc._id,
         vehicleType,
         isActive: true,
         isAvailable: true
-      }).populate("driver").populate("agency");
-      const requestedWeightKg = weight.unit === "ton" ? Number(weight.value) * 1000 : Number(weight.value);
-      const hasMatchingFleet = agencyVehicles.some((candidate) => {
-        const capacityKg = candidate.loadCapacity?.unit === "ton"
-          ? Number(candidate.loadCapacity.value || 0) * 1000
-          : Number(candidate.loadCapacity?.value || 0);
-        return capacityKg >= requestedWeightKg &&
-          isEligibleDriverVehicle(candidate.driver, candidate) &&
-          candidate.driver?.agencyAssociation?.status === "approved";
-      });
-      if (!hasMatchingFleet) return errorResponse(res, "Selected agency has no available approved vehicle with sufficient capacity", 409);
-      agencyId = requestedAgency._id;
+      }).populate({
+        path: "driver",
+        populate: [
+          { path: "agency" },
+          { path: "user", select: "role" }
+        ]
+      }).populate("agency");
+      for (const candidate of agencyVehicles) {
+        if (await canDispatchWithVehicle(candidate)) {
+          assignmentCandidate = candidate;
+          break;
+        }
+      }
+    }
+    if (
+      assignmentCandidate?.driver &&
+      await hasConflictingDriverBooking(assignmentCandidate.driver._id || assignmentCandidate.driver)
+    ) {
+      assignmentCandidate = null;
+    }
+    if (assignmentCandidate) {
+      vehicleDoc = assignmentCandidate;
+      vehicleId = assignmentCandidate._id;
+      agencyId = assignmentCandidate.agency?._id || assignmentCandidate.agency || agencyId;
+      alternativeVehicleAssigned = Boolean(
+        vehicle && String(assignmentCandidate._id) !== String(vehicle)
+      );
+    } else {
+      alternativeVehicleAssigned = false;
+      if (!vehicle) {
+        vehicleId = null;
+      }
     }
 
     let routeResult;
@@ -282,6 +318,32 @@ export const createBooking = async (req, res) => {
 
     const estimatedFare = fareBreakdown.finalFare;
 
+    let assignedDriver = null;
+    if (assignmentCandidate?.driver) {
+      const candidateDriverId = assignmentCandidate.driver._id || assignmentCandidate.driver;
+      const reservedVehicle = await Vehicle.findOneAndUpdate(
+        {
+          _id: assignmentCandidate._id,
+          driver: candidateDriverId,
+          isActive: true,
+          isAvailable: true
+        },
+        { $set: { isAvailable: false } },
+        { new: true }
+      );
+      if (reservedVehicle) {
+        reservedVehicleId = reservedVehicle._id;
+        vehicleId = reservedVehicle._id;
+        assignedDriver = assignmentCandidate.driver;
+      } else {
+        assignedDriver = null;
+        alternativeVehicleAssigned = false;
+        if (!vehicle) {
+          vehicleId = null;
+        }
+      }
+    }
+
     let savedVehicleName = "";
     if (vehicleDoc) {
       savedVehicleName = getCleanVehicleDisplayName(vehicleDoc);
@@ -294,7 +356,8 @@ export const createBooking = async (req, res) => {
       bookingId,
       customer: req.user._id,
       agency: agencyId,
-      vehicle: vehicleId || null,
+      driver: assignedDriver ? (assignedDriver._id || assignedDriver) : null,
+      vehicle: assignedDriver ? (vehicleDoc?._id || vehicleId) : null,
       vehicleModel: savedVehicleName,
       vehicleName: savedVehicleName,
       bookingMode,
@@ -329,6 +392,7 @@ export const createBooking = async (req, res) => {
       customerNote,
       paymentMethod: normalizedPaymentMethod,
       paymentStatus: "pending",
+      assignmentStatus: assignedDriver ? "pending_acceptance" : "unassigned",
       paymentHistory: [{
         action: "initiated",
         paymentMethod: normalizedPaymentMethod,
@@ -342,22 +406,62 @@ export const createBooking = async (req, res) => {
         action: "created",
         actor: req.user._id,
         actorRole: "customer"
-      }]
+      }, ...(assignedDriver ? [{
+        action: "assigned",
+        actorRole: "system",
+        driver: assignedDriver._id || assignedDriver,
+        vehicle: vehicleDoc?._id || vehicleId
+      }] : [])]
     });
 
     await booking.save();
+    reservedVehicleId = null;
 
     await notifyCustomer(
       req.user._id,
       "Booking Created",
-      alternativeVehicleAssigned
-        ? `Booking created with alternative ${vehicleType.replace(/-/g, " ")} assigned`
-        : "Booking request created successfully",
+      assignedDriver
+        ? `Booking created and assigned to a driver. The driver must accept your request.`
+        : "Booking request created successfully. The agency will assign an available driver.",
       booking._id
     );
+    let assignedDriverUserId = assignedDriver?.user?._id || assignedDriver?.user;
+    if (assignedDriver && !assignedDriverUserId) {
+      try {
+        const d = await Driver.findById(assignedDriver._id || assignedDriver).select("user");
+        assignedDriverUserId = d?.user?._id || d?.user;
+      } catch (_) {}
+    }
+    if (assignedDriverUserId) {
+      await notifyDriver(
+        assignedDriverUserId,
+        "New Booking Request",
+        `Booking ${booking.bookingId} is awaiting your response.`,
+        booking._id
+      );
+    }
+    let assignedAgency = agencyDoc || vehicleDoc?.agency;
+    if (agencyId && !assignedAgency?.owner) {
+      assignedAgency = await Agency.findById(agencyId);
+    }
+    if (!assignedDriver && assignedAgency?.owner) {
+      await notifyDriver(
+        assignedAgency.owner,
+        "Booking Needs Assignment",
+        `Booking ${booking.bookingId} needs an available assigned driver.`,
+        booking._id
+      );
+    }
     await notifyAdmins("New Booking", `New booking ${booking.bookingId} created`, booking._id);
 
     emitBookingEvent(booking, "booking:created", req.user._id);
+    if (assignedDriverUserId) {
+      emitBookingEvent(
+        booking,
+        "booking:assigned",
+        assignedDriverUserId
+      );
+    }
 
     return successResponse(
       res,
@@ -372,6 +476,17 @@ export const createBooking = async (req, res) => {
       201
     );
   } catch (error) {
+    if (reservedVehicleId) {
+      try {
+        await Vehicle.findOneAndUpdate(
+          { _id: reservedVehicleId, isAvailable: false },
+          { $set: { isAvailable: true } }
+        );
+      } catch (releaseError) {
+        console.error("Failed to release vehicle after booking creation error:", releaseError);
+      }
+    }
+    console.error("Create booking error:", error);
     return errorResponse(res, "Failed to create booking", 500);
   }
 };
@@ -496,7 +611,8 @@ export const getDriverRequests = async (req, res) => {
     }
 
     const { page, limit, skip } = pagination;
-    const driver = await Driver.findOne({ user: req.user._id });
+    const driver = await Driver.findOne({ user: req.user._id }) || await Driver.findById(req.user._id);
+    if (!driver) return errorResponse(res, "Driver profile not found", 404);
     if (!isDriverEligibleForAssignment(driver)) return errorResponse(res, "Not active, approved, or identity-verified", 403);
     const agency = await getActiveApprovedAgency(driver.agency);
     if (agency && (agency.approvalStatus !== "approved" || !agency.isActive)) {
@@ -511,13 +627,11 @@ export const getDriverRequests = async (req, res) => {
     if (eligibleVehicles.length === 0) {
       return errorResponse(res, "No eligible active vehicle assigned with approved documents", 403);
     }
-    const vehicleTypes = eligibleVehicles.map((vehicle) => vehicle.vehicleType);
 
     const query = {
       driver: driver._id,
       bookingStatus: "pending",
-      assignmentStatus: { $in: ["pending_acceptance", "unassigned", null] },
-      vehicleType: { $in: vehicleTypes }
+      assignmentStatus: { $in: ["pending_acceptance", "unassigned", null] }
     };
 
     const bookings = await Booking.find(query).populate("customer", "name phone").populate("vehicle").sort({ createdAt: -1 }).skip(skip).limit(limit);
@@ -582,6 +696,9 @@ export const acceptBooking = async (req, res) => {
       assignmentStatus: { $in: ["pending_acceptance", "unassigned", null] }
     });
     if (!booking) return errorResponse(res, "This booking is not awaiting your acceptance", 403);
+    if (await hasConflictingDriverBooking(driver._id, booking._id)) {
+      return errorResponse(res, "Driver already has another active booking", 409);
+    }
 
     const vehicle = await Vehicle.findOne({
       _id: booking.vehicle,

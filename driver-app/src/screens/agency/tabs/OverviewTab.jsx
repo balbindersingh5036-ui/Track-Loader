@@ -252,7 +252,8 @@ export default function OverviewTab({
         </View>
       ) : (
         bookings.slice(0, 3).map((booking) => {
-          const isPending = !booking.driver;
+          const hasDriver = Boolean(booking.driver);
+          const isPending = !hasDriver && ['unassigned', 'rejected', undefined, null].includes(booking.assignmentStatus) && booking.bookingStatus === 'pending';
           return (
             <View key={booking._id} style={styles.recentBookingCard}>
               <View style={styles.bookingCardHeader}>
@@ -299,7 +300,7 @@ export default function OverviewTab({
                 </Pressable>
               ) : (
                 <Text style={styles.assignedDriverNote}>
-                  Assigned: {booking.driver?.fullName || booking.driver?.name || 'Driver'} ({booking.vehicle?.vehicleNumber || 'Truck'})
+                  Assigned: {(typeof booking.driver === 'object' ? (booking.driver.fullName || booking.driver.name) : null) || 'Driver'} ({booking.vehicle?.vehicleNumber || booking.vehicleModel || 'Truck'})
                 </Text>
               )}
             </View>

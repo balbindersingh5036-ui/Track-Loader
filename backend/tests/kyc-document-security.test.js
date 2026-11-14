@@ -26,6 +26,7 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
   let liveCloudinaryAsset = null;
   const workflowUploadAssets = [];
   const originalSuperAdminUserId = env.superAdminUserId;
+  const originalProcessSuperAdminUserId = process.env.SUPER_ADMIN_USER_ID;
 
   before(async () => {
     if (mongoose.connection.readyState === 0) {
@@ -58,6 +59,7 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
     });
     adminToken = generateToken({ userId: adminUser._id, role: "admin" });
     env.superAdminUserId = adminUser._id.toString();
+    process.env.SUPER_ADMIN_USER_ID = adminUser._id.toString();
 
     regularAdminUser = await User.create({
       name: "Regular Admin",
@@ -224,6 +226,11 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
     await Driver.deleteMany({ _id: { $in: [driverA?._id, driverB?._id] } });
     await User.deleteMany({ _id: { $in: [adminUser?._id, regularAdminUser?._id, customerUser?._id, agencyAOwner?._id, agencyBOwner?._id, driverAUser?._id, driverBUser?._id] } });
     env.superAdminUserId = originalSuperAdminUserId;
+    if (originalProcessSuperAdminUserId === undefined) {
+      delete process.env.SUPER_ADMIN_USER_ID;
+    } else {
+      process.env.SUPER_ADMIN_USER_ID = originalProcessSuperAdminUserId;
+    }
     if (mongoose.connection.readyState !== 0) {
       await mongoose.connection.close();
     }
@@ -501,12 +508,14 @@ describe("KYC Document Security & Real Cloudinary Delivery Verification", () => 
     assert.equal(regularAdminDetails.body.data.driver.canReviewDocuments, false);
 
     env.superAdminUserId = "";
+    process.env.SUPER_ADMIN_USER_ID = "";
     const notConfigured = await request(app)
       .patch(`/api/admin/drivers/${driverA._id}/documents/idProof/approve`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send({});
     assert.equal(notConfigured.status, 503);
     env.superAdminUserId = adminUser._id.toString();
+    process.env.SUPER_ADMIN_USER_ID = adminUser._id.toString();
 
     const rejected = await request(app)
       .patch(`/api/admin/drivers/${driverA._id}/documents/idProof/reject`)

@@ -145,6 +145,15 @@ const vehicleSchema = new mongoose.Schema(
   }
 );
 
+vehicleSchema.index(
+  { driver: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { driver: { $type: "objectId" }, isActive: true },
+    name: "unique_active_vehicle_driver"
+  }
+);
+
 const Vehicle = mongoose.model("Vehicle", vehicleSchema);
 
 export default Vehicle;

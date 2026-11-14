@@ -81,13 +81,6 @@ export const checkDriverAssignableToVehicle = (driver, vehicle, agency = null) =
       message: "Driver and vehicle must belong to the same agency"
     };
   }
-  if (!hasApprovedVehicleDocuments(vehicle)) {
-    return {
-      eligible: false,
-      message: "Vehicle registration and insurance must both be approved before assigning a driver"
-    };
-  }
-
   return { eligible: true };
 };
 
@@ -98,6 +91,12 @@ export const checkDriverEligibleForDispatch = (driver, vehicle, agency = null) =
   const assignCheck = checkDriverAssignableToVehicle(driver, vehicle, agency);
   if (!assignCheck.eligible) {
     return assignCheck;
+  }
+  if (!hasApprovedVehicleDocuments(vehicle)) {
+    return {
+      eligible: false,
+      message: "Vehicle registration and insurance must both be approved before dispatch"
+    };
   }
   if (!vehicle.isAvailable) {
     return {

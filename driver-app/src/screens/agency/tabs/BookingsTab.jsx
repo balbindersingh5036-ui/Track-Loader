@@ -75,7 +75,11 @@ export default function BookingsTab({
       ? Number(selectedBookingForAssign.weight?.value || 0) * 1000
       : Number(selectedBookingForAssign.weight?.value || 0);
 
-    return eligibleDrivers.flatMap((driver) =>
+    return eligibleDrivers
+      .filter((driver) =>
+        selectedBookingForAssign.bookingMode !== 'instant' || driver.isOnline
+      )
+      .flatMap((driver) =>
       eligibleVehicles
         .filter((vehicle) =>
           String(vehicle.driver?._id || vehicle.driver) === String(driver._id) &&
@@ -187,7 +191,16 @@ export default function BookingsTab({
           const bookingId = booking._id;
           const displayId = booking.bookingId || bookingId.slice(-6).toUpperCase();
           const fare = booking.finalFare || booking.estimatedFare || 0;
-          const isUnassigned = !booking.driver && ['unassigned', 'rejected', undefined].includes(booking.assignmentStatus);
+          const hasAssignedDriver = Boolean(booking.driver);
+          const isPendingAcceptance = booking.assignmentStatus === 'pending_acceptance';
+          const isUnassigned = !hasAssignedDriver && !isPendingAcceptance && ['unassigned', 'rejected', undefined, null].includes(booking.assignmentStatus);
+          const assignmentStatusLabel = isUnassigned
+            ? 'Needs Assignment'
+            : isPendingAcceptance
+              ? 'Awaiting Driver Acceptance'
+              : booking.assignmentStatus === 'accepted'
+                ? 'Driver Accepted'
+                : (booking.assignmentStatus || 'Assigned');
           const isScheduled = booking.bookingMode === 'scheduled';
           const pickupDate = booking.preferredPickupDate || booking.createdAt;
           const scheduledDate = pickupDate ? new Date(pickupDate).toLocaleDateString() : null;
@@ -244,7 +257,7 @@ export default function BookingsTab({
 
                 <View style={styles.statusRows}>
                   <Text style={styles.statusText}>Booking status: <Text style={styles.statusValue}>{booking.bookingStatus || 'Unknown'}</Text></Text>
-                  <Text style={styles.statusText}>Assignment status: <Text style={styles.statusValue}>{booking.assignmentStatus || 'unassigned'}</Text></Text>
+                  <Text style={styles.statusText}>Assignment status: <Text style={styles.statusValue}>{assignmentStatusLabel}</Text></Text>
                 </View>
 
                 <View style={styles.routeLine} />
@@ -300,13 +313,15 @@ export default function BookingsTab({
               ) : null}
 
               {/* Assigned Driver / Vehicle Note */}
-              {booking.driver ? (
+              {hasAssignedDriver ? (
                 <View style={styles.assignmentInfoBox}>
                   <Ionicons name="checkmark-circle" size={16} color={theme.colors.green} />
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.assignmentInfoTitle}>Assigned Driver & Truck</Text>
+                    <Text style={styles.assignmentInfoTitle}>
+                      {isPendingAcceptance ? 'Assigned (Awaiting Acceptance)' : 'Assigned Driver & Truck'}
+                    </Text>
                     <Text style={styles.assignmentInfoText}>
-                      {booking.driver.fullName || booking.driver.name} · {booking.vehicle?.vehicleNumber || 'Assigned Vehicle'}
+                      {(typeof booking.driver === 'object' ? (booking.driver.fullName || booking.driver.name) : null) || 'Assigned Driver'} · {booking.vehicle?.vehicleNumber || booking.vehicleModel || 'Assigned Vehicle'}
                     </Text>
                   </View>
                 </View>
@@ -401,6 +416,9 @@ export default function BookingsTab({
                       <View style={{ flex: 1, gap: 2 }}>
                         <Text style={styles.candidateDriverName}>
                           {driver.fullName || driver.user?.name}
+                        </Text>
+                        <Text style={styles.candidateVehicleDetails}>
+                          {driver.phone || driver.user?.phone || 'No mobile'} · {driver.isOnline ? 'Online' : 'Offline'}
                         </Text>
                         <Text style={styles.candidateVehicleDetails}>
                           {vehicle.vehicleNumber} ({vehicle.vehicleModel}) · {vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit}

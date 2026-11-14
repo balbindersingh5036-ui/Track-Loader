@@ -30,6 +30,7 @@ import {
 } from "../controllers/bookingController.js";
 import { getDriverRatings } from "../controllers/ratingController.js";
 import { sanitizeDriverDocumentResponse } from "../utils/driverDocumentResponse.js";
+import { serializeAgencyKycStatus } from "../utils/agencyKycStatus.js";
 import { checkDriverOnlineEligibility } from "../utils/driverEligibility.js";
 import { sanitizeVehicleDocumentResponse } from "../utils/vehicleDocumentResponse.js";
 
@@ -200,7 +201,7 @@ router.patch("/agency-request", protect, driverOnly, async (req, res) => {
       .populate("agency", "agencyName phone email address city approvalStatus isActive");
 
     const driverObj = populated.toObject();
-    sanitizeDriverDocumentResponse(driverObj, { includeSignedUrls: true });
+    sanitizeDriverDocumentResponse(driverObj);
 
     return res.status(200).json({
       success: true,
@@ -222,7 +223,17 @@ export const getDriverProfile = async (req, res) => {
       user: req.user._id
     })
       .populate("user", "name phone email profileImage role")
-      .populate("agency", "agencyName phone email address city approvalStatus isActive");
+      .populate(
+        "agency",
+        [
+          "agencyName phone email address city approvalStatus rejectionReason isActive",
+          "documents.ownerAadhaar.url documents.ownerAadhaar.publicId documents.ownerAadhaar.status documents.ownerAadhaar.submittedAt documents.ownerAadhaar.reviewedAt documents.ownerAadhaar.rejectionReason",
+          "documents.businessRegistration.url documents.businessRegistration.publicId documents.businessRegistration.status documents.businessRegistration.submittedAt documents.businessRegistration.reviewedAt documents.businessRegistration.rejectionReason",
+          "documents.tradeLicense.url documents.tradeLicense.publicId documents.tradeLicense.status documents.tradeLicense.submittedAt documents.tradeLicense.reviewedAt documents.tradeLicense.rejectionReason",
+          "documents.gstCertificate.url documents.gstCertificate.publicId documents.gstCertificate.status documents.gstCertificate.submittedAt documents.gstCertificate.reviewedAt documents.gstCertificate.rejectionReason",
+          "documents.taxId.url documents.taxId.publicId documents.taxId.status documents.taxId.submittedAt documents.taxId.reviewedAt documents.taxId.rejectionReason"
+        ].join(" ")
+      );
 
     if (!driver) {
       return res.status(404).json({
@@ -236,8 +247,21 @@ export const getDriverProfile = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
     const driverObj = driver.toObject();
-    sanitizeDriverDocumentResponse(driverObj, { includeSignedUrls: true });
+    sanitizeDriverDocumentResponse(driverObj);
+    driverObj.agencyKyc = serializeAgencyKycStatus(driverObj.agency);
     const safeVehicles = vehicles.map((vehicle) => sanitizeVehicleDocumentResponse(vehicle));
+    if (driverObj.agency) {
+      driverObj.agency = {
+        _id: driverObj.agency._id,
+        agencyName: driverObj.agency.agencyName,
+        phone: driverObj.agency.phone,
+        email: driverObj.agency.email,
+        address: driverObj.agency.address,
+        city: driverObj.agency.city,
+        approvalStatus: driverObj.agency.approvalStatus,
+        isActive: driverObj.agency.isActive
+      };
+    }
 
     return res.status(200).json({
       success: true,

@@ -2,6 +2,8 @@ import api from './api';
 
 export const driverService = {
   getProfile: () => api.get('/driver/profile'),
+  getRequests: (params) => api.get('/driver/bookings/requests', { params }),
+  getBookingRequests: (params) => api.get('/driver/bookings/requests', { params }),
   updateStatus: (isOnline) => api.patch('/driver/status', { isOnline }),
   requestAgencyAssociation: (agencyId) => api.patch('/driver/agency-request', { agencyId }),
   getVehicles: () => api.get('/driver/vehicles'),
@@ -14,6 +16,11 @@ export const driverService = {
     }),
   uploadVehicleDocument: (vehicleId, docType, data, onUploadProgress) =>
     api.post(`/documents/vehicle/${vehicleId}/${docType}`, data, {
+      timeout: 120000,
+      onUploadProgress
+    }),
+  uploadProfileImage: (data, onUploadProgress) =>
+    api.post('/uploads/image', data, {
       timeout: 120000,
       onUploadProgress
     }),

@@ -5,7 +5,11 @@ import Agency from "../src/models/Agency.js";
 import Driver from "../src/models/Driver.js";
 import User from "../src/models/User.js";
 import Vehicle from "../src/models/Vehicle.js";
-import { assignVehicleDriver } from "../src/controllers/agencyController.js";
+import {
+  assignVehicleDriver,
+  createAgencyVehicle,
+  updateAgencyVehicle
+} from "../src/controllers/agencyController.js";
 import {
   isDriverAssignableToVehicle,
   isDriverEligibleForDispatch,
@@ -58,6 +62,7 @@ test("Agency Vehicle Assignment 1: Pending agency association blocked", async (t
     agency: agencyId,
     driver: null,
     isActive: true,
+    isAvailable: true,
     documents: {
       registration: { status: "approved", url: "https://example.com/rc.pdf" },
       insurance: { status: "approved", url: "https://example.com/ins.pdf" }
@@ -107,6 +112,7 @@ test("Agency Vehicle Assignment 2: Pending Super Admin approval blocked", async 
     agency: agencyId,
     driver: null,
     isActive: true,
+    isAvailable: true,
     documents: {
       registration: { status: "approved", url: "https://example.com/rc.pdf" },
       insurance: { status: "approved", url: "https://example.com/ins.pdf" }
@@ -157,6 +163,7 @@ test("Agency Vehicle Assignment 3: Pending Aadhaar or Driving Licence blocked", 
     agency: agencyId,
     driver: null,
     isActive: true,
+    isAvailable: true,
     documents: {
       registration: { status: "approved", url: "https://example.com/rc.pdf" },
       insurance: { status: "approved", url: "https://example.com/ins.pdf" }
@@ -165,7 +172,9 @@ test("Agency Vehicle Assignment 3: Pending Aadhaar or Driving Licence blocked", 
   };
 
   t.mock.method(Agency, "findOne", async () => ({ _id: agencyId, approvalStatus: "approved", isActive: true }));
-  t.mock.method(Vehicle, "findOne", async () => vehicle);
+  t.mock.method(Vehicle, "findOne", async (filter) =>
+    filter._id?.$ne ? null : vehicle
+  );
   t.mock.method(Driver, "findOne", async () => driverAadhaarPending);
 
   const resA = createResponse();
@@ -199,7 +208,7 @@ test("Agency Vehicle Assignment 3: Pending Aadhaar or Driving Licence blocked", 
   assert.match(resB.body.message, /Aadhaar and Driving Licence/i);
 });
 
-test("Agency Vehicle Assignment 4: Missing RC or Insurance blocked", async (t) => {
+test("Agency Vehicle Assignment 4: Driver can be linked before vehicle documents are approved", async (t) => {
   mockDriverUserRole(t);
   const agencyId = new mongoose.Types.ObjectId();
   const ownerId = new mongoose.Types.ObjectId();
@@ -224,6 +233,7 @@ test("Agency Vehicle Assignment 4: Missing RC or Insurance blocked", async (t) =
     agency: agencyId,
     driver: null,
     isActive: true,
+    isAvailable: true,
     documents: {
       registration: { status: "not_uploaded" }, // Missing RC
       insurance: { status: "approved" }
@@ -232,7 +242,9 @@ test("Agency Vehicle Assignment 4: Missing RC or Insurance blocked", async (t) =
   };
 
   t.mock.method(Agency, "findOne", async () => ({ _id: agencyId, approvalStatus: "approved", isActive: true }));
-  t.mock.method(Vehicle, "findOne", async () => vehicleMissingRc);
+  t.mock.method(Vehicle, "findOne", async (filter) =>
+    filter._id?.$ne ? null : vehicleMissingRc
+  );
   t.mock.method(Driver, "findOne", async () => driver);
 
   const res = createResponse();
@@ -242,8 +254,10 @@ test("Agency Vehicle Assignment 4: Missing RC or Insurance blocked", async (t) =
     user: { _id: ownerId }
   }, res);
 
-  assert.equal(res.statusCode, 403);
-  assert.match(res.body.message, /registration and insurance/i);
+  assert.equal(res.statusCode, 200);
+  assert.equal(vehicleMissingRc.driver.toString(), driverId.toString());
+  assert.equal(isDriverAssignableToVehicle(driver, vehicleMissingRc, { _id: agencyId }), true);
+  assert.equal(isDriverEligibleForDispatch(driver, vehicleMissingRc, { _id: agencyId }), false);
 });
 
 test("Agency Vehicle Assignment 5: Fully approved driver and eligible vehicle assignment succeeds", async (t) => {
@@ -274,6 +288,7 @@ test("Agency Vehicle Assignment 5: Fully approved driver and eligible vehicle as
     agency: agencyId,
     driver: null,
     isActive: true,
+    isAvailable: true,
     documents: {
       registration: { status: "approved", url: "https://example.com/rc.pdf" },
       insurance: { status: "approved", url: "https://example.com/ins.pdf" }
@@ -320,9 +335,12 @@ test("Agency Vehicle Assignment 6: Cross-agency assignment returns 403", async (
     agency: otherAgencyId,
     driver: null,
     isActive: true,
+    isAvailable: true,
     documents: { registration: { status: "approved" }, insurance: { status: "approved" } }
   };
-  t.mock.method(Vehicle, "findOne", async () => foreignVehicle);
+  t.mock.method(Vehicle, "findOne", async (filter) =>
+    filter._id?.$ne ? null : foreignVehicle
+  );
 
   const resVeh = createResponse();
   await assignVehicleDriver({
@@ -340,6 +358,7 @@ test("Agency Vehicle Assignment 6: Cross-agency assignment returns 403", async (
     agency: myAgencyId,
     driver: null,
     isActive: true,
+    isAvailable: true,
     documents: { registration: { status: "approved" }, insurance: { status: "approved" } }
   };
   const foreignDriver = {
@@ -351,7 +370,9 @@ test("Agency Vehicle Assignment 6: Cross-agency assignment returns 403", async (
     agencyAssociation: { status: "approved" },
     documents: { idProof: { status: "approved" }, drivingLicense: { status: "approved" } }
   };
-  t.mock.method(Vehicle, "findOne", async () => ownVehicle);
+  t.mock.method(Vehicle, "findOne", async (filter) =>
+    filter._id?.$ne ? null : ownVehicle
+  );
   t.mock.method(Driver, "findOne", async () => foreignDriver);
 
   const resDrv = createResponse();
@@ -416,6 +437,7 @@ test("Agency Vehicle Assignment blocks an agency owner account", async (t) => {
     agency: agencyId,
     driver: null,
     isActive: true,
+    isAvailable: true,
     documents: { registration: { status: "approved" }, insurance: { status: "approved" } }
   };
   const driver = {
@@ -455,6 +477,7 @@ test("Agency Vehicle Assignment 8: Assigned driver and vehicle relationships per
     agency: agencyId,
     driver: driverId,
     isActive: true,
+    isAvailable: true,
     documents: { registration: { status: "approved" }, insurance: { status: "approved" } },
     async save() { return this; }
   };
@@ -526,4 +549,144 @@ test("Agency Vehicle Assignment 9: Dispatch eligibility remains enforced after a
     documents: { registration: { status: "pending" }, insurance: { status: "approved" } }
   };
   assert.equal(isDriverEligibleForDispatch(driver, unverifiedVehicle, agency), false);
+});
+
+test("Vehicle registration saves an eligible same-agency driver relationship", async (t) => {
+  const agencyId = new mongoose.Types.ObjectId();
+  const ownerId = new mongoose.Types.ObjectId();
+  const driverId = new mongoose.Types.ObjectId();
+  const driver = {
+    _id: driverId,
+    user: new mongoose.Types.ObjectId(),
+    agency: agencyId,
+    isActive: true,
+    approvalStatus: "approved",
+    agencyAssociation: { status: "approved" },
+    documents: { idProof: { status: "approved" }, drivingLicense: { status: "approved" } }
+  };
+  let createdVehicle;
+
+  t.mock.method(Agency, "findOne", async () => ({
+    _id: agencyId,
+    approvalStatus: "approved",
+    isActive: true
+  }));
+  t.mock.method(User, "findById", () => ({
+    select() { return this; },
+    lean: async () => ({ role: "driver" })
+  }));
+  t.mock.method(Driver, "findOne", async () => driver);
+  t.mock.method(Vehicle, "findOne", async () => null);
+  t.mock.method(Vehicle, "create", async (data) => {
+    createdVehicle = data;
+    return { _id: new mongoose.Types.ObjectId(), ...data };
+  });
+
+  const res = createResponse();
+  await createAgencyVehicle({
+    user: { _id: ownerId },
+    body: {
+      vehicleNumber: "PB10AB1234",
+      vehicleModel: "Tata Ace Gold",
+      vehicleType: "mini-truck",
+      loadCapacity: { value: 1000, unit: "kg" },
+      driverId: driverId.toString()
+    }
+  }, res);
+
+  assert.equal(res.statusCode, 201);
+  assert.equal(createdVehicle.driver.toString(), driverId.toString());
+});
+
+test("Editing a vehicle can change or remove its assigned driver", async (t) => {
+  const agencyId = new mongoose.Types.ObjectId();
+  const ownerId = new mongoose.Types.ObjectId();
+  const driverId = new mongoose.Types.ObjectId();
+  const replacementDriverId = new mongoose.Types.ObjectId();
+  const vehicleId = new mongoose.Types.ObjectId();
+  const vehicle = {
+    _id: vehicleId,
+    agency: agencyId,
+    driver: null,
+    vehicleNumber: "PB10AB1234",
+    vehicleMake: "Tata",
+    vehicleModel: "Tata Ace Gold",
+    vehicleType: "mini-truck",
+    loadCapacity: { value: 1000, unit: "kg" },
+    bodyType: "open",
+    vehicleImage: "",
+    vehicleImages: [],
+    isActive: true,
+    isAvailable: true,
+    async save() { return this; }
+  };
+  const driver = {
+    _id: driverId,
+    user: new mongoose.Types.ObjectId(),
+    agency: agencyId,
+    isActive: true,
+    approvalStatus: "approved",
+    agencyAssociation: { status: "approved" },
+    documents: { idProof: { status: "approved" }, drivingLicense: { status: "approved" } }
+  };
+  const replacementDriver = {
+    ...driver,
+    _id: replacementDriverId,
+    user: new mongoose.Types.ObjectId()
+  };
+
+  t.mock.method(Agency, "findOne", async () => ({ _id: agencyId }));
+  t.mock.method(User, "findById", () => ({
+    select() { return this; },
+    lean: async () => ({ role: "driver" })
+  }));
+  t.mock.method(Driver, "findOne", async (filter) =>
+    filter._id.toString() === replacementDriverId.toString() ? replacementDriver : driver
+  );
+  t.mock.method(Vehicle, "findOne", async (filter) =>
+    filter._id?.$ne ? null : vehicle
+  );
+
+  const assignResponse = createResponse();
+  await updateAgencyVehicle({
+    params: { id: vehicleId.toString() },
+    user: { _id: ownerId },
+    body: { driverId: driverId.toString() },
+    files: []
+  }, assignResponse);
+  assert.equal(assignResponse.statusCode, 200);
+  assert.equal(vehicle.driver.toString(), driverId.toString());
+
+  const changeResponse = createResponse();
+  await updateAgencyVehicle({
+    params: { id: vehicleId.toString() },
+    user: { _id: ownerId },
+    body: { driverId: replacementDriverId.toString() },
+    files: []
+  }, changeResponse);
+  assert.equal(changeResponse.statusCode, 200);
+  assert.equal(vehicle.driver.toString(), replacementDriverId.toString());
+
+  const unassignResponse = createResponse();
+  await updateAgencyVehicle({
+    params: { id: vehicleId.toString() },
+    user: { _id: ownerId },
+    body: { driverId: "" },
+    files: []
+  }, unassignResponse);
+  assert.equal(unassignResponse.statusCode, 200);
+  assert.equal(vehicle.driver, null);
+});
+
+test("Vehicle schema enforces one active vehicle per assigned driver", () => {
+  const driverIndex = Vehicle.schema.indexes().find(([, options]) =>
+    options.name === "unique_active_vehicle_driver"
+  );
+  assert.ok(driverIndex);
+  assert.deepEqual(driverIndex[0], { driver: 1 });
+  assert.equal(driverIndex[1].unique, true);
+  assert.deepEqual(driverIndex[1].partialFilterExpression, {
+    driver: { $type: "objectId" },
+    isActive: true
+  });
 });

@@ -5,6 +5,16 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow LoadBalbin to select a profile photo.",
+          "cameraPermission": "Allow LoadBalbin to take a profile photo.",
+          "microphonePermission": false
+        }
+      ]
+    ],
     "android": {
       "package": "com.loadbalbin.driver",
       "versionCode": 1,

@@ -321,6 +321,7 @@ test("atomic driver acceptance allows only one concurrent acceptance", async (t)
   }));
   t.mock.method(Agency, "findById", async () => activeAgency);
   t.mock.method(Booking, "findOne", async () => current);
+  t.mock.method(Booking, "exists", async () => null);
   t.mock.method(Vehicle, "findOne", async () => ({ ...eligibleVehicle, isAvailable: false }));
   let updates = 0;
   t.mock.method(Booking, "findOneAndUpdate", async (_filter, update) => {

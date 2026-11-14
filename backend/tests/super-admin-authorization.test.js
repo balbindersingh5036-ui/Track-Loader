@@ -19,10 +19,17 @@ const response = () => ({
 
 test("agency KYC and approval actions fail closed unless the designated Super Admin is configured", (t) => {
   const previous = env.superAdminUserId;
+  const previousProcessValue = process.env.SUPER_ADMIN_USER_ID;
   t.after(() => {
     env.superAdminUserId = previous;
+    if (previousProcessValue === undefined) {
+      delete process.env.SUPER_ADMIN_USER_ID;
+    } else {
+      process.env.SUPER_ADMIN_USER_ID = previousProcessValue;
+    }
   });
   env.superAdminUserId = "";
+  process.env.SUPER_ADMIN_USER_ID = "";
 
   const res = response();
   let nextCalled = false;
@@ -37,11 +44,18 @@ test("agency KYC and approval actions fail closed unless the designated Super Ad
 
 test("ordinary administrators cannot use designated Super Admin review actions", (t) => {
   const previous = env.superAdminUserId;
+  const previousProcessValue = process.env.SUPER_ADMIN_USER_ID;
   t.after(() => {
     env.superAdminUserId = previous;
+    if (previousProcessValue === undefined) {
+      delete process.env.SUPER_ADMIN_USER_ID;
+    } else {
+      process.env.SUPER_ADMIN_USER_ID = previousProcessValue;
+    }
   });
   const designatedId = new mongoose.Types.ObjectId();
   env.superAdminUserId = designatedId.toString();
+  process.env.SUPER_ADMIN_USER_ID = designatedId.toString();
 
   const res = response();
   let nextCalled = false;
@@ -56,11 +70,18 @@ test("ordinary administrators cannot use designated Super Admin review actions",
 
 test("only the configured Super Admin identity passes the review middleware", (t) => {
   const previous = env.superAdminUserId;
+  const previousProcessValue = process.env.SUPER_ADMIN_USER_ID;
   t.after(() => {
     env.superAdminUserId = previous;
+    if (previousProcessValue === undefined) {
+      delete process.env.SUPER_ADMIN_USER_ID;
+    } else {
+      process.env.SUPER_ADMIN_USER_ID = previousProcessValue;
+    }
   });
   const designatedId = new mongoose.Types.ObjectId();
   env.superAdminUserId = designatedId.toString();
+  process.env.SUPER_ADMIN_USER_ID = designatedId.toString();
 
   const res = response();
   let nextCalled = false;

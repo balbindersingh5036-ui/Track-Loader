@@ -142,6 +142,78 @@ function VehiclePhotoGrid({ photos, onAdd, onRemove, onReplace, progress = 0, di
   );
 }
 
+function DriverAssignmentField({ drivers, vehicles, value, onChange, vehicleId = null }) {
+  const availabilityFor = (driver) => {
+    const assignedVehicle = vehicles.find((vehicle) =>
+      vehicle.isActive !== false &&
+      String(vehicle.driver?._id || vehicle.driver) === String(driver._id)
+    );
+    if (assignedVehicle && String(assignedVehicle._id) !== String(vehicleId || '')) {
+      return assignedVehicle.isAvailable === false
+        ? `Busy · ${assignedVehicle.vehicleNumber}`
+        : `Assigned · ${assignedVehicle.vehicleNumber}`;
+    }
+    return driver.isOnline ? 'Online' : 'Offline';
+  };
+
+  return (
+    <View style={styles.inputGroup}>
+      <Text style={styles.inputLabel}>Assign Driver</Text>
+      <Text style={styles.driverAssignmentHint}>Approved, active drivers in your agency only.</Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => onChange('')}
+        style={[styles.assignmentOption, !value && styles.assignmentOptionSelected]}
+      >
+        <Text style={styles.driverSelectName}>Unassigned</Text>
+        <Text style={styles.driverSelectPhone}>Leave this vehicle without a driver</Text>
+      </Pressable>
+      {drivers.length ? drivers.map((driver) => {
+        const driverId = String(driver._id);
+        const assignedElsewhere = vehicles.some((vehicle) =>
+          vehicle.isActive !== false &&
+          String(vehicle.driver?._id || vehicle.driver) === driverId &&
+          String(vehicle._id) !== String(vehicleId || '')
+        );
+        const selected = String(value || '') === driverId;
+        const availability = availabilityFor(driver);
+        return (
+          <Pressable
+            key={driverId}
+            accessibilityRole="button"
+            disabled={assignedElsewhere}
+            onPress={() => onChange(driverId)}
+            style={[
+              styles.assignmentOption,
+              selected && styles.assignmentOptionSelected,
+              assignedElsewhere && styles.assignmentOptionDisabled
+            ]}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.driverSelectName}>{driver.fullName || driver.user?.name || 'Driver'}</Text>
+              <Text style={styles.driverSelectPhone}>{driver.phone || driver.user?.phone || 'No mobile number'}</Text>
+              <Text style={[
+                styles.driverAvailability,
+                availability === 'Online' ? styles.driverOnline : null,
+                availability === 'Offline' ? styles.driverOffline : null
+              ]}>
+                {availability}
+              </Text>
+            </View>
+            <Ionicons
+              name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+              size={19}
+              color={selected ? theme.colors.primary : theme.colors.muted}
+            />
+          </Pressable>
+        );
+      }) : (
+        <Text style={styles.driverAssignmentHint}>No approved and active drivers are available to assign.</Text>
+      )}
+    </View>
+  );
+}
+
 export default function FleetTab({
   vehicles = [],
   drivers = [],
@@ -175,7 +247,8 @@ export default function FleetTab({
     vehicleType: 'mini-truck',
     capacity: '',
     capacityUnit: 'kg',
-    bodyType: 'open'
+    bodyType: 'open',
+    driverId: ''
   });
   const [formError, setFormError] = useState('');
   const [vehiclePhotos, setVehiclePhotos] = useState([]);
@@ -340,7 +413,8 @@ export default function FleetTab({
         vehicleModel: fullModel,
         vehicleType: vehicleForm.vehicleType,
         loadCapacity: { value: capacity, unit: vehicleForm.capacityUnit },
-        bodyType: vehicleForm.bodyType
+        bodyType: vehicleForm.bodyType,
+        driverId: vehicleForm.driverId
       }, vehiclePhotos, setPhotoProgress);
       setVehicleForm({
         vehicleNumber: '',
@@ -349,7 +423,8 @@ export default function FleetTab({
         vehicleType: 'mini-truck',
         capacity: '',
         capacityUnit: 'kg',
-        bodyType: 'open'
+        bodyType: 'open',
+        driverId: ''
       });
       setVehiclePhotos([]);
       setPhotoProgress(0);
@@ -391,7 +466,8 @@ export default function FleetTab({
         vehicleModel: fullModel,
         vehicleType: editingVehicle.vehicleType,
         loadCapacity: { value: capacity, unit: editingVehicle.capacityUnit },
-        bodyType: editingVehicle.bodyType
+        bodyType: editingVehicle.bodyType,
+        driverId: editingVehicle.driverId
       }, newPhotos, retainedPhotos, setPhotoProgress);
       setEditingVehicle(null);
       setPhotoProgress(0);
@@ -497,6 +573,15 @@ export default function FleetTab({
       ) : (
         filteredVehicles.map((vehicle) => {
           const assignedDriver = vehicle.driver?.fullName || vehicle.driver?.name;
+          const assignedDriverStatus = vehicle.driver
+            ? !vehicle.driver.isActive || vehicle.driver.approvalStatus !== 'approved'
+              ? 'Inactive'
+              : !vehicle.driver.isOnline
+                ? 'Offline'
+                : vehicle.isAvailable === false
+                  ? 'Busy'
+                  : 'Online'
+            : '';
           const photos = getVehiclePhotos(vehicle);
           const primaryPhoto = photos[0];
           const rcStatus = vehicle.documents?.registration?.status || 'not_uploaded';
@@ -583,25 +668,29 @@ export default function FleetTab({
                     <Text style={[styles.driverBoxValue, !assignedDriver && { color: theme.colors.muted }]}>
                       {assignedDriver || 'No driver assigned'}
                     </Text>
+                    {vehicle.driver?.phone ? (
+                      <Text style={styles.driverBoxAvailability}>
+                        {vehicle.driver.phone} · {assignedDriverStatus}
+                      </Text>
+                    ) : null}
                   </View>
                 </View>
 
-                {assignedDriver ? (
-                  <Pressable
-                    onPress={() => setUnassignModalVehicle(vehicle)}
-                    style={styles.unassignBtn}
-                  >
-                    <Text style={styles.unassignBtnText}>Unassign</Text>
-                  </Pressable>
-                ) : (
-                  <Pressable
-                    onPress={() => setAssignModalVehicle(vehicle)}
-                    style={styles.assignDriverBtn}
-                  >
-                    <Text style={styles.assignDriverBtnText}>Assign Driver</Text>
-                  </Pressable>
-                )}
+                <Pressable
+                  onPress={() => setAssignModalVehicle(vehicle)}
+                  style={styles.assignDriverBtn}
+                >
+                  <Text style={styles.assignDriverBtnText}>{assignedDriver ? 'Change Driver' : 'Assign Driver'}</Text>
+                </Pressable>
               </View>
+              {assignedDriver ? (
+                <Pressable
+                  onPress={() => setUnassignModalVehicle(vehicle)}
+                  style={styles.unassignBtn}
+                >
+                  <Text style={styles.unassignBtnText}>Remove Driver</Text>
+                </Pressable>
+              ) : null}
 
               {/* Document verification status (RC & Insurance) */}
               <View style={styles.documentsContainer}>
@@ -658,6 +747,7 @@ export default function FleetTab({
                     capacity: String(vehicle.loadCapacity?.value || ''),
                     capacityUnit: vehicle.loadCapacity?.unit || 'kg',
                     bodyType: vehicle.bodyType || 'open',
+                    driverId: String(vehicle.driver?._id || vehicle.driver || ''),
                     photos: getVehiclePhotos(vehicle)
                   })}
                   style={styles.actionBtnOutline}
@@ -772,6 +862,13 @@ export default function FleetTab({
                   })}
                 </View>
               </View>
+
+              <DriverAssignmentField
+                drivers={eligibleDrivers}
+                vehicles={vehicles}
+                value={vehicleForm.driverId}
+                onChange={(driverId) => setVehicleForm((current) => ({ ...current, driverId }))}
+              />
 
               <VehiclePhotoGrid
                 photos={vehiclePhotos}
@@ -919,6 +1016,14 @@ export default function FleetTab({
                     })}
                   </View>
                 </View>
+
+                <DriverAssignmentField
+                  drivers={eligibleDrivers}
+                  vehicles={vehicles}
+                  value={editingVehicle.driverId}
+                  vehicleId={editingVehicle.id}
+                  onChange={(driverId) => setEditingVehicle((current) => ({ ...current, driverId }))}
+                />
 
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Load Capacity</Text>
@@ -1085,8 +1190,21 @@ export default function FleetTab({
                   description="Only drivers with approved KYC documents (Aadhaar & DL) and approved agency association can be assigned to fleet vehicles."
                 />
               ) : (
-                eligibleDrivers.map((driver) => {
+                eligibleDrivers.filter((driver) => {
+                  const assignedVehicle = vehicles.find((vehicle) =>
+                    String(vehicle.driver?._id || vehicle.driver) === String(driver._id)
+                  );
+                  return !assignedVehicle || String(assignedVehicle._id) === String(assignModalVehicle?._id);
+                }).filter((driver) =>
+                  String(driver._id) !== String(assignModalVehicle?.driver?._id || assignModalVehicle?.driver || '')
+                ).map((driver) => {
                   const driverName = driver.fullName || driver.user?.name || 'Driver';
+                  const assignedVehicle = vehicles.find((vehicle) =>
+                    String(vehicle.driver?._id || vehicle.driver) === String(driver._id)
+                  );
+                  const availability = assignedVehicle?.isAvailable === false
+                    ? 'Busy'
+                    : driver.isOnline ? 'Online' : 'Offline';
                   return (
                     <Pressable
                       key={driver._id}
@@ -1102,6 +1220,11 @@ export default function FleetTab({
                       <View style={{ flex: 1 }}>
                         <Text style={styles.driverSelectName}>{driverName}</Text>
                         <Text style={styles.driverSelectPhone}>{driver.phone || driver.user?.phone}</Text>
+                        <Text style={[
+                          styles.driverAvailability,
+                          availability === 'Online' ? styles.driverOnline : null,
+                          availability === 'Offline' ? styles.driverOffline : null
+                        ]}>{availability}</Text>
                       </View>
                       <Ionicons name="chevron-forward" size={18} color={theme.colors.primary} />
                     </Pressable>
@@ -1355,6 +1478,11 @@ const styles = StyleSheet.create({
     color: theme.colors.ink,
     fontSize: 13,
     fontWeight: '800'
+  },
+  driverBoxAvailability: {
+    color: theme.colors.muted,
+    fontSize: 10,
+    marginTop: 2
   },
   assignDriverBtn: {
     backgroundColor: theme.colors.primaryGlow,
@@ -1825,5 +1953,37 @@ const styles = StyleSheet.create({
   driverSelectPhone: {
     color: theme.colors.muted,
     fontSize: 11
+  },
+  driverAssignmentHint: {
+    color: theme.colors.muted,
+    fontSize: 11
+  },
+  assignmentOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderWidth: 1,
+    borderRadius: theme.borderRadius.md,
+    padding: 10,
+    gap: 10
+  },
+  assignmentOptionSelected: {
+    borderColor: theme.colors.primary,
+    backgroundColor: theme.colors.primaryGlow
+  },
+  assignmentOptionDisabled: {
+    opacity: 0.45
+  },
+  driverAvailability: {
+    color: theme.colors.muted,
+    fontSize: 10,
+    marginTop: 2
+  },
+  driverOnline: {
+    color: theme.colors.green
+  },
+  driverOffline: {
+    color: theme.colors.warning
   }
 });

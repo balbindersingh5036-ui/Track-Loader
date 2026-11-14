@@ -16,6 +16,9 @@ import {
 import { reviewAdminDriverDocument } from "../src/controllers/adminDriverController.js";
 import { reviewAdminAgencyDocument, sanitizeAgencyForList } from "../src/controllers/adminAgencyController.js";
 import { assignVehicleDriver } from "../src/controllers/agencyController.js";
+import { checkDriverEligibleForDispatch } from "../src/utils/driverEligibility.js";
+import { serializeAgencyKycStatus } from "../src/utils/agencyKycStatus.js";
+import { sanitizeDriverDocumentResponse } from "../src/utils/driverDocumentResponse.js";
 import { handleUploadSingle } from "../src/middleware/uploadMiddleware.js";
 
 const response = () => ({
@@ -115,6 +118,14 @@ test("agency document upload rejects other owners and prevents duplicate pending
     file: pngFile()
   }, unauthorized);
   assert.equal(unauthorized.statusCode, 404);
+
+  const driverForbidden = response();
+  await uploadAgencyDocument({
+    params: { agencyId: agencyId.toString(), docType: "ownerAadhaar" },
+    user: { _id: ownerId, role: "driver" },
+    file: pngFile()
+  }, driverForbidden);
+  assert.equal(driverForbidden.statusCode, 403);
 
   const duplicate = response();
   await uploadAgencyDocument({
@@ -431,11 +442,111 @@ test("driver Aadhaar and Driving Licence uploads are stored against the Driver a
     assert.ok(driver.documents[docType].submittedAt instanceof Date);
     assert.equal(driver.documents[docType].publicId, privateAsset.public_id);
   }
+
+  const duplicate = response();
+  await uploadDriverDocument({
+    params: { driverId: driverId.toString(), docType: "idProof" },
+    user: { _id: userId, role: "driver" },
+    file: pngFile()
+  }, duplicate);
+  assert.equal(duplicate.statusCode, 409);
+
   assert.notEqual(driver.documents.idProof.publicId, agencyOwnerAadhaar.publicId);
   assert.equal(agencyOwnerAadhaar.status, "approved");
   assert.equal(uploadOptions.type, "authenticated");
   assert.equal(uploadOptions.folder, "loadbalbin_kyc");
   assert.equal(upload.mock.calls.length, 2);
+});
+
+test("replacing an approved driver document starts a new pending review", async (t) => {
+  useTestCloudinaryConfig(t);
+  const driverId = new mongoose.Types.ObjectId();
+  const userId = new mongoose.Types.ObjectId();
+  const driver = {
+    _id: driverId,
+    user: userId,
+    documents: {
+      idProof: {
+        publicId: "loadbalbin_kyc/previous-aadhaar",
+        url: "https://private.example/previous-aadhaar",
+        status: "approved",
+        reviewedAt: new Date(),
+        reviewedBy: new mongoose.Types.ObjectId()
+      }
+    },
+    markModified() {},
+    async save() { return this; }
+  };
+  t.mock.method(Driver, "findById", async () => driver);
+  t.mock.method(cloudinary.uploader, "upload", async () => ({
+    ...privateAsset,
+    public_id: "loadbalbin_kyc/replacement-aadhaar"
+  }));
+
+  const res = response();
+  await uploadDriverDocument({
+    params: { driverId: driverId.toString(), docType: "idProof" },
+    user: { _id: userId, role: "driver" },
+    file: pngFile()
+  }, res);
+
+  assert.equal(res.statusCode, 201);
+  assert.equal(driver.documents.idProof.status, "pending");
+  assert.equal(driver.documents.idProof.publicId, "loadbalbin_kyc/replacement-aadhaar");
+  assert.equal(driver.documents.idProof.reviewedAt, null);
+  assert.equal(driver.documents.idProof.reviewedBy, null);
+});
+
+test("driver agency KYC summary exposes statuses and reasons without document URLs", () => {
+  const summary = serializeAgencyKycStatus({
+    approvalStatus: "pending",
+    documents: {
+      ownerAadhaar: {
+        url: "https://private.example/owner-aadhaar",
+        publicId: "loadbalbin_kyc/owner-aadhaar",
+        status: "rejected",
+        rejectionReason: "Image is unreadable"
+      },
+      businessRegistration: { status: "pending", publicId: "loadbalbin_kyc/registration" },
+      tradeLicense: {},
+      gstCertificate: { status: "approved", url: "https://private.example/gst" },
+      taxId: { publicId: "loadbalbin_kyc/tax", status: "pending" }
+    }
+  });
+
+  assert.equal(summary.approvalStatus, "pending");
+  assert.equal(summary.documents.ownerAadhaar.status, "rejected");
+  assert.equal(summary.documents.ownerAadhaar.rejectionReason, "Image is unreadable");
+  assert.equal(summary.documents.tradeLicense.status, "not_uploaded");
+  assert.equal("url" in summary.documents.ownerAadhaar, false);
+  assert.equal("publicId" in summary.documents.ownerAadhaar, false);
+});
+
+test("driver profile document summary omits stored URLs and IDs", () => {
+  const driver = {
+    documents: {
+      idProof: {
+        url: "https://private.example/aadhaar",
+        publicId: "loadbalbin_kyc/aadhaar",
+        status: "pending",
+        submittedAt: new Date()
+      },
+      drivingLicense: {
+        url: "https://private.example/licence",
+        publicId: "loadbalbin_kyc/licence",
+        status: "rejected",
+        rejectionReason: "Document is unclear"
+      }
+    }
+  };
+
+  sanitizeDriverDocumentResponse(driver);
+
+  assert.equal(driver.documents.idProof.viewUrl, null);
+  assert.equal(driver.documents.idProof.status, "pending");
+  assert.equal("url" in driver.documents.idProof, false);
+  assert.equal("publicId" in driver.documents.idProof, false);
+  assert.equal(driver.documents.drivingLicense.rejectionReason, "Document is unclear");
 });
 
 test("driver upload rejects vehicle-owned document types", async (t) => {
@@ -526,6 +637,7 @@ test("admin rejection requires a reason and driver can resubmit into pending rev
   assert.equal(driver.documents.idProof.status, "rejected");
   assert.equal(driver.documents.idProof.rejectionReason, reason);
   assert.equal(driver.documents.idProof.reviewedBy.toString(), adminId.toString());
+  assert.ok(driver.documents.idProof.reviewedAt instanceof Date);
 
   const uploadRes = response();
   await uploadDriverDocument({
@@ -692,7 +804,7 @@ test("failed database save cleans up the private uploaded asset", async (t) => {
   assert.equal(cleanup.mock.calls[0].arguments[0], privateAsset.public_id);
 });
 
-test("agency assignment requires approved driver identity and vehicle documents", async (t) => {
+test("vehicle assignment requires approved driver identity; dispatch still requires approved vehicle documents", async (t) => {
   const agencyId = new mongoose.Types.ObjectId();
   const ownerId = new mongoose.Types.ObjectId();
   const driverId = new mongoose.Types.ObjectId();
@@ -701,6 +813,7 @@ test("agency assignment requires approved driver identity and vehicle documents"
     _id: driverId,
     user: { role: "driver" },
     agency: agencyId,
+    agencyAssociation: { status: "approved" },
     isActive: true,
     approvalStatus: "approved",
     documents: {
@@ -713,6 +826,7 @@ test("agency assignment requires approved driver identity and vehicle documents"
     agency: agencyId,
     driver: null,
     isActive: true,
+    isAvailable: true,
     documents: {
       registration: { status: "approved" },
       insurance: { status: "approved" }
@@ -725,7 +839,9 @@ test("agency assignment requires approved driver identity and vehicle documents"
     isActive: true
   }));
   t.mock.method(Driver, "findOne", async () => driver);
-  t.mock.method(Vehicle, "findOne", async () => vehicle);
+  t.mock.method(Vehicle, "findOne", async (filter) =>
+    filter._id?.$ne ? null : vehicle
+  );
 
   const pendingRes = response();
   await assignVehicleDriver({
@@ -763,16 +879,12 @@ test("agency assignment requires approved driver identity and vehicle documents"
     body: { driverId: driverId.toString() },
     user: { _id: ownerId }
   }, vehiclePendingRes);
-  assert.equal(vehiclePendingRes.statusCode, 403);
-  assert.equal(vehicle.driver, null);
-
-  vehicle.documents.insurance.status = "approved";
-  const eligibleRes = response();
-  await assignVehicleDriver({
-    params: { id: vehicleId.toString() },
-    body: { driverId: driverId.toString() },
-    user: { _id: ownerId }
-  }, eligibleRes);
-  assert.equal(eligibleRes.statusCode, 200);
+  assert.equal(vehiclePendingRes.statusCode, 200);
   assert.equal(vehicle.driver.toString(), driverId.toString());
+  const pendingDispatch = checkDriverEligibleForDispatch(driver, vehicle, {
+    _id: agencyId,
+    approvalStatus: "approved",
+    isActive: true
+  });
+  assert.equal(pendingDispatch.eligible, false);
 });

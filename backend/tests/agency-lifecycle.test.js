@@ -44,6 +44,7 @@ import {
   startTrip,
   completeTrip
 } from "../src/controllers/bookingController.js";
+import { clearRouteCache } from "../src/services/routingService.js";
 
 const createResponse = () => ({
   statusCode: 200,
@@ -75,6 +76,16 @@ const fareConfig = {
   minimumFare: 150,
   loadingCharge: 10,
   unloadingCharge: 5
+};
+
+const mockIsolatedRouting = (t) => {
+  clearRouteCache();
+  t.mock.method(globalThis, "fetch", async () => ({
+    ok: true,
+    json: async () => ({
+      routes: [{ summary: { distance: 10000, duration: 600 }, geometry: "" }]
+    })
+  }));
 };
 
 test("Agency Lifecycle: 1. Owner registers an agency", async (t) => {
@@ -368,16 +379,18 @@ test("Agency Lifecycle: 6. Agency adds a vehicle without assigning it before KYC
   assert.equal(res.statusCode, 201);
   assert.equal(createdVehicleData.vehicleNumber, "PB10AB1234");
   assert.equal(createdVehicleData.agency.toString(), agencyId.toString());
-  assert.equal(createdVehicleData.driver, undefined);
+  assert.equal(createdVehicleData.driver, null);
 });
 
-test("Agency Lifecycle: 7 & 8. Customer instant booking finds approved agency alternative vehicle when selected vehicle is busy", async (t) => {
+test("Agency Lifecycle: 7 & 8. Customer instant booking does not replace a busy selected vehicle", async (t) => {
   const customerId = new mongoose.Types.ObjectId();
   const busyVehicleId = new mongoose.Types.ObjectId();
   const alternativeVehicleId = new mongoose.Types.ObjectId();
   const agencyId = new mongoose.Types.ObjectId();
+  const agencyOwnerId = new mongoose.Types.ObjectId();
   const approvedDriverId = new mongoose.Types.ObjectId();
   const approvedDriverUserId = new mongoose.Types.ObjectId();
+  const savedNotifications = [];
 
   t.mock.method(SystemSetting, "findOne", async () => ({ value: true }));
   t.mock.method(Fare, "findOne", () => ({ lean: async () => fareConfig }));
@@ -388,35 +401,35 @@ test("Agency Lifecycle: 7 & 8. Customer instant booking finds approved agency al
     savedBooking = this;
     return this;
   });
-  t.mock.method(Notification.prototype, "save", async function () { return this; });
+  const reserveVehicle = t.mock.method(Vehicle, "findOneAndUpdate", async (filter) => ({
+    _id: filter._id,
+    isAvailable: false
+  }));
+  t.mock.method(Agency, "findById", async () => ({ owner: agencyOwnerId }));
+  t.mock.method(Notification.prototype, "save", async function () {
+    savedNotifications.push(this);
+    return this;
+  });
   t.mock.method(User, "find", async () => []);
+  mockIsolatedRouting(t);
 
-  // Selected vehicle is unavailable
-  t.mock.method(Vehicle, "findById", (id) => ({
+  t.mock.method(Vehicle, "findById", () => ({
     populate: async () => ({
-      _id: alternativeVehicleId,
+      _id: busyVehicleId,
+      isActive: true,
+      isAvailable: false,
       vehicleType: "mini-truck",
+      agency: {
+        _id: agencyId,
+        owner: agencyOwnerId,
+        approvalStatus: "approved",
+        isActive: true
+      },
       driver: { _id: approvedDriverId, user: approvedDriverUserId }
-    }),
-    then(resolve, reject) {
-      if (id.toString() === busyVehicleId.toString()) {
-        return Promise.resolve({
-          _id: busyVehicleId,
-          isActive: true,
-          isAvailable: false,
-          vehicleType: "mini-truck"
-        }).then(resolve, reject);
-      }
-      return Promise.resolve({
-        _id: alternativeVehicleId,
-        vehicleType: "mini-truck",
-        driver: { _id: approvedDriverId, user: approvedDriverUserId }
-      }).then(resolve, reject);
-    }
+    })
   }));
 
-  // Alternative vehicle belongs to approved agency with approved driver and sufficient capacity
-  t.mock.method(Vehicle, "find", () => mockQuery([
+  const alternativeSearch = t.mock.method(Vehicle, "find", () => mockQuery([
     {
       _id: alternativeVehicleId,
       vehicleType: "mini-truck",
@@ -438,6 +451,7 @@ test("Agency Lifecycle: 7 & 8. Customer instant booking finds approved agency al
         isActive: true,
         approvalStatus: "approved",
         agencyAssociation: { status: "approved" },
+        isOnline: true,
         documents: {
           idProof: { status: "approved" },
           drivingLicense: { status: "approved" }
@@ -469,9 +483,17 @@ test("Agency Lifecycle: 7 & 8. Customer instant booking finds approved agency al
   await createBooking(req, res);
 
   assert.equal(res.statusCode, 201);
-  assert.equal(res.body.data.alternativeAssigned, true);
-  assert.equal(savedBooking.vehicle.toString(), alternativeVehicleId.toString());
-  assert.equal(savedBooking.alternativeVehicleAssigned, true);
+  assert.equal(res.body.data.alternativeAssigned, false);
+  assert.equal(savedBooking.vehicle, null);
+  assert.equal(savedBooking.driver, null);
+  assert.equal(savedBooking.assignmentStatus, "unassigned");
+  assert.equal(savedBooking.alternativeVehicleAssigned, false);
+  assert.equal(alternativeSearch.mock.callCount(), 0);
+  assert.equal(reserveVehicle.mock.callCount(), 0);
+  assert.ok(savedNotifications.some((notification) =>
+    notification.recipient.toString() === agencyOwnerId.toString() &&
+    notification.title === "Booking Needs Assignment"
+  ));
 });
 
 test("Agency Lifecycle: 9. Driver accepts, starts trip, completes delivery, and status is updated", async (t) => {
@@ -567,6 +589,7 @@ test("Agency Lifecycle: 10. Scheduled Booking flow validation", async (t) => {
   const agencyId = new mongoose.Types.ObjectId();
   const approvedDriver = {
     _id: new mongoose.Types.ObjectId(),
+    user: { _id: new mongoose.Types.ObjectId(), role: "driver" },
     isActive: true,
     approvalStatus: "approved",
     agency: { _id: agencyId, approvalStatus: "approved", isActive: true },
@@ -597,11 +620,18 @@ test("Agency Lifecycle: 10. Scheduled Booking flow validation", async (t) => {
     isActive: true
   }));
   t.mock.method(Vehicle, "find", () => mockQuery([approvedVehicle]));
+  t.mock.method(Vehicle, "findOneAndUpdate", async (filter) => ({
+    _id: filter._id,
+    isAvailable: false
+  }));
+  t.mock.method(Agency, "findById", async () => ({ owner: new mongoose.Types.ObjectId() }));
   t.mock.method(Fare, "findOne", () => ({ lean: async () => fareConfig }));
   t.mock.method(Booking, "findOne", async () => null);
+  t.mock.method(Booking, "exists", async () => null);
   t.mock.method(Booking.prototype, "save", async function () { return this; });
   t.mock.method(Notification.prototype, "save", async function () { return this; });
   t.mock.method(User, "find", async () => []);
+  mockIsolatedRouting(t);
 
   // 10A: Scheduled booking with past date is rejected
   const reqPast = {

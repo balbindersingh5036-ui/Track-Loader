@@ -183,6 +183,14 @@ export const uploadDriverDocument = async (req, res) => {
       return errorResponse(res, "You are not authorized to submit documents for this driver", 403);
     }
 
+    const existingDocument = driver.documents?.[docType];
+    if (
+      existingDocument?.status === "pending" &&
+      (existingDocument.publicId || existingDocument.url)
+    ) {
+      return errorResponse(res, "This document is already pending Super Admin review", 409);
+    }
+
     const { asset, detected } = await uploadPrivateDocument(req.file);
     uploadedAsset = asset;
     driver.documents[docType] = {

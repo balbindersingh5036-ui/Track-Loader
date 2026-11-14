@@ -16,6 +16,7 @@ import {
   Linking
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
+import * as ImagePicker from 'expo-image-picker';
 import api, { setAuthenticationExpiredHandler } from './src/services/api';
 import authService from './src/services/authService';
 import agencyService from './src/services/agencyService';
@@ -25,12 +26,14 @@ import earningsService from './src/services/earningsService';
 import notificationService from './src/services/notificationService';
 import { connectSocket, disconnectSocket, joinBookingRoom, leaveBookingRoom, subscribeToSocketEvents } from './src/services/socketService';
 import { getToken, removeToken, saveToken } from './src/utils/authStorage';
-import { getDriverBookingEligibility, getDriverStatusIndicators } from './src/utils/driverBookingEligibility.mjs';
+import { getDriverBookingEligibility } from './src/utils/driverBookingEligibility.mjs';
 import LoadBalbinLogo from './src/components/LoadBalbinLogo';
 import BannerCarousel from './src/components/BannerCarousel';
 import RegisterScreen from './src/screens/auth/RegisterScreen';
 import AgencyRegistrationScreen from './src/screens/auth/AgencyRegistrationScreen';
 import AgencyOwnerDashboard from './src/screens/agency/AgencyOwnerDashboard';
+import DriverKycSection from './src/components/DriverKycSection';
+import DriverProfileAvatar from './src/components/DriverProfileAvatar';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
@@ -65,7 +68,7 @@ const messageFor = (error) => {
   return error.response.data?.message || error.message || 'The request could not be completed.';
 };
 
-const documentStatusLabel = (status) => ({
+const vehicleDocumentStatusLabel = (status) => ({
   not_uploaded: 'Upload Required',
   pending: 'Pending Super Admin Verification',
   approved: 'Verified',
@@ -242,9 +245,15 @@ export default function App() {
   const [notice, setNotice] = useState('');
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedDocument, setSelectedDocument] = useState(null);
+  const [documentReplacementConfirmation, setDocumentReplacementConfirmation] = useState(null);
   const [documentUploadProgress, setDocumentUploadProgress] = useState(0);
   const [documentUploadLoading, setDocumentUploadLoading] = useState(false);
   const [documentUploadError, setDocumentUploadError] = useState('');
+  const [profilePhotoModalOpen, setProfilePhotoModalOpen] = useState(false);
+  const [profilePhotoAsset, setProfilePhotoAsset] = useState(null);
+  const [profilePhotoError, setProfilePhotoError] = useState('');
+  const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
+  const [profilePhotoProgress, setProfilePhotoProgress] = useState(0);
   const [changeAgencyModalOpen, setChangeAgencyModalOpen] = useState(false);
   const [agenciesList, setAgenciesList] = useState([]);
   const [agenciesLoading, setAgenciesLoading] = useState(false);
@@ -398,7 +407,8 @@ export default function App() {
           page: 1,
           limit: activeTab === 'Home' ? 10 : 30
         });
-        setRequests(reqResponse.data?.data?.bookings || []);
+        const incomingBookings = reqResponse.data?.data?.bookings || reqResponse.data?.bookings || [];
+        setRequests(Array.isArray(incomingBookings) ? incomingBookings : []);
       } else if (activeTab === 'Trips') {
         const response = await bookingService.getMyBookings({ page: 1, limit: 30 });
         setTrips(response.data?.data?.bookings || []);
@@ -590,6 +600,155 @@ export default function App() {
     }
   };
 
+  const requestDocumentUpload = (document) => {
+    if (document.status === 'approved') {
+      setDocumentReplacementConfirmation(document);
+      return;
+    }
+    chooseDocument(document);
+  };
+
+  const openProfilePhotoModal = () => {
+    setProfilePhotoAsset(null);
+    setProfilePhotoError('');
+    setProfilePhotoProgress(0);
+    setProfilePhotoModalOpen(true);
+  };
+
+  const pickProfilePhoto = async (source) => {
+    setProfilePhotoError('');
+    try {
+      if (source === 'camera' && Platform.OS !== 'web') {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+          setProfilePhotoError('Camera permission is required to take a profile photo.');
+          return;
+        }
+      } else if (Platform.OS !== 'web') {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          setProfilePhotoError('Photo library permission is required to choose a profile photo.');
+          return;
+        }
+      }
+
+      const options = {
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.85
+      };
+      const result = source === 'camera'
+        ? await ImagePicker.launchCameraAsync(options)
+        : await ImagePicker.launchImageLibraryAsync(options);
+      if (result.canceled || !result.assets?.length) return;
+
+      const asset = result.assets?.[0];
+      if (!asset?.uri) {
+        setProfilePhotoError('The selected photo could not be opened. Please choose another image.');
+        return;
+      }
+
+      const fileName = asset.fileName || asset.uri.split(/[?#]/)[0].split('/').pop() || 'profile-photo.jpg';
+      const extension = fileName.split('.').pop()?.toLowerCase();
+      const extensionMimeType = ['jpg', 'jpeg'].includes(extension)
+        ? 'image/jpeg'
+        : extension === 'png'
+          ? 'image/png'
+          : '';
+      const selectedMimeType = asset.mimeType?.toLowerCase();
+      const mimeType = selectedMimeType === 'image/jpg'
+        ? 'image/jpeg'
+        : selectedMimeType || extensionMimeType;
+      if (!['image/jpeg', 'image/png'].includes(mimeType)) {
+        setProfilePhotoError('Choose a JPG, JPEG, or PNG photo.');
+        return;
+      }
+
+      const fileSize = asset.fileSize ?? asset.file?.size;
+      if (typeof fileSize === 'number' && fileSize > 5 * 1024 * 1024) {
+        setProfilePhotoError('The selected photo is larger than the 5 MB limit.');
+        return;
+      }
+
+      setProfilePhotoAsset({ ...asset, fileName, mimeType });
+    } catch (pickerError) {
+      setProfilePhotoError(pickerError?.message || 'Unable to open the photo picker. Please try again.');
+    }
+  };
+
+  const saveProfilePhoto = async () => {
+    if (!profilePhotoAsset || profilePhotoUploading) return;
+
+    const formData = new FormData();
+    const fileName = profilePhotoAsset.fileName || 'profile-photo.jpg';
+    if (Platform.OS === 'web') {
+      let photoFile = profilePhotoAsset.file;
+      if (!photoFile) {
+        try {
+          const response = await fetch(profilePhotoAsset.uri);
+          if (!response.ok) throw new Error('Unable to read the selected photo.');
+          photoFile = await response.blob();
+        } catch (fileError) {
+          setProfilePhotoError(fileError.message || 'Unable to read the selected photo.');
+          return;
+        }
+      }
+      formData.append('image', photoFile, fileName);
+    } else {
+      let uri = profilePhotoAsset.uri;
+      if (Platform.OS === 'android' && !uri.startsWith('file://') && !uri.startsWith('content://')) {
+        uri = `file://${uri}`;
+      }
+      formData.append('image', {
+        uri,
+        name: fileName,
+        type: profilePhotoAsset.mimeType
+      });
+    }
+    formData.append('purpose', 'profile');
+
+    setProfilePhotoUploading(true);
+    setProfilePhotoError('');
+    setProfilePhotoProgress(0);
+    setError('');
+    setNotice('');
+    try {
+      const response = await driverService.uploadProfileImage(formData, (event) => {
+        if (event.total) {
+          setProfilePhotoProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+        }
+      });
+      const imageUrl = response.data?.profileImage || response.data?.imageUrl;
+      if (!imageUrl) {
+        setProfilePhotoError('The upload did not return a profile photo. Please try again.');
+        return;
+      }
+
+      setUser((current) => current ? { ...current, profileImage: imageUrl } : current);
+      setDriver((current) => current ? {
+        ...current,
+        profileImage: imageUrl,
+        user: { ...(current.user || {}), profileImage: imageUrl }
+      } : current);
+      setProfile((current) => current ? {
+        ...current,
+        profileImage: imageUrl,
+        user: { ...(current.user || {}), profileImage: imageUrl }
+      } : current);
+      setProfilePhotoModalOpen(false);
+      setProfilePhotoAsset(null);
+      setNotice('Profile photo updated successfully.');
+    } catch (uploadError) {
+      setProfilePhotoError(uploadError?.isAxiosError
+        ? messageFor(uploadError)
+        : uploadError?.message || 'Profile photo upload failed. Please try again.');
+    } finally {
+      setProfilePhotoUploading(false);
+      setProfilePhotoProgress(0);
+    }
+  };
+
   const submitDocument = async () => {
     if (!selectedDocument || documentUploadLoading) return;
     const { file } = selectedDocument;
@@ -736,159 +895,32 @@ export default function App() {
   const driverNameDisplay = (driver?.fullName || user?.name || "DRIVER").toUpperCase();
   const hasVehicle = profile?.vehicles && profile.vehicles.length > 0;
   const hasAgency = Boolean(profile?.agency);
-  const agencyAssociationStatus = hasAgency ? profile?.agencyAssociation?.status || 'pending' : 'none';
-  const identityDocumentsApproved = profile?.documents?.idProof?.status === 'approved'
-    && profile?.documents?.drivingLicense?.status === 'approved';
-  const personalKycMessage = hasAgency && agencyAssociationStatus === 'pending'
-    ? 'Awaiting Agency Admin approval.'
-    : hasAgency && agencyAssociationStatus === 'rejected'
-      ? 'Your agency association was rejected. Contact your Agency Admin.'
-      : identityDocumentsApproved && profile?.approvalStatus === 'approved'
-        ? 'Identity verification completed.'
-        : identityDocumentsApproved && profile?.approvalStatus === 'pending'
-          ? 'Awaiting final Super Admin approval.'
-          : hasAgency && agencyAssociationStatus === 'approved'
-            ? 'Your agency has accepted your request. Your Aadhaar and Driving Licence are awaiting Super Admin verification.'
-            : 'Your Aadhaar and Driving Licence are awaiting Super Admin verification.';
-  const vehicleDocumentsPending = (profile?.vehicles || []).some((vehicle) =>
-    ['registration', 'insurance'].some((key) => vehicle.documents?.[key]?.status !== 'approved')
-  );
+  const profilePhotoUri = profile?.user?.profileImage
+    || profile?.profileImage
+    || driver?.user?.profileImage
+    || driver?.profileImage
+    || user?.profileImage
+    || '';
   const renderBookingEligibility = () => {
-    const indicators = getDriverStatusIndicators(driver, profile?.vehicles || []);
-    const isAgencyLinked = Boolean(driver?.agency);
-    const agencyRejected = isAgencyLinked && indicators.agencyAssociation.status === 'rejected';
-
-    const getBadgeStyle = (status) => {
-      if (status === 'approved' || status === 'eligible') {
-        return { bg: 'rgba(34, 197, 94, 0.15)', text: colors.green, border: colors.green };
-      }
-      if (status === 'rejected') {
-        return { bg: 'rgba(239, 68, 68, 0.15)', text: colors.danger, border: colors.danger };
-      }
-      return { bg: 'rgba(245, 158, 11, 0.15)', text: colors.warning, border: colors.warning };
-    };
+    if (!bookingEligibility || bookingEligibility.eligible) return null;
 
     return (
-      <View style={[cardStyle, { gap: 14, borderWidth: 1, borderColor: colors.border }]}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={{ color: colors.ink, fontSize: 16, fontWeight: '800' }}>
-            Verification &amp; Approval Status
-          </Text>
-          <Text style={{ color: colors.muted, fontSize: 11 }}>Dual Approval</Text>
-        </View>
-
-        {/* Selected Agency Information */}
-        {isAgencyLinked ? (
-          <View style={{ backgroundColor: colors.surface, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}>
-            <Text style={{ color: colors.muted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' }}>Selected Transport Agency</Text>
-            <Text style={{ color: colors.ink, fontWeight: '800', fontSize: 15, marginTop: 2 }}>
-              {driver.agency?.agencyName || 'Agency Fleet'}
-            </Text>
-            {driver.agency?.city ? (
-              <Text style={{ color: colors.muted, fontSize: 12, marginTop: 2 }}>City: {driver.agency.city}</Text>
-            ) : null}
-            {driver.agency?.phone ? (
-              <Text style={{ color: colors.muted, fontSize: 12 }}>Contact: {driver.agency.phone}</Text>
-            ) : null}
-          </View>
-        ) : (
-          <View style={{ backgroundColor: colors.surface, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}>
-            <Text style={{ color: colors.muted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' }}>Selected Transport Agency</Text>
-            <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 14, marginTop: 2 }}>
-              Independent Driver (No agency approval required)
-            </Text>
-          </View>
-        )}
-
-        {/* 5 Status Indicators */}
-        <View style={{ gap: 8 }}>
-          {[
-            {
-              title: '1. Agency Association',
-              indicator: indicators.agencyAssociation,
-              note: !isAgencyLinked ? 'Skipped for Independent Driver' : (indicators.agencyAssociation.status === 'pending' ? 'Pending agency admin approval' : '')
-            },
-            {
-              title: '2. Identity Proof (Aadhaar)',
-              indicator: indicators.aadhaar,
-              note: indicators.aadhaar.status === 'not_uploaded' ? 'Upload required in Profile' : ''
-            },
-            {
-              title: '3. Driving Licence',
-              indicator: indicators.drivingLicense,
-              note: indicators.drivingLicense.status === 'not_uploaded' ? 'Upload required in Profile' : ''
-            },
-            {
-              title: '4. Super Admin Account Approval',
-              indicator: indicators.superAdminApproval,
-              note: indicators.superAdminApproval.status === 'pending' ? 'Pending Super Admin approval' : ''
-            },
-            {
-              title: '5. Vehicle Assignment',
-              indicator: indicators.vehicleAssignment,
-              note: indicators.vehicleAssignment.status === 'pending' ? 'Active vehicle with approved RC & Insurance needed' : ''
-            }
-          ].map(({ title, indicator, note }) => {
-            const badge = getBadgeStyle(indicator.status);
-            return (
-              <View key={title} style={{ padding: 10, backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.border }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Text style={{ color: colors.ink, fontSize: 13, fontWeight: '700' }}>{title}</Text>
-                  <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, backgroundColor: badge.bg, borderWidth: 1, borderColor: badge.border }}>
-                    <Text style={{ color: badge.text, fontSize: 11, fontWeight: '800' }}>{indicator.label}</Text>
-                  </View>
-                </View>
-                {indicator.rejectionReason ? (
-                  <Text style={{ color: colors.danger, fontSize: 11, marginTop: 4, fontWeight: '600' }}>
-                    Rejection reason: {indicator.rejectionReason}
-                  </Text>
-                ) : note ? (
-                  <Text style={{ color: colors.muted, fontSize: 11, marginTop: 3 }}>{note}</Text>
-                ) : null}
-              </View>
-            );
-          })}
-        </View>
-
-        {/* Agency rejection alert & Request Another Agency action */}
-        {agencyRejected && (
-          <View style={{ padding: 12, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 10, borderWidth: 1, borderColor: colors.danger, gap: 8 }}>
-            <Text style={{ color: colors.danger, fontWeight: '800', fontSize: 13 }}>
-              Agency Request Rejected
-            </Text>
-            <Text style={{ color: colors.ink, fontSize: 12, lineHeight: 18 }}>
-              {indicators.agencyAssociation.rejectionReason || 'The selected agency rejected your joining request.'} You may choose another verified agency or switch to an independent driver.
-            </Text>
-            <ActionButton
-              label="Request Another Agency"
-              onPress={openChangeAgencyModal}
-              style={{ paddingVertical: 10 }}
-              textStyle={{ fontSize: 13 }}
-            />
-          </View>
-        )}
-
-        {/* Summary note when not fully eligible */}
-        {bookingEligibility && !bookingEligibility.eligible && (
-          <View style={{ padding: 10, backgroundColor: 'rgba(245, 158, 11, 0.1)', borderRadius: 8, borderWidth: 1, borderColor: colors.warning }}>
-            <Text style={{ color: colors.warning, fontSize: 12, fontWeight: '700' }}>
-              {bookingEligibility.title}
-            </Text>
-            <Text style={[mutedText, { fontSize: 11, marginTop: 2 }]}>
-              {bookingEligibility.message}
-            </Text>
-          </View>
-        )}
-
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+      <View style={[cardStyle, { gap: 8, borderWidth: 1, borderColor: colors.border }]}>
+        <Text style={{ color: colors.warning, fontSize: 13, fontWeight: '800' }}>
+          Booking access is not available yet
+        </Text>
+        <Text style={[mutedText, { fontSize: 12, lineHeight: 18 }]}>
+          Review your verification requirements in Profile. Booking access also depends on account and vehicle eligibility.
+        </Text>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
           <ActionButton
-            label="Upload KYC Documents"
+            label="View Profile & KYC"
             secondary
             onPress={() => setActiveTab('Profile')}
             style={{ flex: 1, paddingVertical: 10 }}
             textStyle={{ fontSize: 12 }}
           />
-          {isAgencyLinked && !agencyRejected && (
+          {hasAgency ? (
             <ActionButton
               label="Change Agency"
               secondary
@@ -896,7 +928,7 @@ export default function App() {
               style={{ flex: 1, paddingVertical: 10 }}
               textStyle={{ fontSize: 12 }}
             />
-          )}
+          ) : null}
         </View>
       </View>
     );
@@ -952,22 +984,18 @@ export default function App() {
           <>
             <BannerCarousel audience="driver" />
 
-            {/* DRIVER WELCOME & VERIFICATION STATUS CARD */}
+            {/* DRIVER WELCOME CARD */}
             <View style={[cardStyle, { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16 }]}>
-              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border }}>
-                <Ionicons name="person" size={22} color={colors.primary} />
-              </View>
+              <DriverProfileAvatar
+                imageUri={profilePhotoUri}
+                size={48}
+                colors={colors}
+                iconColor={colors.primary}
+                onPress={openProfilePhotoModal}
+              />
               <View style={{ flex: 1 }}>
                 <Text style={[bodyText, { fontSize: 16 }]}>{driverNameDisplay}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                  <View style={{
-                    width: 8, height: 8, borderRadius: 4,
-                    backgroundColor: driver?.approvalStatus === 'approved' ? colors.green : driver?.approvalStatus === 'rejected' ? colors.danger : colors.warning
-                  }} />
-                  <Text style={{ color: colors.muted, fontSize: 12, textTransform: 'capitalize' }}>
-                    Status: <Text style={{ color: colors.ink, fontWeight: '700' }}>{driver?.approvalStatus || 'pending'}</Text>
-                  </Text>
-                </View>
+                <Text style={[mutedText, { marginTop: 4, fontSize: 12 }]}>Driver account</Text>
               </View>
               <Pressable
                 accessibilityLabel="Toggle online state"
@@ -1442,44 +1470,6 @@ export default function App() {
               <Text style={{ color: colors.ink, fontSize: 20, fontWeight: '800' }}>Your account</Text>
             </View>
 
-            {/* VERIFICATION & AGENCY STATUS BANNER */}
-            {driver?.approvalStatus !== 'approved' && (
-              <View style={[cardStyle, {
-                backgroundColor: driver?.approvalStatus === 'rejected' ? '#2A1215' : '#2A2412',
-                borderColor: driver?.approvalStatus === 'rejected' ? colors.danger : colors.warning,
-                borderWidth: 1,
-                padding: 16
-              }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                  <Ionicons
-                    name={driver?.approvalStatus === 'rejected' ? 'alert-circle' : 'time'}
-                    size={22}
-                    color={driver?.approvalStatus === 'rejected' ? colors.danger : colors.warning}
-                  />
-                  <Text style={{
-                    color: driver?.approvalStatus === 'rejected' ? colors.danger : colors.warning,
-                    fontSize: 16,
-                    fontWeight: '800',
-                    textTransform: 'uppercase'
-                  }}>
-                    Account {driver?.approvalStatus}
-                  </Text>
-                </View>
-                <Text style={{ color: colors.ink, fontSize: 13, lineHeight: 18 }}>
-                  {driver?.approvalStatus === 'rejected'
-                    ? 'Your driver application was rejected by Super Admin. Please contact your agency or support to re-upload documents.'
-                    : 'Your driver account is pending Super Admin document verification. You cannot go online or accept booking requests until approved.'}
-                </Text>
-                {driver?.rejectionReason ? (
-                  <View style={{ marginTop: 8, padding: 8, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 6 }}>
-                    <Text style={{ color: colors.danger, fontSize: 12, fontWeight: '700' }}>
-                      Rejection Reason: {driver.rejectionReason}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-            )}
-
             <View style={[cardStyle, { alignItems: 'center', paddingVertical: 20 }]}>
               <Text style={{ color: colors.ink, fontSize: 16, fontWeight: '700', marginBottom: 6 }}>
                 Currently {driver?.isOnline ? 'Online' : 'Offline'}
@@ -1505,21 +1495,19 @@ export default function App() {
             {profile ? (
               <View style={cardStyle}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 16, marginBottom: 16 }}>
-                  <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border }}>
-                    <Ionicons name="person" size={24} color={colors.muted} />
-                  </View>
+                  <DriverProfileAvatar
+                    imageUri={profilePhotoUri}
+                    size={60}
+                    colors={colors}
+                    onPress={openProfilePhotoModal}
+                    editable
+                  />
                   <View>
                     <Text style={[bodyText, { fontSize: 18 }]}>{driverNameDisplay}</Text>
                     <Text style={mutedText}>{profile.phone || profile.user?.phone || user.phone}</Text>
                   </View>
                 </View>
                 <Text style={[labelStyle, { textTransform: 'none' }]}>Email: <Text style={bodyText}>{profile.email || profile.user?.email || user.email || '—'}</Text></Text>
-                <Text style={[labelStyle, { marginTop: 8, textTransform: 'none' }]}>Approval Status: <Text style={[bodyText, {
-                  color: profile.approvalStatus === 'approved' ? colors.green : profile.approvalStatus === 'rejected' ? colors.danger : colors.warning,
-                  textTransform: 'capitalize',
-                  fontWeight: '700'
-                }]}>{profile.approvalStatus}</Text></Text>
-
                 {/* Agency Affiliation Details */}
                 {profile.agency ? (
                   <View style={{ marginTop: 16, padding: 12, backgroundColor: colors.card2, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}>
@@ -1529,7 +1517,6 @@ export default function App() {
                     <Text style={[bodyText, { fontSize: 15, fontWeight: '700' }]}>{profile.agency.agencyName}</Text>
                     <Text style={mutedText}>Phone: {profile.agency.phone || '—'}</Text>
                     <Text style={mutedText}>Location: {profile.agency.city || profile.agency.address || '—'}</Text>
-                    <Text style={[mutedText, { marginTop: 4, fontSize: 11 }]}>Agency Status: <Text style={{ color: profile.agency.approvalStatus === 'approved' ? colors.green : colors.warning, textTransform: 'capitalize' }}>{profile.agency.approvalStatus}</Text></Text>
                   </View>
                 ) : (
                   <View style={{ marginTop: 16, padding: 10, backgroundColor: colors.surface, borderRadius: 8 }}>
@@ -1537,69 +1524,13 @@ export default function App() {
                   </View>
                 )}
 
-                {/* KYC & Identity Verification */}
-                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 24, marginBottom: 8 }}>
-                  KYC DOCUMENTS
-                </Text>
-                <Text style={[mutedText, { fontSize: 12, lineHeight: 18, marginBottom: 4 }]}>
-                  {personalKycMessage}
-                </Text>
-                <View style={{ gap: 8 }}>
-                  {[
-                    { label: 'Driving Licence', key: 'drivingLicense', doc: profile.documents?.drivingLicense },
-                    { label: 'Identity Proof (Aadhaar)', key: 'idProof', doc: profile.documents?.idProof }
-                  ].map((item) => {
-                    const status = item.doc?.status || 'not_uploaded';
-                    const statusColor = status === 'approved' ? colors.green : status === 'rejected' ? colors.danger : colors.warning;
-                    return (
-                      <View key={item.key} style={{ padding: 12, backgroundColor: colors.card2, borderRadius: 8, borderWidth: 1, borderColor: colors.border, gap: 8 }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                            <Ionicons name="document-text-outline" size={18} color={colors.primary} />
-                            <Text style={[bodyText, { fontSize: 13, flexShrink: 1 }]}>{item.label}</Text>
-                          </View>
-                          <View style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)' }}>
-                            <Text style={{ color: statusColor, fontSize: 10, fontWeight: '700' }}>
-                              {documentStatusLabel(status)}
-                            </Text>
-                          </View>
-                        </View>
-                        {item.doc?.submittedAt ? (
-                          <Text style={[mutedText, { fontSize: 11 }]}>
-                            Submitted {new Date(item.doc.submittedAt).toLocaleDateString()}
-                          </Text>
-                        ) : null}
-                        {status === 'rejected' && item.doc?.rejectionReason ? (
-                          <Text style={{ color: colors.danger, fontSize: 12, lineHeight: 17 }}>
-                            Rejection reason: {item.doc.rejectionReason}
-                          </Text>
-                        ) : null}
-                        {status === 'pending' && item.doc?.viewUrl ? (
-                          <Pressable onPress={() => viewDocument(item)}>
-                            <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '700' }}>View Submission</Text>
-                          </Pressable>
-                        ) : null}
-                        {status !== 'pending' ? (
-                          <Pressable
-                            accessibilityRole="button"
-                            disabled={documentUploadLoading || !profile?._id}
-                            onPress={() => chooseDocument({ docType: item.key, label: item.label })}
-                            style={{ paddingVertical: 9, paddingHorizontal: 12, borderRadius: 8, backgroundColor: colors.primary, alignSelf: 'flex-start', opacity: documentUploadLoading ? 0.55 : 1 }}
-                          >
-                            <Text style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '800' }}>
-                              {status === 'rejected' ? 'Re-upload Document' : status === 'approved' ? 'Replace Document' : 'Upload Document'}
-                            </Text>
-                          </Pressable>
-                        ) : null}
-                      </View>
-                    );
-                  })}
-                </View>
-                {vehicleDocumentsPending && profile.vehicles?.length > 0 ? (
-                  <Text style={{ color: colors.warning, fontSize: 12, lineHeight: 18, marginTop: 10 }}>
-                    Your assigned vehicle&apos;s RC and Insurance need verification.
-                  </Text>
-                ) : null}
+                <DriverKycSection
+                  profile={profile}
+                  colors={colors}
+                  onUploadDocument={requestDocumentUpload}
+                  onViewDocument={viewDocument}
+                  uploadDisabled={documentUploadLoading || !profile?._id}
+                />
 
                 {/* Vehicle-owned KYC */}
                 <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase', marginTop: 24, marginBottom: 4 }}>
@@ -1629,7 +1560,7 @@ export default function App() {
                               <Ionicons name="document-text-outline" size={16} color={colors.primary} />
                               <Text style={[bodyText, { fontSize: 12, flexShrink: 1 }]}>{document.label}</Text>
                             </View>
-                            <Text style={{ color: statusColor, fontSize: 10, fontWeight: '700' }}>{documentStatusLabel(status)}</Text>
+                            <Text style={{ color: statusColor, fontSize: 10, fontWeight: '700' }}>{vehicleDocumentStatusLabel(status)}</Text>
                           </View>
                           {submission?.submittedAt ? (
                             <Text style={[mutedText, { fontSize: 10 }]}>
@@ -1824,6 +1755,133 @@ export default function App() {
             ))}
           </ScrollView>
         </SafeAreaView>
+      </Modal>
+
+      <Modal
+        visible={profilePhotoModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!profilePhotoUploading) {
+            setProfilePhotoModalOpen(false);
+            setProfilePhotoAsset(null);
+            setProfilePhotoError('');
+          }
+        }}
+      >
+        <View style={{ flex: 1, justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.75)' }}>
+          <View style={[cardStyle, { padding: 18, gap: 12, borderColor: colors.primary, borderWidth: 1 }]}>
+            <Text style={[bodyText, { fontSize: 17, fontWeight: '800' }]}>Update Profile Photo</Text>
+            <Text style={[mutedText, { fontSize: 12, lineHeight: 18 }]}>
+              Choose a JPG, JPEG, or PNG image up to 5 MB.
+            </Text>
+            {profilePhotoError ? (
+              <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: 12, lineHeight: 17 }}>
+                {profilePhotoError}
+              </Text>
+            ) : null}
+            {profilePhotoAsset ? (
+              <>
+                <Image
+                  source={{ uri: profilePhotoAsset.uri }}
+                  resizeMode="cover"
+                  style={{ width: 180, height: 180, borderRadius: 90, alignSelf: 'center', backgroundColor: colors.card2 }}
+                />
+                <Text style={[mutedText, { fontSize: 11, textAlign: 'center' }]} numberOfLines={1}>
+                  {profilePhotoAsset.fileName}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={profilePhotoUploading}
+                  onPress={() => {
+                    setProfilePhotoAsset(null);
+                    setProfilePhotoError('');
+                  }}
+                  style={{ alignSelf: 'center', paddingVertical: 5 }}
+                >
+                  <Text style={{ color: colors.primary, fontSize: 12, fontWeight: '700' }}>Choose a different photo</Text>
+                </Pressable>
+              </>
+            ) : (
+              <View style={{ gap: 10 }}>
+                <ActionButton
+                  label="Choose from Gallery"
+                  onPress={() => pickProfilePhoto('gallery')}
+                  style={{ backgroundColor: colors.primary, borderColor: colors.primary }}
+                />
+                <ActionButton
+                  label="Take a Photo"
+                  secondary
+                  onPress={() => pickProfilePhoto('camera')}
+                />
+              </View>
+            )}
+            {profilePhotoUploading ? (
+              <View style={{ gap: 6 }}>
+                <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.card2, overflow: 'hidden' }}>
+                  <View style={{ width: `${profilePhotoProgress}%`, height: '100%', backgroundColor: colors.primary }} />
+                </View>
+                <Text style={[mutedText, { fontSize: 11 }]}>
+                  Uploading… {profilePhotoProgress}%
+                </Text>
+              </View>
+            ) : null}
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+              <ActionButton
+                label="Cancel"
+                secondary
+                disabled={profilePhotoUploading}
+                onPress={() => {
+                  setProfilePhotoModalOpen(false);
+                  setProfilePhotoAsset(null);
+                  setProfilePhotoError('');
+                }}
+                style={{ flex: 1 }}
+              />
+              {profilePhotoAsset ? (
+                <ActionButton
+                  label={profilePhotoUploading ? 'Saving…' : profilePhotoUri ? 'Update Photo' : 'Save Photo'}
+                  disabled={profilePhotoUploading}
+                  onPress={saveProfilePhoto}
+                  style={{ flex: 1 }}
+                />
+              ) : null}
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={Boolean(documentReplacementConfirmation)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDocumentReplacementConfirmation(null)}
+      >
+        <View style={{ flex: 1, justifyContent: 'center', padding: 20, backgroundColor: 'rgba(0,0,0,0.75)' }}>
+          <View style={[cardStyle, { padding: 18, gap: 12, borderColor: colors.warning, borderWidth: 1 }]}>
+            <Text style={[bodyText, { fontSize: 17, fontWeight: '800' }]}>Update approved document?</Text>
+            <Text style={[mutedText, { fontSize: 13, lineHeight: 19 }]}>
+              Replacing {documentReplacementConfirmation?.label} will send the new document for review. Its status will become Pending until the Super Admin reviews it.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+              <ActionButton
+                label="Cancel"
+                secondary
+                onPress={() => setDocumentReplacementConfirmation(null)}
+                style={{ flex: 1 }}
+              />
+              <ActionButton
+                label="Choose Document"
+                onPress={() => {
+                  const replacement = documentReplacementConfirmation;
+                  setDocumentReplacementConfirmation(null);
+                  if (replacement) chooseDocument(replacement);
+                }}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </View>
+        </View>
       </Modal>
 
       <Modal
@@ -2268,9 +2326,13 @@ function BookingCard({ booking, actions = [], onAction, actionLoading, onViewDet
           <Text style={{ color: colors.accent, fontSize: 16, fontWeight: '800' }}>₹{booking.finalFare || booking.estimatedFare || 0}</Text>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          {isScheduled && (
+          {isScheduled ? (
             <View style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
               <Text style={{ color: colors.warning, fontSize: 10, fontWeight: '700' }}>SCHEDULED</Text>
+            </View>
+          ) : (
+            <View style={{ backgroundColor: 'rgba(8, 169, 245, 0.15)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+              <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '700' }}>INSTANT</Text>
             </View>
           )}
           <Text style={{ color: colors.muted, fontSize: 11, fontWeight: '600', textTransform: 'capitalize' }}>

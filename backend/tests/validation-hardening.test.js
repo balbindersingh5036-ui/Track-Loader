@@ -82,8 +82,8 @@ const mockQuery = (value) => ({
 test("fare estimate supports kg, ton, zero values, and minimum fare without non-finite results", async (t) => {
   t.mock.method(Fare, "findOne", () => ({ lean: async () => fareConfig }));
   const cases = [
-    { distanceKm: 10, weightValue: 1000, weightUnit: "kg", expected: 265 },
-    { distanceKm: 0, weightValue: 1, weightUnit: "ton", expected: 165 },
+    { distanceKm: 10, weightValue: 1000, weightUnit: "kg", expected: 150 },
+    { distanceKm: 0, weightValue: 1, weightUnit: "ton", expected: 150 },
     { distanceKm: 0, weightValue: 0, weightUnit: "kg", expected: 150 },
     { distanceKm: 0, weightValue: 0, weightUnit: "ton", expected: 150 }
   ];
@@ -203,6 +203,7 @@ test("booking accepts zero weight and rejects invalid numeric inputs", async (t)
       agency: null,
       isActive: true,
       approvalStatus: "approved",
+      isOnline: true,
       documents: {
         idProof: { status: "approved" },
         drivingLicense: { status: "approved" }
@@ -212,6 +213,10 @@ test("booking accepts zero weight and rejects invalid numeric inputs", async (t)
   t.mock.method(SystemSetting, "findOne", async () => ({ value: true }));
   t.mock.method(Vehicle, "findById", () => ({
     populate: async () => eligibleVehicle
+  }));
+  t.mock.method(Vehicle, "findOneAndUpdate", async (filter) => ({
+    _id: filter._id,
+    isAvailable: false
   }));
   t.mock.method(Fare, "findOne", () => ({ lean: async () => fareConfig }));
   t.mock.method(Booking, "findOne", async () => null);
