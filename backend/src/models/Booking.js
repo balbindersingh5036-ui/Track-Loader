@@ -251,6 +251,12 @@ const bookingSchema = new mongoose.Schema(
       index: true
     },
 
+    scheduleId: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: null,
+      index: true
+    },
+
     alternativeVehicleAssigned: {
       type: Boolean,
       default: false

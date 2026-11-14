@@ -3,14 +3,13 @@ import { Pressable, Text, View, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Button, Card, Field, Heading, Notice, Screen } from "../../components/Phase12UI";
 import { colors } from "../../theme/theme";
+import DatePickerModal, { getLocalDateString } from "../../components/DatePickerModal";
+import TimePickerModal, { formatTime12h } from "../../components/TimePickerModal";
 
 export default function GoodsDetailsScreen({ route, navigation }) {
   const bookingMode = route.params?.bookingMode || "instant";
 
-  const getTodayDateString = () => {
-    const d = new Date();
-    return d.toISOString().split("T")[0];
-  };
+  const getTodayDateString = () => getLocalDateString();
 
   const getCurrentTimeString = () => {
     const d = new Date();
@@ -32,6 +31,40 @@ export default function GoodsDetailsScreen({ route, navigation }) {
   );
   const [customerNote, setCustomerNote] = useState(route.params?.customerNote || "");
   const [error, setError] = useState("");
+
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+
+  const handleSelectDate = (dateStr) => {
+    setPreferredPickupDate(dateStr);
+    setError("");
+
+    // If selected date is today, ensure currently selected time is not in the past
+    if (dateStr === getTodayDateString()) {
+      const now = new Date();
+      const curH = now.getHours();
+      const curM = now.getMinutes();
+
+      if (preferredPickupTime) {
+        const [h, m] = preferredPickupTime.split(":").map(Number);
+        if (h < curH || (h === curH && m <= curM)) {
+          const nextH = Math.min(23, curH + 1);
+          setPreferredPickupTime(`${String(nextH).padStart(2, "0")}:00`);
+        }
+      } else {
+        const nextH = Math.min(23, curH + 1);
+        setPreferredPickupTime(`${String(nextH).padStart(2, "0")}:00`);
+      }
+    }
+  };
+
+  const handleSelectTime = (timeStr) => {
+    setPreferredPickupTime(timeStr);
+    setError("");
+    if (!preferredPickupDate) {
+      setPreferredPickupDate(getTodayDateString());
+    }
+  };
 
   const parseAndNormalizeTime = (timeStr) => {
     if (!timeStr || typeof timeStr !== "string") return null;
@@ -206,23 +239,67 @@ export default function GoodsDetailsScreen({ route, navigation }) {
           </View>
         ) : (
           <View style={styles.scheduleRow}>
-            <Field
-              style={{ flex: 1 }}
-              label="Pickup Date"
-              value={preferredPickupDate}
-              onChangeText={setPreferredPickupDate}
-              placeholder="YYYY-MM-DD"
-              icon={<Ionicons name="calendar-outline" size={18} color={colors.textMuted} />}
-            />
+            {/* Pickup Date Picker Trigger */}
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={styles.pickerLabel}>Pickup Date</Text>
+              <Pressable
+                onPress={() => setShowDatePicker(true)}
+                style={({ pressed }) => [
+                  styles.pickerTrigger,
+                  pressed && styles.pickerTriggerPressed
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Select pickup date"
+              >
+                <Ionicons
+                  name="calendar-outline"
+                  size={18}
+                  color={preferredPickupDate ? colors.primary : colors.textMuted}
+                  style={styles.pickerIcon}
+                />
+                <Text
+                  style={[
+                    styles.pickerValueText,
+                    !preferredPickupDate && styles.pickerPlaceholderText
+                  ]}
+                  numberOfLines={1}
+                >
+                  {preferredPickupDate || "YYYY-MM-DD"}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
+              </Pressable>
+            </View>
 
-            <Field
-              style={{ flex: 1 }}
-              label="Pickup Time"
-              value={preferredPickupTime}
-              onChangeText={setPreferredPickupTime}
-              placeholder="HH:MM (24h)"
-              icon={<Ionicons name="time-outline" size={18} color={colors.textMuted} />}
-            />
+            {/* Pickup Time Picker Trigger */}
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text style={styles.pickerLabel}>Pickup Time</Text>
+              <Pressable
+                onPress={() => setShowTimePicker(true)}
+                style={({ pressed }) => [
+                  styles.pickerTrigger,
+                  pressed && styles.pickerTriggerPressed
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Select pickup time"
+              >
+                <Ionicons
+                  name="time-outline"
+                  size={18}
+                  color={preferredPickupTime ? colors.primary : colors.textMuted}
+                  style={styles.pickerIcon}
+                />
+                <Text
+                  style={[
+                    styles.pickerValueText,
+                    !preferredPickupTime && styles.pickerPlaceholderText
+                  ]}
+                  numberOfLines={1}
+                >
+                  {preferredPickupTime ? `${preferredPickupTime} (${formatTime12h(preferredPickupTime)})` : "HH:MM (24h)"}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color={colors.textMuted} />
+              </Pressable>
+            </View>
           </View>
         )}
 
@@ -244,6 +321,23 @@ export default function GoodsDetailsScreen({ route, navigation }) {
         iconPosition="right"
         onPress={continueToVehicle}
         style={{ marginTop: 8 }}
+      />
+
+      {/* Interactive Date Picker Modal */}
+      <DatePickerModal
+        visible={showDatePicker}
+        onClose={() => setShowDatePicker(false)}
+        selectedDate={preferredPickupDate}
+        onSelectDate={handleSelectDate}
+      />
+
+      {/* Interactive Time Picker Modal */}
+      <TimePickerModal
+        visible={showTimePicker}
+        onClose={() => setShowTimePicker(false)}
+        selectedTime={preferredPickupTime}
+        selectedDate={preferredPickupDate}
+        onSelectTime={handleSelectTime}
       />
     </Screen>
   );
@@ -360,5 +454,37 @@ const styles = StyleSheet.create({
   scheduleRow: {
     flexDirection: "row",
     gap: 12
+  },
+  pickerLabel: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "600"
+  },
+  pickerTrigger: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 48,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 12
+  },
+  pickerTriggerPressed: {
+    borderColor: colors.primary,
+    backgroundColor: colors.surfaceAlt
+  },
+  pickerIcon: {
+    marginRight: 8
+  },
+  pickerValueText: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: "600"
+  },
+  pickerPlaceholderText: {
+    color: "#94A3B8",
+    fontWeight: "400"
   }
 });

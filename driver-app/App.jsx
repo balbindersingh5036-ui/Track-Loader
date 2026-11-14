@@ -68,6 +68,16 @@ const messageFor = (error) => {
   return error.response.data?.message || error.message || 'The request could not be completed.';
 };
 
+const formatPickupDate = (dateVal) => {
+  if (!dateVal) return null;
+  if (typeof dateVal === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateVal)) {
+    const [y, m, d] = dateVal.slice(0, 10).split('-');
+    return `${d}/${m}/${y}`;
+  }
+  const d = new Date(dateVal);
+  return isNaN(d.getTime()) ? null : d.toLocaleDateString();
+};
+
 const vehicleDocumentStatusLabel = (status) => ({
   not_uploaded: 'Upload Required',
   pending: 'Pending Super Admin Verification',
@@ -1315,7 +1325,7 @@ export default function App() {
                 <Ionicons name="cube-outline" size={36} color={colors.muted} style={{ marginBottom: 10 }} />
                 <Text style={bodyText}>No bookings are awaiting your response.</Text>
                 <Text style={[mutedText, { marginTop: 4, textAlign: 'center' }]}>
-                  {driver?.isOnline ? 'Your agency will assign compatible bookings to you.' : 'Go online to be available for agency-assigned bookings.'}
+                  {driver?.isOnline ? 'Your agency will assign compatible bookings to you.' : 'Go online to be available for instant bookings. Scheduled bookings arrive automatically.'}
                 </Text>
               </View>
             ) : null}
@@ -1347,7 +1357,7 @@ export default function App() {
               {[
                 { id: 'all', label: `All (${trips.length})` },
                 { id: 'active', label: `Active (${trips.filter((t) => ['accepted', 'in-progress'].includes(t.bookingStatus)).length})` },
-                { id: 'scheduled', label: `Scheduled (${trips.filter((t) => t.bookingMode === 'scheduled').length})` },
+                { id: 'scheduled', label: `Scheduled (${trips.filter((t) => String(t.bookingMode || '').toLowerCase() === 'scheduled').length})` },
                 { id: 'completed', label: `Completed (${trips.filter((t) => t.bookingStatus === 'completed').length})` }
               ].map((filter) => {
                 const isSelected = tripFilter === filter.id;
@@ -1383,7 +1393,7 @@ export default function App() {
             {trips
               .filter((booking) => {
                 if (tripFilter === 'active') return ['accepted', 'in-progress'].includes(booking.bookingStatus);
-                if (tripFilter === 'scheduled') return booking.bookingMode === 'scheduled';
+                if (tripFilter === 'scheduled') return String(booking.bookingMode || '').toLowerCase() === 'scheduled';
                 if (tripFilter === 'completed') return booking.bookingStatus === 'completed';
                 return true;
               })
@@ -1982,7 +1992,7 @@ export default function App() {
                       #{selectedTripDetails.bookingId || 'BOOKING'}
                     </Text>
                     <Text style={{ color: colors.muted, fontSize: 11, marginTop: 1 }}>
-                      {selectedTripDetails.bookingMode === 'scheduled' ? 'Scheduled Booking' : 'Instant Dispatch'}
+                      {String(selectedTripDetails.bookingMode || '').toLowerCase() === 'scheduled' ? 'Scheduled Booking' : 'Instant Dispatch'}
                     </Text>
                   </View>
                   <Pressable
@@ -2051,11 +2061,11 @@ export default function App() {
                       Estimated Road Distance: <Text style={{ color: colors.ink, fontWeight: '700' }}>{selectedTripDetails.distanceKm} km</Text>
                     </Text>
                   ) : null}
-                  {selectedTripDetails.bookingMode === 'scheduled' && selectedTripDetails.preferredPickupDate && (
+                  {String(selectedTripDetails.bookingMode || '').toLowerCase() === 'scheduled' && selectedTripDetails.preferredPickupDate && (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, backgroundColor: 'rgba(245, 158, 11, 0.12)', padding: 8, borderRadius: 6 }}>
                       <Ionicons name="calendar" size={13} color={colors.warning} />
                       <Text style={{ color: colors.warning, fontSize: 11, fontWeight: '700' }}>
-                        Pickup: {new Date(selectedTripDetails.preferredPickupDate).toLocaleDateString()} {selectedTripDetails.preferredPickupTime ? `at ${selectedTripDetails.preferredPickupTime}` : ''}
+                        Pickup: {formatPickupDate(selectedTripDetails.preferredPickupDate)} {selectedTripDetails.preferredPickupTime ? `at ${selectedTripDetails.preferredPickupTime}` : ''}
                       </Text>
                     </View>
                   )}
@@ -2311,10 +2321,8 @@ export default function App() {
 }
 
 function BookingCard({ booking, actions = [], onAction, actionLoading, onViewDetails }) {
-  const pickupDateFormatted = booking.preferredPickupDate
-    ? new Date(booking.preferredPickupDate).toLocaleDateString()
-    : null;
-  const isScheduled = booking.bookingMode === 'scheduled';
+  const pickupDateFormatted = formatPickupDate(booking.preferredPickupDate);
+  const isScheduled = String(booking.bookingMode || '').toLowerCase() === 'scheduled';
   const isPending = booking.bookingStatus === 'pending';
 
   return (

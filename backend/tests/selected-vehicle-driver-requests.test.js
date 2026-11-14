@@ -693,3 +693,286 @@ test("9. Missing or ineligible driver leaves booking unassigned and shows Needs 
   const isUnassigned = !hasAssignedDriver && !isPendingAcceptance && ["unassigned", "rejected", undefined, null].includes(savedBooking.assignmentStatus);
   assert.equal(isUnassigned, true);
 });
+
+test("10. Scheduled booking assigned to offline driver is delivered in getDriverRequests", async (t) => {
+  const offlineDriver = {
+    ...eligibleDriver,
+    isOnline: false
+  };
+
+  const scheduledPendingBooking = {
+    _id: new mongoose.Types.ObjectId(),
+    bookingId: "BOOKING-0028",
+    customer: { _id: customerId, name: "Harsh Sharma", phone: "9876500000" },
+    agency: agencyId,
+    driver: driverId,
+    vehicle: {
+      _id: vehicleId,
+      vehicleNumber: "PB93AB7269",
+      vehicleModel: "Tata 407 LPT Fleet",
+      vehicleType: "small-truck",
+      loadCapacity: { value: 2500, unit: "kg" }
+    },
+    vehicleModel: "Tata 407 LPT Fleet",
+    vehicleName: "Tata 407 LPT Fleet",
+    pickup: { address: "Industrial Area Phase 1", latitude: 30.7046, longitude: 76.7179 },
+    drop: { address: "Sector 17 Market", latitude: 30.7333, longitude: 76.7794 },
+    goods: "Furniture & Goods",
+    weight: { value: 500, unit: "kg" },
+    distanceKm: 12.5,
+    estimatedFare: 850,
+    finalFare: 850,
+    bookingMode: "scheduled",
+    preferredPickupDate: new Date("2026-12-08T00:00:00.000Z"),
+    preferredPickupTime: "23:00",
+    scheduleId: null,
+    bookingStatus: "pending",
+    assignmentStatus: "pending_acceptance",
+    paymentMethod: "COD",
+    paymentStatus: "pending"
+  };
+
+  t.mock.method(Driver, "findOne", async () => offlineDriver);
+  t.mock.method(Agency, "findById", async () => ({
+    _id: agencyId,
+    approvalStatus: "approved",
+    isActive: true
+  }));
+  let capturedQuery = null;
+  t.mock.method(Booking, "find", (query) => {
+    capturedQuery = query;
+    return mockQuery([scheduledPendingBooking]);
+  });
+  t.mock.method(Booking, "countDocuments", async () => 1);
+
+  const res = createResponse();
+  await getDriverRequests({ user: { _id: driverUserId }, query: {} }, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.success, true);
+  assert.equal(res.body.data.bookings.length, 1);
+
+  const returned = res.body.data.bookings[0];
+  assert.equal(returned.bookingId, "BOOKING-0028");
+  assert.equal(returned.bookingMode, "scheduled");
+  assert.equal(returned.bookingStatus, "pending");
+  assert.equal(returned.assignmentStatus, "pending_acceptance");
+  assert.equal(returned.preferredPickupTime, "23:00");
+  assert.equal(returned.scheduleId, null);
+  assert.equal(capturedQuery.driver.toString(), driverId.toString());
+  assert.equal(capturedQuery.bookingStatus, "pending");
+});
+
+test("11. Scheduled booking handles both null scheduleId and populated scheduleId cleanly", async (t) => {
+  const recurringScheduleId = new mongoose.Types.ObjectId();
+  const scheduledBookingWithScheduleId = {
+    _id: new mongoose.Types.ObjectId(),
+    bookingId: "BOOKING-0029",
+    customer: { _id: customerId, name: "Anita Sharma", phone: "9820012345" },
+    agency: agencyId,
+    driver: driverId,
+    vehicle: eligibleVehicle,
+    bookingMode: "scheduled",
+    preferredPickupDate: new Date("2026-12-15T00:00:00.000Z"),
+    preferredPickupTime: "10:00",
+    scheduleId: recurringScheduleId,
+    bookingStatus: "pending",
+    assignmentStatus: "pending_acceptance"
+  };
+
+  t.mock.method(Driver, "findOne", async () => eligibleDriver);
+  t.mock.method(Agency, "findById", async () => ({
+    _id: agencyId,
+    approvalStatus: "approved",
+    isActive: true
+  }));
+  t.mock.method(Booking, "find", () => mockQuery([scheduledBookingWithScheduleId]));
+  t.mock.method(Booking, "countDocuments", async () => 1);
+
+  const res = createResponse();
+  await getDriverRequests({ user: { _id: driverUserId }, query: {} }, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.data.bookings.length, 1);
+  assert.equal(res.body.data.bookings[0].scheduleId.toString(), recurringScheduleId.toString());
+});
+
+test("12. Case-insensitive bookingMode normalizes SCHEDULED and delivers to assigned driver", async (t) => {
+  clearCache("booking.enabled");
+  clearFareCache();
+  mockIsolatedRouting(t);
+
+  let savedBooking = null;
+  t.mock.method(Booking.prototype, "save", async function save() {
+    savedBooking = this;
+    return this;
+  });
+  t.mock.method(SystemSetting, "findOne", async () => ({ value: true }));
+  t.mock.method(Fare, "findOne", () => ({ lean: async () => fareConfig }));
+  t.mock.method(Booking, "findOne", async () => null);
+  t.mock.method(Booking, "exists", async () => null);
+  t.mock.method(User, "find", async () => []);
+  t.mock.method(Vehicle, "findById", () => ({
+    populate: async () => ({
+      ...eligibleVehicle,
+      driver: {
+        ...eligibleDriver,
+        isOnline: false
+      }
+    })
+  }));
+  t.mock.method(Vehicle, "findOneAndUpdate", async (filter) => ({
+    _id: filter._id,
+    isAvailable: false
+  }));
+  t.mock.method(Driver, "findById", () => ({
+    populate: async () => eligibleDriver
+  }));
+  t.mock.method(Notification.prototype, "save", async function save() { return this; });
+
+  const req = {
+    user: { _id: customerId },
+    body: {
+      bookingMode: "SCHEDULED", // Uppercase input
+      vehicle: vehicleId.toString(),
+      vehicleType: "mini-truck",
+      pickup: { address: "Pickup Spot", latitude: 30.7046, longitude: 76.7179 },
+      drop: { address: "Drop Spot", latitude: 30.7333, longitude: 76.7794 },
+      goods: "Equipment",
+      weight: { value: 300, unit: "kg" },
+      preferredPickupDate: "2030-08-20",
+      preferredPickupTime: "15:00",
+      scheduleId: null
+    }
+  };
+  const res = createResponse();
+  await createBooking(req, res);
+
+  assert.equal(res.statusCode, 201);
+  assert.ok(savedBooking);
+  assert.equal(savedBooking.bookingMode, "scheduled"); // Normalized to lowercase
+  assert.equal(savedBooking.driver.toString(), driverId.toString());
+  assert.equal(savedBooking.assignmentStatus, "pending_acceptance");
+  assert.equal(savedBooking.scheduleId, null);
+});
+
+test("13. Instant booking regression: Instant bookings remain fully functional and route to assigned driver", async (t) => {
+  clearCache("booking.enabled");
+  clearFareCache();
+  mockIsolatedRouting(t);
+
+  let savedBooking = null;
+  t.mock.method(Booking.prototype, "save", async function save() {
+    savedBooking = this;
+    return this;
+  });
+  t.mock.method(SystemSetting, "findOne", async () => ({ value: true }));
+  t.mock.method(Fare, "findOne", () => ({ lean: async () => fareConfig }));
+  t.mock.method(Booking, "findOne", async () => null);
+  t.mock.method(Booking, "exists", async () => null);
+  t.mock.method(User, "find", async () => []);
+  t.mock.method(Vehicle, "findById", () => ({
+    populate: async () => ({
+      ...eligibleVehicle,
+      driver: eligibleDriver
+    })
+  }));
+  t.mock.method(Vehicle, "findOneAndUpdate", async (filter) => ({
+    _id: filter._id,
+    isAvailable: false
+  }));
+  t.mock.method(Driver, "findById", () => ({
+    populate: async () => eligibleDriver
+  }));
+  t.mock.method(Notification.prototype, "save", async function save() { return this; });
+
+  const req = {
+    user: { _id: customerId },
+    body: {
+      bookingMode: "instant",
+      vehicle: vehicleId.toString(),
+      vehicleType: "mini-truck",
+      pickup: { address: "Instant Origin", latitude: 30.7046, longitude: 76.7179 },
+      drop: { address: "Instant Dest", latitude: 30.7333, longitude: 76.7794 },
+      goods: "Urgent Parcel",
+      weight: { value: 100, unit: "kg" },
+      preferredPickupDate: "2030-01-01",
+      preferredPickupTime: "10:00"
+    }
+  };
+  const res = createResponse();
+  await createBooking(req, res);
+
+  assert.equal(res.statusCode, 201);
+  assert.ok(savedBooking);
+  assert.equal(savedBooking.bookingMode, "instant");
+  assert.equal(savedBooking.driver.toString(), driverId.toString());
+  assert.equal(savedBooking.assignmentStatus, "pending_acceptance");
+});
+
+test("14. Driver App request API response shape matches Driver App expectations", async (t) => {
+  const sampleRequest = {
+    _id: new mongoose.Types.ObjectId(),
+    bookingId: "BOOKING-0030",
+    customer: { _id: customerId, name: "Test Customer", phone: "9876543210" },
+    agency: agencyId,
+    driver: driverId,
+    vehicle: {
+      _id: vehicleId,
+      vehicleNumber: "MH04AB1234",
+      vehicleModel: "Mahindra Jeeto",
+      vehicleType: "mini-truck",
+      loadCapacity: { value: 600, unit: "kg" }
+    },
+    pickup: { address: "Point A", latitude: 19.1, longitude: 72.9 },
+    drop: { address: "Point B", latitude: 19.2, longitude: 72.8 },
+    goods: "Parcels",
+    weight: { value: 200, unit: "kg" },
+    distanceKm: 10,
+    estimatedFare: 500,
+    finalFare: 500,
+    bookingMode: "scheduled",
+    bookingStatus: "pending",
+    assignmentStatus: "pending_acceptance",
+    preferredPickupDate: new Date("2026-12-10T00:00:00.000Z"),
+    preferredPickupTime: "11:00",
+    paymentMethod: "COD",
+    paymentStatus: "pending"
+  };
+
+  t.mock.method(Driver, "findOne", async () => eligibleDriver);
+  t.mock.method(Agency, "findById", async () => ({
+    _id: agencyId,
+    approvalStatus: "approved",
+    isActive: true
+  }));
+  t.mock.method(Booking, "find", () => mockQuery([sampleRequest]));
+  t.mock.method(Booking, "countDocuments", async () => 1);
+
+  const res = createResponse();
+  await getDriverRequests({ user: { _id: driverUserId }, query: { page: "1", limit: "10" } }, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.success, true);
+  assert.ok(res.body.data);
+  assert.ok(Array.isArray(res.body.data.bookings));
+  assert.equal(res.body.data.total, 1);
+  assert.equal(res.body.data.page, 1);
+  assert.equal(res.body.data.pages, 1);
+
+  // Validate fields consumed by driver-app/App.jsx BookingCard
+  const item = res.body.data.bookings[0];
+  assert.ok(item._id);
+  assert.ok(item.bookingId);
+  assert.ok(item.pickup?.address);
+  assert.ok(item.drop?.address);
+  assert.ok(item.finalFare || item.estimatedFare);
+  assert.equal(item.bookingMode, "scheduled");
+  assert.equal(item.bookingStatus, "pending");
+  assert.equal(item.assignmentStatus, "pending_acceptance");
+  assert.ok(item.preferredPickupDate);
+  assert.ok(item.preferredPickupTime);
+  assert.ok(item.vehicle?.vehicleNumber);
+  assert.ok(item.customer?.name);
+  assert.ok(item.customer?.phone);
+});

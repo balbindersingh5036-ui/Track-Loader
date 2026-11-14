@@ -93,10 +93,12 @@ export const createBooking = async (req, res) => {
       customerNote,
       agencyId: requestedAgencyId,
       bookingMode = "instant",
+      scheduleId,
       paymentMethod = "COD"
     } = req.body;
 
-    if (!["instant", "scheduled"].includes(bookingMode)) {
+    const normalizedBookingMode = typeof bookingMode === "string" ? bookingMode.toLowerCase().trim() : "instant";
+    if (!["instant", "scheduled"].includes(normalizedBookingMode)) {
       return errorResponse(res, "Invalid booking mode. Must be instant or scheduled", 400);
     }
 
@@ -141,7 +143,7 @@ export const createBooking = async (req, res) => {
     if (!vehicleType) return errorResponse(res, "Vehicle type is required", 400);
 
     // Validate scheduled pickup date & time if bookingMode is scheduled
-    if (bookingMode === "scheduled") {
+    if (normalizedBookingMode === "scheduled") {
       const scheduledDateTime = new Date(`${preferredPickupDate}T${preferredPickupTime}`);
       if (isNaN(scheduledDateTime.getTime()) || scheduledDateTime.getTime() <= Date.now()) {
         return errorResponse(res, "Scheduled pickup date and time must be in the future", 400);
@@ -165,7 +167,7 @@ export const createBooking = async (req, res) => {
       const isRoleDriver = await isActualDriverProfile(driver);
       if (!isRoleDriver || !isEligibleDriverVehicle(driver, candidate)) return false;
       if (driver.agency && driver.agencyAssociation?.status !== "approved" && !isDriverAssociationApproved(driver)) return false;
-      if (bookingMode === "instant" && !driver.isOnline) return false;
+      if (normalizedBookingMode === "instant" && !driver.isOnline) return false;
 
       const capacityKg = candidate.loadCapacity?.unit === "ton"
         ? Number(candidate.loadCapacity.value || 0) * 1000
@@ -360,7 +362,8 @@ export const createBooking = async (req, res) => {
       vehicle: assignedDriver ? (vehicleDoc?._id || vehicleId) : null,
       vehicleModel: savedVehicleName,
       vehicleName: savedVehicleName,
-      bookingMode,
+      bookingMode: normalizedBookingMode,
+      scheduleId: scheduleId || null,
       alternativeVehicleAssigned,
       pickup,
       drop,
@@ -620,12 +623,6 @@ export const getDriverRequests = async (req, res) => {
     }
     if (driver.agency && driver.agencyAssociation?.status !== "approved") {
       return errorResponse(res, "Agency association is pending or rejected", 403);
-    }
-
-    const driverVehicles = await Vehicle.find({ driver: driver._id, isActive: true });
-    const eligibleVehicles = driverVehicles.filter((vehicle) => isEligibleDriverVehicle(driver, vehicle));
-    if (eligibleVehicles.length === 0) {
-      return errorResponse(res, "No eligible active vehicle assigned with approved documents", 403);
     }
 
     const query = {

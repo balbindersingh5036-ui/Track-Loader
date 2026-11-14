@@ -201,7 +201,7 @@ export default function BookingsTab({
               : booking.assignmentStatus === 'accepted'
                 ? 'Driver Accepted'
                 : (booking.assignmentStatus || 'Assigned');
-          const isScheduled = booking.bookingMode === 'scheduled';
+          const isScheduled = String(booking.bookingMode || '').toLowerCase() === 'scheduled';
           const pickupDate = booking.preferredPickupDate || booking.createdAt;
           const scheduledDate = pickupDate ? new Date(pickupDate).toLocaleDateString() : null;
 
