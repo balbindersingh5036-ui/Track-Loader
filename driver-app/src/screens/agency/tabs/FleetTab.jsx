@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { theme } from '../components/AgencyTheme';
 import StatusBadge from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 import ConfirmationModal from '../components/ConfirmationModal';
+import systemSettingService from '../../../services/systemSettingService';
 
 const isValidModelName = (model, vehicleNumber) => {
   if (!model || typeof model !== 'string') return false;
@@ -43,18 +44,50 @@ const VEHICLE_TYPES_BY_CATEGORY = {
   GOODS_TAXI: ['mini-pickup', 'tata-ace', 'cargo-pickup', 'goods-loading-taxi', 'other-goods-carrier']
 };
 
-function GoodsVehicleFields({ value, onChange }) {
+function GoodsVehicleFields({ value, onChange, publicConfig }) {
+  const isEvEnabled = publicConfig
+    ? publicConfig['service.ev_goods.enabled'] === true
+    : false;
+  const isTaxiEnabled = publicConfig
+    ? publicConfig['service.goods_taxi.enabled'] === true
+    : false;
+
+  const evAllowedTypes = (publicConfig && Array.isArray(publicConfig['service.ev_goods.allowed_vehicle_types']))
+    ? publicConfig['service.ev_goods.allowed_vehicle_types']
+    : ['electric-cargo-loader', 'electric-goods-e-rickshaw', 'electric-mini-cargo-carrier'];
+
+  const taxiAllowedTypes = (publicConfig && Array.isArray(publicConfig['service.goods_taxi.allowed_vehicle_types']))
+    ? publicConfig['service.goods_taxi.allowed_vehicle_types']
+    : ['mini-pickup', 'tata-ace', 'cargo-pickup', 'goods-loading-taxi'];
+
+  const allowedTypesByCategory = {
+    TRUCK: VEHICLE_TYPES_BY_CATEGORY.TRUCK,
+    EV_GOODS: evAllowedTypes,
+    GOODS_TAXI: taxiAllowedTypes
+  };
+
   const categories = [
-    { key: 'TRUCK', label: 'Truck' },
-    { key: 'EV_GOODS', label: 'EV Goods' },
-    { key: 'GOODS_TAXI', label: 'Goods Taxi' }
+    { key: 'TRUCK', label: 'Truck', isEnabled: true },
+    { key: 'EV_GOODS', label: isEvEnabled ? 'EV Goods' : 'EV Goods (Disabled)', isEnabled: isEvEnabled },
+    { key: 'GOODS_TAXI', label: isTaxiEnabled ? 'Goods Taxi' : 'Goods Taxi (Disabled)', isEnabled: isTaxiEnabled }
   ];
-  const updateCategory = (serviceCategory) => onChange({
-    ...value,
-    serviceCategory,
-    vehicleType: VEHICLE_TYPES_BY_CATEGORY[serviceCategory][0],
-    ...(serviceCategory === 'EV_GOODS' ? { fuelType: 'electric' } : {})
-  });
+
+  const updateCategory = (serviceCategory) => {
+    const allowed = allowedTypesByCategory[serviceCategory] || [];
+    const nextType = allowed[0] || (serviceCategory === 'EV_GOODS' ? 'electric-cargo-loader' : serviceCategory === 'GOODS_TAXI' ? 'mini-pickup' : 'mini-truck');
+    onChange({
+      ...value,
+      serviceCategory,
+      vehicleType: nextType,
+      ...(serviceCategory === 'EV_GOODS' ? { fuelType: 'electric' } : {})
+    });
+  };
+
+  const isCurrentCategoryDisabled =
+    (value.serviceCategory === 'EV_GOODS' && !isEvEnabled) ||
+    (value.serviceCategory === 'GOODS_TAXI' && !isTaxiEnabled);
+
+  const currentAllowedTypes = allowedTypesByCategory[value.serviceCategory] || [];
 
   return (
     <>
@@ -65,9 +98,19 @@ function GoodsVehicleFields({ value, onChange }) {
             <Pressable
               key={category.key}
               onPress={() => updateCategory(category.key)}
-              style={[styles.typeChip, value.serviceCategory === category.key && styles.typeChipActive]}
+              style={[
+                styles.typeChip,
+                value.serviceCategory === category.key && styles.typeChipActive,
+                !category.isEnabled && styles.typeChipDisabled
+              ]}
             >
-              <Text style={[styles.typeChipText, value.serviceCategory === category.key && styles.typeChipTextActive]}>
+              <Text
+                style={[
+                  styles.typeChipText,
+                  value.serviceCategory === category.key && styles.typeChipTextActive,
+                  !category.isEnabled && styles.typeChipTextDisabled
+                ]}
+              >
                 {category.label}
               </Text>
             </Pressable>
@@ -75,10 +118,19 @@ function GoodsVehicleFields({ value, onChange }) {
         </View>
       </View>
 
+      {isCurrentCategoryDisabled ? (
+        <View style={styles.categoryDisabledBanner}>
+          <Ionicons name="alert-circle" size={16} color="#B91C1C" />
+          <Text style={styles.categoryDisabledText}>
+            {value.serviceCategory === 'EV_GOODS' ? 'EV Goods Transport' : 'Goods Taxi Transport'} is currently disabled by the administrator. New vehicles in this category cannot be registered.
+          </Text>
+        </View>
+      ) : null}
+
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>Vehicle Type *</Text>
         <View style={styles.chipGrid}>
-          {VEHICLE_TYPES_BY_CATEGORY[value.serviceCategory].map((type) => (
+          {currentAllowedTypes.map((type) => (
             <Pressable
               key={type}
               onPress={() => onChange({ ...value, vehicleType: type })}
@@ -372,6 +424,20 @@ export default function FleetTab({
   const [galleryPhotoIndex, setGalleryPhotoIndex] = useState(0);
   const [photoLoadErrors, setPhotoLoadErrors] = useState({});
   const [photoProgress, setPhotoProgress] = useState(0);
+  const [publicConfig, setPublicConfig] = useState(null);
+
+  useEffect(() => {
+    systemSettingService.getPublicConfig()
+      .then((res) => setPublicConfig(res?.data?.data?.config || {}))
+      .catch(() => {});
+  }, [isAddModalOpen]);
+
+  const isEvEnabled = publicConfig
+    ? publicConfig['service.ev_goods.enabled'] === true
+    : false;
+  const isTaxiEnabled = publicConfig
+    ? publicConfig['service.goods_taxi.enabled'] === true
+    : false;
 
   // Add vehicle form state
   const [vehicleForm, setVehicleForm] = useState({
@@ -543,6 +609,16 @@ export default function FleetTab({
 
     if (!isValidModelName(fullModel, vehicleForm.vehicleNumber)) {
       setFormError('Please enter a valid vehicle make and model (e.g. Tata Ace Gold, Mahindra Jeeto). Numbers or plate codes are not allowed.');
+      return;
+    }
+
+    if (vehicleForm.serviceCategory === 'EV_GOODS' && !isEvEnabled) {
+      setFormError('EV Goods Transport is currently disabled by administrator. New vehicles in this category cannot be registered.');
+      return;
+    }
+
+    if (vehicleForm.serviceCategory === 'GOODS_TAXI' && !isTaxiEnabled) {
+      setFormError('Goods Taxi Transport is currently disabled by administrator. New vehicles in this category cannot be registered.');
       return;
     }
 
@@ -1024,6 +1100,7 @@ export default function FleetTab({
               <GoodsVehicleFields
                 value={vehicleForm}
                 onChange={(fields) => setVehicleForm((current) => ({ ...current, ...fields }))}
+                publicConfig={publicConfig}
               />
 
               <DriverAssignmentField
@@ -1098,8 +1175,11 @@ export default function FleetTab({
                 <Pressable
                   accessibilityRole="button"
                   onPress={handleSaveAddVehicle}
-                  disabled={Boolean(saving || isSubmitting)}
-                  style={[styles.modalSubmitBtn, Boolean(saving || isSubmitting) && styles.modalSubmitBtnDisabled]}
+                  disabled={Boolean(saving || isSubmitting || ((vehicleForm.serviceCategory === 'EV_GOODS' && !isEvEnabled) || (vehicleForm.serviceCategory === 'GOODS_TAXI' && !isTaxiEnabled)))}
+                  style={[
+                    styles.modalSubmitBtn,
+                    Boolean(saving || isSubmitting || ((vehicleForm.serviceCategory === 'EV_GOODS' && !isEvEnabled) || (vehicleForm.serviceCategory === 'GOODS_TAXI' && !isTaxiEnabled))) && styles.modalSubmitBtnDisabled
+                  ]}
                 >
                   {saving === 'create-vehicle' || isSubmitting ? (
                     <ActivityIndicator size="small" color="#FFFFFF" />
@@ -1163,6 +1243,7 @@ export default function FleetTab({
                 <GoodsVehicleFields
                   value={editingVehicle}
                   onChange={(fields) => setEditingVehicle((current) => ({ ...current, ...fields }))}
+                  publicConfig={publicConfig}
                 />
 
                 <DriverAssignmentField
@@ -1837,6 +1918,31 @@ const styles = StyleSheet.create({
     color: theme.colors.danger,
     fontSize: 12,
     flex: 1
+  },
+  categoryDisabledBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    padding: 10,
+    borderRadius: theme.borderRadius.md,
+    marginVertical: 4
+  },
+  categoryDisabledText: {
+    color: '#B91C1C',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1
+  },
+  typeChipDisabled: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
+    opacity: 0.7
+  },
+  typeChipTextDisabled: {
+    color: '#9CA3AF'
   },
   photoPickerSection: {
     backgroundColor: theme.colors.surface,

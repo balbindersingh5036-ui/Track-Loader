@@ -1,4 +1,4 @@
-import { getSetting } from "./systemSettingService.js";
+import { getSetting, isSettingEnabled } from "./systemSettingService.js";
 import { SERVICE_CATEGORIES } from "../utils/vehicleCategories.js";
 
 const getCategorySettingPrefix = (serviceCategory) => {
@@ -6,6 +6,20 @@ const getCategorySettingPrefix = (serviceCategory) => {
   if (serviceCategory === SERVICE_CATEGORIES.GOODS_TAXI) return "service.goods_taxi";
   return null;
 };
+
+export const DEFAULT_ALLOWED_VEHICLE_TYPES = Object.freeze({
+  [SERVICE_CATEGORIES.EV_GOODS]: [
+    "electric-cargo-loader",
+    "electric-goods-e-rickshaw",
+    "electric-mini-cargo-carrier"
+  ],
+  [SERVICE_CATEGORIES.GOODS_TAXI]: [
+    "mini-pickup",
+    "tata-ace",
+    "cargo-pickup",
+    "goods-loading-taxi"
+  ]
+});
 
 const toCapacityKg = (loadCapacity) =>
   Number(loadCapacity?.value || 0) *
@@ -20,12 +34,24 @@ export const validateGoodsVehiclePolicy = async ({
   const prefix = getCategorySettingPrefix(serviceCategory);
   if (!prefix) return;
 
-  const [allowedTypes, maxCapacityKg, supportedAreas] = await Promise.all([
+  const isEnabled = await isSettingEnabled(`${prefix}.enabled`);
+  if (!isEnabled) {
+    const error = new Error("This goods vehicle category is not enabled by the administrator");
+    error.status = 400;
+    throw error;
+  }
+
+  const [configuredAllowedTypes, maxCapacityKg, supportedAreas] = await Promise.all([
     getSetting(`${prefix}.allowed_vehicle_types`),
     getSetting(`${prefix}.max_capacity_kg`),
     getSetting(`${prefix}.service_areas`)
   ]);
-  if (!Array.isArray(allowedTypes) || !allowedTypes.includes(vehicleType)) {
+
+  const allowedTypes = Array.isArray(configuredAllowedTypes)
+    ? configuredAllowedTypes
+    : DEFAULT_ALLOWED_VEHICLE_TYPES[serviceCategory] || [];
+
+  if (!allowedTypes.includes(vehicleType)) {
     const error = new Error("This goods vehicle type is not enabled by the administrator");
     error.status = 400;
     throw error;

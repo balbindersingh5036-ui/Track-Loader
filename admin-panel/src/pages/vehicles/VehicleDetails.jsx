@@ -4,8 +4,14 @@ import { ArrowLeft, CarFront, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import vehicleService from '../../services/vehicleService';
 import './vehicles.css';
 import './vehicleDetails.css';
+import {
+  SERVICE_CATEGORIES,
+  SERVICE_CATEGORY_LABELS,
+  VEHICLE_TYPES_BY_CATEGORY,
+  resolveVehicleCategory,
+  formatVehicleType
+} from '../../utils/vehicleCategories';
 
-const types = ['mini-truck', 'pickup', 'small-truck', 'medium-truck', 'large-truck'];
 const bodies = ['open', 'closed', 'container', 'flatbed'];
 const photoList = (vehicle) => {
   const photos = Array.isArray(vehicle?.vehicleImages)
@@ -23,6 +29,16 @@ const statusLabel = (status) => ({
 
 function StatusBadge({ status }) {
   return <span className={`vehicle-status vehicle-status-${status || 'not_uploaded'}`}>{statusLabel(status)}</span>;
+}
+
+function CategoryBadge({ category }) {
+  if (category === SERVICE_CATEGORIES.EV_GOODS) {
+    return <span className="vehicle-category-badge vehicle-category-ev_goods">EV Goods</span>;
+  }
+  if (category === SERVICE_CATEGORIES.GOODS_TAXI) {
+    return <span className="vehicle-category-badge vehicle-category-goods_taxi">Goods Taxi</span>;
+  }
+  return <span className="vehicle-category-badge vehicle-category-truck">Truck</span>;
 }
 
 function Info({ label, value }) {
@@ -126,13 +142,19 @@ export default function VehicleDetails() {
       const response = await vehicleService.getVehicle(id);
       const record = response.data?.data?.vehicle;
       if (!record) throw new Error('Vehicle details were not returned by the API.');
+      const category = resolveVehicleCategory(record);
       setVehicle(record);
       setHeroPhotoError(false);
       setForm({
         vehicleNumber: record.vehicleNumber || '',
         vehicleMake: record.vehicleMake || '',
         vehicleModel: record.vehicleModel || '',
-        vehicleType: record.vehicleType || types[0],
+        serviceCategory: category,
+        vehicleType: record.vehicleType || VEHICLE_TYPES_BY_CATEGORY[category][0],
+        fuelType: record.fuelType || (category === SERVICE_CATEGORIES.EV_GOODS ? 'electric' : 'diesel'),
+        batteryRangeKm: record.batteryRangeKm !== undefined && record.batteryRangeKm !== null ? String(record.batteryRangeKm) : '',
+        chargingInformation: record.chargingInformation || '',
+        serviceAreas: Array.isArray(record.serviceAreas) ? record.serviceAreas.join(', ') : '',
         capacityValue: String(record.loadCapacity?.value ?? ''),
         capacityUnit: record.loadCapacity?.unit || 'kg',
         bodyType: record.bodyType || 'open'
@@ -166,11 +188,26 @@ export default function VehicleDetails() {
     setError('');
     setNotice('');
     try {
+      const areas = form.serviceAreas
+        ? form.serviceAreas.split(',').map((a) => a.trim()).filter(Boolean)
+        : (vehicle?.serviceAreas || ['City Center']);
+
       await vehicleService.updateVehicle(id, {
         vehicleNumber: form.vehicleNumber.trim().toUpperCase(),
         vehicleMake: (form.vehicleMake || '').trim(),
         vehicleModel: model,
+        serviceCategory: form.serviceCategory,
         vehicleType: form.vehicleType,
+        fuelType: form.fuelType,
+        ...(form.serviceCategory === SERVICE_CATEGORIES.EV_GOODS
+          ? {
+              batteryRangeKm: Number(form.batteryRangeKm || 120),
+              chargingInformation: form.chargingInformation || 'Standard Type 2 AC charging'
+            }
+          : {}),
+        ...(form.serviceCategory !== SERVICE_CATEGORIES.TRUCK
+          ? { serviceAreas: areas.length ? areas : ['City Center'] }
+          : {}),
         loadCapacity: { value: capacity, unit: form.capacityUnit },
         bodyType: form.bodyType
       });
@@ -282,8 +319,17 @@ export default function VehicleDetails() {
             </div>
             <div className="vehicle-hero-content">
               <div className="vehicle-hero-title">
-                <div><span className="vehicle-detail-eyebrow">REGISTRATION</span><h2>{vehicle.vehicleNumber}</h2><p>{vehicle.vehicleModel} · {vehicle.vehicleType?.replace('-', ' ')}</p></div>
-                <span className={`vehicle-status vehicle-status-${vehicle.isActive ? 'active' : 'inactive'}`}>{vehicle.isActive ? 'Active' : 'Inactive'}</span>
+                <div>
+                  <span className="vehicle-detail-eyebrow">REGISTRATION</span>
+                  <h2>{vehicle.vehicleNumber}</h2>
+                  <p>{vehicle.vehicleModel} · {formatVehicleType(vehicle.vehicleType)}</p>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <CategoryBadge category={resolveVehicleCategory(vehicle)} />
+                  <span className={`vehicle-status vehicle-status-${vehicle.isActive ? 'active' : 'inactive'}`}>
+                    {vehicle.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
               </div>
               <div className="vehicle-hero-meta">
                 <span>{vehicle.isAvailable ? 'Available' : 'Unavailable'}</span>
@@ -305,9 +351,17 @@ export default function VehicleDetails() {
               <div className="vehicle-info-grid">
                 <Info label="Registration number" value={vehicle.vehicleNumber} />
                 <Info label="Model" value={vehicle.vehicleModel} />
-                <Info label="Category" value={vehicle.vehicleType?.replace('-', ' ')} />
+                <Info label="Service Category" value={SERVICE_CATEGORY_LABELS[resolveVehicleCategory(vehicle)] || 'Truck'} />
+                <Info label="Vehicle Subcategory" value={formatVehicleType(vehicle.vehicleType)} />
+                <Info label="Fuel type" value={vehicle.fuelType ? vehicle.fuelType.toUpperCase() : '—'} />
                 <Info label="Load capacity" value={`${vehicle.loadCapacity?.value ?? '—'} ${vehicle.loadCapacity?.unit || ''}`} />
                 <Info label="Body type" value={vehicle.bodyType} />
+                {vehicle.batteryRangeKm !== undefined && vehicle.batteryRangeKm !== null && (
+                  <Info label="Battery Range" value={`${vehicle.batteryRangeKm} km`} />
+                )}
+                {vehicle.chargingInformation && (
+                  <Info label="Charging Info" value={vehicle.chargingInformation} />
+                )}
                 <Info label="Availability" value={vehicle.isAvailable ? 'Available' : 'Unavailable'} />
                 <Info label="Created" value={formatDate(vehicle.createdAt)} />
                 <Info label="Last updated" value={formatDate(vehicle.updatedAt)} />
@@ -318,7 +372,81 @@ export default function VehicleDetails() {
                   <label>Registration<input required value={form?.vehicleNumber || ''} onChange={(event) => updateForm('vehicleNumber', event.target.value)} /></label>
                   <label>Make / Brand (Optional)<input placeholder="e.g. Tata, Mahindra" value={form?.vehicleMake || ''} onChange={(event) => updateForm('vehicleMake', event.target.value)} /></label>
                   <label>Model<input required placeholder="e.g. Tata Ace Gold, Mahindra Jeeto" value={form?.vehicleModel || ''} onChange={(event) => updateForm('vehicleModel', event.target.value)} /></label>
-                  <label>Category<select value={form?.vehicleType || types[0]} onChange={(event) => updateForm('vehicleType', event.target.value)}>{types.map((type) => <option key={type} value={type}>{type.replace('-', ' ')}</option>)}</select></label>
+                  <label>Service Category
+                    <select
+                      value={form?.serviceCategory || SERVICE_CATEGORIES.TRUCK}
+                      onChange={(event) => {
+                        const nextCategory = event.target.value;
+                        const allowed = VEHICLE_TYPES_BY_CATEGORY[nextCategory] || [];
+                        setForm((current) => ({
+                          ...current,
+                          serviceCategory: nextCategory,
+                          vehicleType: allowed[0] || current.vehicleType,
+                          fuelType: nextCategory === SERVICE_CATEGORIES.EV_GOODS ? 'electric' : current.fuelType
+                        }));
+                      }}
+                    >
+                      <option value={SERVICE_CATEGORIES.TRUCK}>Truck</option>
+                      <option value={SERVICE_CATEGORIES.EV_GOODS}>EV Goods</option>
+                      <option value={SERVICE_CATEGORIES.GOODS_TAXI}>Goods Taxi</option>
+                    </select>
+                  </label>
+                  <label>Vehicle Subcategory
+                    <select
+                      value={form?.vehicleType || ''}
+                      onChange={(event) => updateForm('vehicleType', event.target.value)}
+                    >
+                      {(VEHICLE_TYPES_BY_CATEGORY[form?.serviceCategory] || VEHICLE_TYPES_BY_CATEGORY[SERVICE_CATEGORIES.TRUCK]).map((type) => (
+                        <option key={type} value={type}>
+                          {formatVehicleType(type)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>Fuel type
+                    <select
+                      value={form?.fuelType || 'diesel'}
+                      disabled={form?.serviceCategory === SERVICE_CATEGORIES.EV_GOODS}
+                      onChange={(event) => updateForm('fuelType', event.target.value)}
+                    >
+                      <option value="diesel">Diesel</option>
+                      <option value="petrol">Petrol</option>
+                      <option value="cng">CNG</option>
+                      <option value="electric">Electric</option>
+                    </select>
+                  </label>
+                  {form?.serviceCategory === SERVICE_CATEGORIES.EV_GOODS && (
+                    <>
+                      <label>Battery Range (km)
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          placeholder="e.g. 120"
+                          value={form?.batteryRangeKm ?? ''}
+                          onChange={(event) => updateForm('batteryRangeKm', event.target.value)}
+                        />
+                      </label>
+                      <label>Charging Information
+                        <input
+                          type="text"
+                          placeholder="e.g. 15A Socket / Fast DC Charger"
+                          value={form?.chargingInformation ?? ''}
+                          onChange={(event) => updateForm('chargingInformation', event.target.value)}
+                        />
+                      </label>
+                    </>
+                  )}
+                  {form?.serviceCategory !== SERVICE_CATEGORIES.TRUCK && (
+                    <label>Operating Service Areas (comma-separated)
+                      <input
+                        type="text"
+                        placeholder="e.g. Central Zone, North Hub, Electronic City"
+                        value={form?.serviceAreas ?? ''}
+                        onChange={(event) => updateForm('serviceAreas', event.target.value)}
+                      />
+                    </label>
+                  )}
                   <label>Capacity<input required type="number" min="0" step="any" value={form?.capacityValue ?? ''} onChange={(event) => updateForm('capacityValue', event.target.value)} /></label>
                   <label>Capacity unit<select value={form?.capacityUnit || 'kg'} onChange={(event) => updateForm('capacityUnit', event.target.value)}><option value="kg">KG</option><option value="ton">TON</option></select></label>
                   <label>Body type<select value={form?.bodyType || 'open'} onChange={(event) => updateForm('bodyType', event.target.value)}>{bodies.map((body) => <option key={body}>{body}</option>)}</select></label>

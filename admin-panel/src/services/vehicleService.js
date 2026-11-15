@@ -5,8 +5,6 @@ export const vehicleService = {
   getVehicle: (vehicleId) => api.get(`/admin/vehicles/${encodeURIComponent(vehicleId)}`),
   updateVehicle: (vehicleId, data) =>
     api.put(`/admin/vehicles/${encodeURIComponent(vehicleId)}`, data),
-  updateVehicle: (vehicleId, data) =>
-    api.put(`/admin/vehicles/${encodeURIComponent(vehicleId)}`, data),
   reviewDocument: (vehicleId, docType, action, reason) => api.patch(
     `/admin/vehicles/${encodeURIComponent(vehicleId)}/documents/${docType}/${action}`,
     action === 'reject' ? { reason } : {}

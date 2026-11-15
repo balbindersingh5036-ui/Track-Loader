@@ -1,13 +1,30 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowDown, ArrowUp, CarFront, RefreshCw, Search } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  CarFront,
+  RefreshCw,
+  Search,
+  Zap,
+  Car,
+  Truck
+} from 'lucide-react';
 import vehicleService from '../../services/vehicleService';
+import {
+  SERVICE_CATEGORIES,
+  SERVICE_CATEGORY_LABELS,
+  VEHICLE_TYPES_BY_CATEGORY,
+  resolveVehicleCategory,
+  formatVehicleType
+} from '../../utils/vehicleCategories';
 import './vehicles.css';
 
 const initialFilters = {
   search: '',
   status: '',
   assigned: '',
+  serviceCategory: '',
   vehicleType: '',
   registrationStatus: '',
   insuranceStatus: '',
@@ -31,6 +48,28 @@ const statusLabel = (status) => ({
 
 function StatusBadge({ children, tone = 'neutral' }) {
   return <span className={`vehicle-status vehicle-status-${tone}`}>{children}</span>;
+}
+
+function CategoryBadge({ category }) {
+  if (category === SERVICE_CATEGORIES.EV_GOODS) {
+    return (
+      <span className="vehicle-category-badge vehicle-category-ev_goods">
+        <Zap size={11} /> EV Goods
+      </span>
+    );
+  }
+  if (category === SERVICE_CATEGORIES.GOODS_TAXI) {
+    return (
+      <span className="vehicle-category-badge vehicle-category-goods_taxi">
+        <Car size={11} /> Goods Taxi
+      </span>
+    );
+  }
+  return (
+    <span className="vehicle-category-badge vehicle-category-truck">
+      <Truck size={11} /> Truck
+    </span>
+  );
 }
 
 function VehiclePhoto({ vehicle }) {
@@ -82,7 +121,17 @@ export default function Vehicles() {
   }, [filters, sort, pagination.limit, loadVehicles]);
 
   const applyFilter = (key, value) => {
-    setFilters((current) => ({ ...current, [key]: value }));
+    setFilters((current) => {
+      const updated = { ...current, [key]: value };
+      // When changing category, reset subcategory if it does not belong to the selected category
+      if (key === 'serviceCategory' && value) {
+        const allowed = VEHICLE_TYPES_BY_CATEGORY[value] || [];
+        if (!allowed.includes(current.vehicleType)) {
+          updated.vehicleType = '';
+        }
+      }
+      return updated;
+    });
     setPagination((current) => ({ ...current, page: 1 }));
   };
 
@@ -121,15 +170,26 @@ export default function Vehicles() {
     }
   };
 
+  // Available subcategories based on chosen category
+  const availableSubcategories = useMemo(() => {
+    if (filters.serviceCategory && VEHICLE_TYPES_BY_CATEGORY[filters.serviceCategory]) {
+      return VEHICLE_TYPES_BY_CATEGORY[filters.serviceCategory];
+    }
+    return null;
+  }, [filters.serviceCategory]);
+
   const summaryCards = [
     { label: 'Total Vehicles', value: stats?.total ?? '—', onClick: clearFilters },
     { label: 'Active', value: stats?.active ?? '—', onClick: () => applyFilter('status', 'active') },
     { label: 'Inactive', value: stats?.inactive ?? '—', onClick: () => applyFilter('status', 'inactive') },
     { label: 'Available', value: stats?.available ?? '—', onClick: () => applyFilter('availability', 'true') },
     { label: 'Assigned', value: stats?.assigned ?? '—', onClick: () => applyFilter('assigned', 'true') },
+    { label: 'Trucks', value: vehicles.filter(v => resolveVehicleCategory(v) === SERVICE_CATEGORIES.TRUCK).length || '—', onClick: () => applyFilter('serviceCategory', SERVICE_CATEGORIES.TRUCK) },
+    { label: 'EV Goods', value: vehicles.filter(v => resolveVehicleCategory(v) === SERVICE_CATEGORIES.EV_GOODS).length || '—', onClick: () => applyFilter('serviceCategory', SERVICE_CATEGORIES.EV_GOODS) },
+    { label: 'Goods Taxi', value: vehicles.filter(v => resolveVehicleCategory(v) === SERVICE_CATEGORIES.GOODS_TAXI).length || '—', onClick: () => applyFilter('serviceCategory', SERVICE_CATEGORIES.GOODS_TAXI) },
     { label: 'Pending RC', value: stats?.pendingRegistration ?? '—', onClick: () => applyFilter('registrationStatus', 'pending') },
     { label: 'Pending Insurance', value: stats?.pendingInsurance ?? '—', onClick: () => applyFilter('insuranceStatus', 'pending') },
-    { label: 'Rejected Documents', value: stats?.rejectedDocuments ?? '—', onClick: () => applyFilter('documentStatus', 'rejected') }
+    { label: 'Rejected Docs', value: stats?.rejectedDocuments ?? '—', onClick: () => applyFilter('documentStatus', 'rejected') }
   ];
 
   const sortButton = (label, key) => (
@@ -143,8 +203,8 @@ export default function Vehicles() {
     <section className="vehicle-page">
       <header className="vehicle-page-header">
         <div>
-          <h1>Vehicle Management</h1>
-          <p>Review fleet information, vehicle photos, and independent RC and insurance verification.</p>
+          <h1>Fleet Vehicle Management</h1>
+          <p>Inspect commercial trucks, EV goods carriers, and goods taxis across all registered agencies.</p>
         </div>
         <button type="button" className="vehicle-secondary-button" onClick={() => loadVehicles(pagination.page)} disabled={loading}>
           <RefreshCw size={16} className={loading ? 'vehicle-spin' : ''} /> Refresh
@@ -174,7 +234,7 @@ export default function Vehicles() {
             <Search size={17} />
             <input
               aria-label="Search vehicles"
-              placeholder="Registration, model, category, driver, phone, or agency"
+              placeholder="Registration, model, category, type, driver, or agency..."
               value={searchText}
               onChange={(event) => setSearchText(event.target.value)}
             />
@@ -183,30 +243,91 @@ export default function Vehicles() {
         </form>
 
         <div className="vehicle-filter-grid">
+          {/* Service Category Selector */}
+          <label>Service Category
+            <select
+              value={filters.serviceCategory}
+              onChange={(event) => applyFilter('serviceCategory', event.target.value)}
+            >
+              <option value="">All Categories</option>
+              <option value={SERVICE_CATEGORIES.TRUCK}>Trucks</option>
+              <option value={SERVICE_CATEGORIES.EV_GOODS}>EV Goods</option>
+              <option value={SERVICE_CATEGORIES.GOODS_TAXI}>Goods Taxi</option>
+            </select>
+          </label>
+
+          {/* Subcategory Selector */}
+          <label>Vehicle Subcategory
+            <select
+              value={filters.vehicleType}
+              onChange={(event) => applyFilter('vehicleType', event.target.value)}
+            >
+              <option value="">
+                {filters.serviceCategory
+                  ? `All ${SERVICE_CATEGORY_LABELS[filters.serviceCategory]} Types`
+                  : 'All Subcategories'}
+              </option>
+              {availableSubcategories ? (
+                availableSubcategories.map((type) => (
+                  <option key={type} value={type}>
+                    {formatVehicleType(type)}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <optgroup label="Trucks">
+                    {VEHICLE_TYPES_BY_CATEGORY[SERVICE_CATEGORIES.TRUCK].map((type) => (
+                      <option key={type} value={type}>{formatVehicleType(type)}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="EV Goods Transport">
+                    {VEHICLE_TYPES_BY_CATEGORY[SERVICE_CATEGORIES.EV_GOODS].map((type) => (
+                      <option key={type} value={type}>{formatVehicleType(type)}</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Goods Taxi Transport">
+                    {VEHICLE_TYPES_BY_CATEGORY[SERVICE_CATEGORIES.GOODS_TAXI].map((type) => (
+                      <option key={type} value={type}>{formatVehicleType(type)}</option>
+                    ))}
+                  </optgroup>
+                </>
+              )}
+            </select>
+          </label>
+
           <label>Vehicle status
             <select value={filters.status} onChange={(event) => applyFilter('status', event.target.value)}>
-              <option value="">All</option><option value="active">Active</option><option value="inactive">Inactive</option>
+              <option value="">All Statuses</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
             </select>
           </label>
-          <label>Assignment
+
+          <label>Driver Assignment
             <select value={filters.assigned} onChange={(event) => applyFilter('assigned', event.target.value)}>
-              <option value="">All</option><option value="true">Assigned</option><option value="false">Unassigned</option>
+              <option value="">All</option>
+              <option value="true">Assigned</option>
+              <option value="false">Unassigned</option>
             </select>
           </label>
-          <label>Category
-            <select value={filters.vehicleType} onChange={(event) => applyFilter('vehicleType', event.target.value)}>
-              <option value="">All categories</option>
-              {['mini-truck', 'pickup', 'small-truck', 'medium-truck', 'large-truck'].map((type) => <option key={type} value={type}>{type.replace('-', ' ')}</option>)}
-            </select>
-          </label>
+
           <label>RC status
             <select value={filters.registrationStatus} onChange={(event) => applyFilter('registrationStatus', event.target.value)}>
-              <option value="">All</option><option value="missing">Missing</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option>
+              <option value="">All</option>
+              <option value="missing">Missing</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
             </select>
           </label>
+
           <label>Insurance status
             <select value={filters.insuranceStatus} onChange={(event) => applyFilter('insuranceStatus', event.target.value)}>
-              <option value="">All</option><option value="missing">Missing</option><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option>
+              <option value="">All</option>
+              <option value="missing">Missing</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
             </select>
           </label>
         </div>
@@ -221,27 +342,46 @@ export default function Vehicles() {
                 <th>Photo</th>
                 <th>{sortButton('Registration', 'vehicleNumber')}</th>
                 <th>{sortButton('Model', 'vehicleModel')}</th>
-                <th>Category</th><th>Agency</th><th>Driver</th><th>RC</th><th>Insurance</th><th>Status</th>
-                <th>{sortButton('Created', 'createdAt')}</th><th>Actions</th>
+                <th>Category</th>
+                <th>Vehicle Type</th>
+                <th>Agency</th>
+                <th>Driver</th>
+                <th>RC</th>
+                <th>Insurance</th>
+                <th>Status</th>
+                <th>{sortButton('Created', 'createdAt')}</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? Array.from({ length: 5 }, (_, index) => (
                 <tr key={`vehicle-loading-${index}`} aria-hidden="true">
-                  {Array.from({ length: 11 }, (_, cell) => <td key={`vehicle-loading-cell-${cell}`}><span className="vehicle-skeleton" /></td>)}
+                  {Array.from({ length: 12 }, (_, cell) => <td key={`vehicle-loading-cell-${cell}`}><span className="vehicle-skeleton" /></td>)}
                 </tr>
               )) : null}
-              {!loading && !error && vehicles.length === 0 ? <tr><td colSpan="11" className="vehicle-table-message">No vehicles match these filters.</td></tr> : null}
+              {!loading && !error && vehicles.length === 0 ? <tr><td colSpan="12" className="vehicle-table-message">No vehicles match these filters.</td></tr> : null}
               {!loading && !error && vehicles.map((vehicle) => {
                 const rc = vehicle.documents?.registration?.status || 'not_uploaded';
                 const insurance = vehicle.documents?.insurance?.status || 'not_uploaded';
                 const assignedDriver = vehicle.driver;
+                const category = resolveVehicleCategory(vehicle);
+
                 return (
                   <tr key={vehicle._id}>
                     <td><VehiclePhoto key={photoList(vehicle)[0] || vehicle._id} vehicle={vehicle} /></td>
                     <td><strong>{vehicle.vehicleNumber}</strong></td>
                     <td>{vehicle.vehicleModel}</td>
-                    <td className="vehicle-capitalize">{vehicle.vehicleType?.replace('-', ' ') || '—'}</td>
+                    <td><CategoryBadge category={category} /></td>
+                    <td>
+                      <span style={{ fontWeight: '500', color: '#334155' }}>
+                        {formatVehicleType(vehicle.vehicleType)}
+                      </span>
+                      {vehicle.fuelType && (
+                        <small style={{ color: vehicle.fuelType === 'electric' ? '#059669' : '#64748b' }}>
+                          {vehicle.fuelType.toUpperCase()}
+                        </small>
+                      )}
+                    </td>
                     <td>{vehicle.agency?.agencyName || 'Independent'}</td>
                     <td>{assignedDriver ? <>{assignedDriver.fullName || 'Driver'}<small>{assignedDriver.phone || ''}</small></> : 'Unassigned'}</td>
                     <td><StatusBadge tone={rc}>{statusLabel(rc)}</StatusBadge></td>

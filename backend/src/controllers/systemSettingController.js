@@ -122,6 +122,10 @@ const PUBLIC_SETTINGS = [
   ["booking.enabled", "booking.enabled"],
   ["service.ev_goods.enabled", "service.ev_goods.enabled"],
   ["service.goods_taxi.enabled", "service.goods_taxi.enabled"],
+  ["service.ev_goods.allowed_vehicle_types", "service.ev_goods.allowed_vehicle_types"],
+  ["service.goods_taxi.allowed_vehicle_types", "service.goods_taxi.allowed_vehicle_types"],
+  ["service.ev_goods.max_capacity_kg", "service.ev_goods.max_capacity_kg"],
+  ["service.goods_taxi.max_capacity_kg", "service.goods_taxi.max_capacity_kg"],
   ["payment.enabled", "payment.enabled"],
   ["customer.registrationenabled", "customer.registrationEnabled"],
   ["driver.enabled", "driver.enabled"],
@@ -139,10 +143,28 @@ export const getPublicSettings = async (req, res) => {
     });
     
     const config = settings.reduce((acc, curr) => {
-      const [, publicKey] = PUBLIC_SETTINGS.find(([key]) => key === curr.key);
-      acc[publicKey] = curr.value;
+      const match = PUBLIC_SETTINGS.find(([key]) => key === curr.key);
+      if (match) {
+        acc[match[1]] = curr.value;
+      }
       return acc;
     }, {});
+
+    if (config["service.ev_goods.allowed_vehicle_types"] === undefined) {
+      config["service.ev_goods.allowed_vehicle_types"] = [
+        "electric-cargo-loader",
+        "electric-goods-e-rickshaw",
+        "electric-mini-cargo-carrier"
+      ];
+    }
+    if (config["service.goods_taxi.allowed_vehicle_types"] === undefined) {
+      config["service.goods_taxi.allowed_vehicle_types"] = [
+        "mini-pickup",
+        "tata-ace",
+        "cargo-pickup",
+        "goods-loading-taxi"
+      ];
+    }
 
     return successResponse(res, { config }, "Public config fetched");
   } catch (error) {

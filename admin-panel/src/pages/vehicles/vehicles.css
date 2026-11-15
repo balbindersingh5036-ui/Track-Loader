@@ -241,6 +241,32 @@
 .vehicle-status-rejected { background: #ffebeb; color: #b42318; }
 .vehicle-status-not_uploaded, .vehicle-status-inactive { background: #eef0f4; color: #5d6677; }
 
+.vehicle-category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.vehicle-category-truck {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+.vehicle-category-ev_goods {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+.vehicle-category-goods_taxi {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
 .vehicle-capitalize {
   text-transform: capitalize;
 }

@@ -667,9 +667,19 @@ export const getAdminVehicles = async (req, res) => {
         { vehicleNumber: regex },
         { vehicleModel: regex },
         { vehicleType: regex },
+        { serviceCategory: regex },
         { driver: { $in: drivers.map((driver) => driver._id) } },
         { agency: { $in: agencies.map((agency) => agency._id) } }
       ];
+    }
+
+    if (req.query.serviceCategory !== undefined && req.query.serviceCategory !== "") {
+      if (!serviceCategories.includes(req.query.serviceCategory)) {
+        return errorResponse(res, "Invalid service category", 400);
+      }
+      filter.serviceCategory = req.query.serviceCategory === SERVICE_CATEGORIES.TRUCK
+        ? { $in: [SERVICE_CATEGORIES.TRUCK, null] }
+        : req.query.serviceCategory;
     }
 
     if (req.query.status !== undefined) {
@@ -692,9 +702,9 @@ export const getAdminVehicles = async (req, res) => {
       }
       filter.isAvailable = req.query.availability === "true";
     }
-    if (req.query.vehicleType !== undefined) {
+    if (req.query.vehicleType !== undefined && req.query.vehicleType !== "") {
       if (!vehicleTypes.includes(req.query.vehicleType)) {
-        return errorResponse(res, "Invalid vehicle category", 400);
+        return errorResponse(res, "Invalid vehicle type", 400);
       }
       filter.vehicleType = req.query.vehicleType;
     }

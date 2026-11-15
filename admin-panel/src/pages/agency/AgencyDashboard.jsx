@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import agencyService from '../../services/agencyService';
+import systemSettingService from '../../services/systemSettingService';
 import {
   Building2, Users, Car, MapPin, RefreshCw, PlusCircle,
   UploadCloud, AlertCircle, CheckCircle2, XCircle, Clock,
@@ -213,15 +214,23 @@ export default function AgencyDashboard() {
     success: ''
   });
 
+  const [publicConfig, setPublicConfig] = useState(null);
+
   const [newVehicle, setNewVehicle] = useState({
     driverId: '',
     vehicleNumber: '',
+    vehicleMake: '',
     vehicleModel: '',
+    serviceCategory: 'TRUCK',
     vehicleType: 'mini-truck',
+    fuelType: 'diesel',
     loadCapacityValue: 1000,
     loadCapacityUnit: 'kg',
     bodyType: 'open',
-    vehicleImage: ''
+    vehicleImage: '',
+    batteryRangeKm: '',
+    chargingInformation: '',
+    serviceAreas: ''
   });
   const [newVehicleModal, setNewVehicleModal] = useState(false);
   const [creatingVehicle, setCreatingVehicle] = useState(false);
@@ -444,7 +453,18 @@ export default function AgencyDashboard() {
 
   useEffect(() => {
     loadData();
+    systemSettingService.getPublicConfig()
+      .then(res => setPublicConfig(res.data?.data?.config || {}))
+      .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (newVehicleModal) {
+      systemSettingService.getPublicConfig()
+        .then(res => setPublicConfig(res.data?.data?.config || {}))
+        .catch(() => {});
+    }
+  }, [newVehicleModal]);
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent('agency-tab-change', { detail: { tab: activeTab } }));
@@ -754,13 +774,32 @@ export default function AgencyDashboard() {
 
   const handleCreateVehicle = async (e) => {
     e.preventDefault();
+    const serviceCategory = newVehicle.serviceCategory || 'TRUCK';
+    const isEvEnabled = publicConfig ? publicConfig['service.ev_goods.enabled'] === true : false;
+    const isTaxiEnabled = publicConfig ? publicConfig['service.goods_taxi.enabled'] === true : false;
+
+    if (serviceCategory === 'EV_GOODS' && !isEvEnabled) {
+      alert('EV Goods Transport is currently disabled by administrator. New vehicles in this category cannot be registered.');
+      return;
+    }
+    if (serviceCategory === 'GOODS_TAXI' && !isTaxiEnabled) {
+      alert('Goods Taxi Transport is currently disabled by administrator. New vehicles in this category cannot be registered.');
+      return;
+    }
+
     try {
       setCreatingVehicle(true);
       await agencyService.createAgencyVehicle({
         driverId: newVehicle.driverId,
         vehicleNumber: newVehicle.vehicleNumber,
+        vehicleMake: newVehicle.vehicleMake || '',
         vehicleModel: newVehicle.vehicleModel,
+        serviceCategory,
         vehicleType: newVehicle.vehicleType,
+        fuelType: newVehicle.fuelType || (serviceCategory === 'EV_GOODS' ? 'electric' : 'diesel'),
+        batteryRangeKm: newVehicle.batteryRangeKm ? Number(newVehicle.batteryRangeKm) : null,
+        chargingInformation: newVehicle.chargingInformation || '',
+        serviceAreas: newVehicle.serviceAreas ? newVehicle.serviceAreas.split(',').map(s => s.trim()).filter(Boolean) : [],
         loadCapacity: { value: Number(newVehicle.loadCapacityValue), unit: newVehicle.loadCapacityUnit },
         bodyType: newVehicle.bodyType,
         vehicleImage: newVehicle.vehicleImage || ''
@@ -768,12 +807,18 @@ export default function AgencyDashboard() {
       setNewVehicle({
         driverId: '',
         vehicleNumber: '',
+        vehicleMake: '',
         vehicleModel: '',
+        serviceCategory: 'TRUCK',
         vehicleType: 'mini-truck',
+        fuelType: 'diesel',
         loadCapacityValue: 1000,
         loadCapacityUnit: 'kg',
         bodyType: 'open',
-        vehicleImage: ''
+        vehicleImage: '',
+        batteryRangeKm: '',
+        chargingInformation: '',
+        serviceAreas: ''
       });
       setNewVehicleModal(false);
       await loadData();
@@ -2520,6 +2565,46 @@ export default function AgencyDashboard() {
                 Upload the RC and insurance after creating this vehicle. A driver can be assigned after both documents and the driver's identity records are approved.
               </p>
 
+              <div className="form-group">
+                <label>Service Category *</label>
+                <select
+                  value={newVehicle.serviceCategory || 'TRUCK'}
+                  onChange={(e) => {
+                    const cat = e.target.value;
+                    const evTypes = (publicConfig && Array.isArray(publicConfig['service.ev_goods.allowed_vehicle_types']))
+                      ? publicConfig['service.ev_goods.allowed_vehicle_types']
+                      : ['electric-cargo-loader', 'electric-goods-e-rickshaw', 'electric-mini-cargo-carrier'];
+                    const taxiTypes = (publicConfig && Array.isArray(publicConfig['service.goods_taxi.allowed_vehicle_types']))
+                      ? publicConfig['service.goods_taxi.allowed_vehicle_types']
+                      : ['mini-pickup', 'tata-ace', 'cargo-pickup', 'goods-loading-taxi'];
+                    const defaultType = cat === 'EV_GOODS' ? evTypes[0] : cat === 'GOODS_TAXI' ? taxiTypes[0] : 'mini-truck';
+                    setNewVehicle({
+                      ...newVehicle,
+                      serviceCategory: cat,
+                      vehicleType: defaultType,
+                      fuelType: cat === 'EV_GOODS' ? 'electric' : 'diesel'
+                    });
+                  }}
+                  style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+                >
+                  <option value="TRUCK">Truck</option>
+                  <option value="EV_GOODS">
+                    EV Goods {publicConfig && publicConfig['service.ev_goods.enabled'] !== true ? '(Disabled by Admin)' : ''}
+                  </option>
+                  <option value="GOODS_TAXI">
+                    Goods Taxi {publicConfig && publicConfig['service.goods_taxi.enabled'] !== true ? '(Disabled by Admin)' : ''}
+                  </option>
+                </select>
+              </div>
+
+              {((newVehicle.serviceCategory === 'EV_GOODS' && (!publicConfig || publicConfig['service.ev_goods.enabled'] !== true)) ||
+                (newVehicle.serviceCategory === 'GOODS_TAXI' && (!publicConfig || publicConfig['service.goods_taxi.enabled'] !== true))) && (
+                <div style={{ padding: '10px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#b91c1c', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <AlertCircle size={16} color="#b91c1c" />
+                  <span>{newVehicle.serviceCategory === 'EV_GOODS' ? 'EV Goods Transport' : 'Goods Taxi Transport'} is currently disabled by administrator. New vehicle registration is blocked.</span>
+                </div>
+              )}
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div className="form-group">
                   <label>Vehicle Plate Number *</label>
@@ -2551,11 +2636,29 @@ export default function AgencyDashboard() {
                     onChange={(e) => setNewVehicle({ ...newVehicle, vehicleType: e.target.value })}
                     style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
                   >
-                    <option value="mini-truck">Mini Truck</option>
-                    <option value="pickup">Pickup</option>
-                    <option value="small-truck">Small Truck</option>
-                    <option value="medium-truck">Medium Truck</option>
-                    <option value="large-truck">Large Truck</option>
+                    {newVehicle.serviceCategory === 'EV_GOODS' ? (
+                      ((publicConfig && Array.isArray(publicConfig['service.ev_goods.allowed_vehicle_types']))
+                        ? publicConfig['service.ev_goods.allowed_vehicle_types']
+                        : ['electric-cargo-loader', 'electric-goods-e-rickshaw', 'electric-mini-cargo-carrier']
+                      ).map(t => (
+                        <option key={t} value={t}>{t.replace(/-/g, ' ')}</option>
+                      ))
+                    ) : newVehicle.serviceCategory === 'GOODS_TAXI' ? (
+                      ((publicConfig && Array.isArray(publicConfig['service.goods_taxi.allowed_vehicle_types']))
+                        ? publicConfig['service.goods_taxi.allowed_vehicle_types']
+                        : ['mini-pickup', 'tata-ace', 'cargo-pickup', 'goods-loading-taxi']
+                      ).map(t => (
+                        <option key={t} value={t}>{t.replace(/-/g, ' ')}</option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="mini-truck">Mini Truck</option>
+                        <option value="pickup">Pickup</option>
+                        <option value="small-truck">Small Truck</option>
+                        <option value="medium-truck">Medium Truck</option>
+                        <option value="large-truck">Large Truck</option>
+                      </>
+                    )}
                   </select>
                 </div>
                 <div className="form-group">
@@ -2572,6 +2675,32 @@ export default function AgencyDashboard() {
                   </select>
                 </div>
               </div>
+
+              {newVehicle.serviceCategory === 'EV_GOODS' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label>Battery Range (km) *</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={newVehicle.batteryRangeKm}
+                      onChange={(e) => setNewVehicle({ ...newVehicle, batteryRangeKm: e.target.value })}
+                      placeholder="e.g. 120"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Charging Info *</label>
+                    <input
+                      type="text"
+                      required
+                      value={newVehicle.chargingInformation}
+                      onChange={(e) => setNewVehicle({ ...newVehicle, chargingInformation: e.target.value })}
+                      placeholder="e.g. Type 2 fast charge, 3 hrs"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
                 <div className="form-group">
@@ -2617,7 +2746,15 @@ export default function AgencyDashboard() {
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setNewVehicleModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={creatingVehicle}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={
+                    creatingVehicle ||
+                    (newVehicle.serviceCategory === 'EV_GOODS' && (!publicConfig || publicConfig['service.ev_goods.enabled'] !== true)) ||
+                    (newVehicle.serviceCategory === 'GOODS_TAXI' && (!publicConfig || publicConfig['service.goods_taxi.enabled'] !== true))
+                  }
+                >
                   {creatingVehicle ? 'Adding...' : 'Add Vehicle'}
                 </button>
               </div>
