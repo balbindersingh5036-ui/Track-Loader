@@ -43,7 +43,7 @@ const otherCustomerId = new mongoose.Types.ObjectId();
 const bookingMongoId = new mongoose.Types.ObjectId();
 const bookingCode = "BOOKING-0026";
 
-test("1 & 2: Customer creates complaint with valid booking reference; booking ID and bookingReference are saved", async (t) => {
+test("1. Exact Customer App POST /api/complaints payload with bookingId and bookingReference succeeds", async (t) => {
   t.mock.method(Booking, "findOne", (query) => {
     assert.equal(String(query.customer), String(customerId));
     return chain({
@@ -65,12 +65,14 @@ test("1 & 2: Customer creates complaint with valid booking reference; booking ID
   });
 
   const res = createResponse();
+  // Exact payload sent by SupportScreen.jsx
   await createComplaint({
     user: { _id: customerId },
     body: {
-      bookingReference: bookingCode,
-      subject: "Driver was late",
-      description: "Driver arrived 45 minutes late."
+      subject: "Driver arrived late",
+      description: "The assigned driver arrived 45 minutes late for pickup.",
+      bookingId: bookingCode,
+      bookingReference: bookingCode
     }
   }, res);
 
@@ -81,6 +83,23 @@ test("1 & 2: Customer creates complaint with valid booking reference; booking ID
   assert.ok(createdDoc.ticketId && createdDoc.ticketId.startsWith("TKT-"));
   assert.equal(res.body.data.complaint.bookingReference, bookingCode);
   assert.equal(res.body.data.complaint.bookingNumber, bookingCode);
+  assert.equal(res.body.data.complaint.bookingId, bookingCode);
+});
+
+test("2. Unsupported field rejection enforces strict API contract", async (t) => {
+  const res = createResponse();
+  await createComplaint({
+    user: { _id: customerId },
+    body: {
+      subject: "Test",
+      description: "Test description",
+      unsupportedExtraField: "malicious or unexpected"
+    }
+  }, res);
+
+  assert.equal(res.statusCode, 400);
+  assert.equal(res.body.success, false);
+  assert.equal(res.body.message, "Unsupported complaint field");
 });
 
 test("3 & 4: Customer My Tickets and View Details display the same booking number", async (t) => {
@@ -169,11 +188,11 @@ test("5 & 6: Admin ticket list and View Details display the booking number and p
   assert.equal(adminDetailRes.statusCode, 200);
   assert.equal(adminDetailRes.body.data.complaint.bookingReference, bookingCode);
   assert.equal(adminDetailRes.body.data.complaint.booking.vehicleType, "pickup");
+  assert.equal(adminDetailRes.body.data.complaint.booking.bookingId, bookingCode);
 });
 
 test("7 & 8: Customer cannot link another customer's booking and invalid bookings are rejected", async (t) => {
   t.mock.method(Booking, "findOne", (query) => {
-    // If querying for another customer's booking, customer filter does not match
     if (String(query.customer) !== String(customerId)) {
       return chain({ _id: bookingMongoId, customer: otherCustomerId });
     }

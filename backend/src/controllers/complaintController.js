@@ -32,19 +32,26 @@ const formatComplaint = (doc) => {
   if (!item.bookingNumber) {
     item.bookingNumber = item.bookingReference || item.booking?.bookingId || null;
   }
+  if (!item.bookingId || mongoose.isValidObjectId(item.bookingId)) {
+    if (item.bookingReference) {
+      item.bookingId = item.bookingReference;
+    } else if (item.booking?.bookingId) {
+      item.bookingId = item.booking.bookingId;
+    }
+  }
   return item;
 };
 
 export const createComplaint = async (req, res) => {
   try {
-    const { bookingId, bookingReference, bookingNumber, subject, description } = req.body || {};
+    const { bookingId, bookingReference, bookingNumber, booking: bookingField, subject, description } = req.body || {};
     if (typeof subject !== "string" || !subject.trim() || subject.trim().length > 200) {
       return errorResponse(res, "subject is required and must be at most 200 characters", 400);
     }
     if (typeof description !== "string" || !description.trim() || description.trim().length > 2000) {
       return errorResponse(res, "description is required and must be at most 2000 characters", 400);
     }
-    const allowedKeys = ["bookingId", "bookingReference", "bookingNumber", "subject", "description"];
+    const allowedKeys = ["bookingId", "bookingReference", "bookingNumber", "booking", "subject", "description"];
     if (Object.keys(req.body || {}).some((key) => !allowedKeys.includes(key))) {
       return errorResponse(res, "Unsupported complaint field", 400);
     }
@@ -53,7 +60,9 @@ export const createComplaint = async (req, res) => {
       ? bookingReference
       : (bookingNumber !== undefined && bookingNumber !== null && String(bookingNumber).trim() !== ""
         ? bookingNumber
-        : bookingId);
+        : (bookingId !== undefined && bookingId !== null && String(bookingId).trim() !== ""
+          ? bookingId
+          : bookingField));
 
     let booking = null;
     if (rawBooking !== undefined && rawBooking !== null && String(rawBooking).trim() !== "") {
@@ -64,7 +73,7 @@ export const createComplaint = async (req, res) => {
           { bookingId: trimmedRef }
         ],
         customer: req.user._id
-      }).select("_id bookingId");
+      }).select("_id bookingId customer");
       if (!booking) return errorResponse(res, "Booking not found", 404);
     }
 
