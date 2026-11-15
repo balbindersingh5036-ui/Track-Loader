@@ -3,6 +3,7 @@ import Booking from "../models/Booking.js";
 import Complaint from "../models/Complaint.js";
 import { errorResponse, successResponse } from "../utils/response.js";
 import { parsePagination } from "../utils/pagination.js";
+import generateTicketId from "../utils/generateTicketId.js";
 
 const complaintStatuses = ["open", "in-review", "resolved", "closed"];
 const statusTransitions = {
@@ -14,41 +15,83 @@ const statusTransitions = {
 
 const populateComplaint = (query) => query
   .populate("raisedBy", "name phone email")
-  .populate("booking", "bookingId");
+  .populate(
+    "booking",
+    "bookingId bookingStatus bookingMode vehicleType vehicleName pickup drop finalFare estimatedFare createdAt"
+  );
+
+const formatComplaint = (doc) => {
+  if (!doc) return doc;
+  const item = typeof doc.toObject === "function" ? doc.toObject() : { ...doc };
+  if (!item.ticketId && item._id) {
+    item.ticketId = `TKT-${String(item._id).slice(-5).toUpperCase()}`;
+  }
+  if (!item.bookingReference && item.booking?.bookingId) {
+    item.bookingReference = item.booking.bookingId;
+  }
+  if (!item.bookingNumber) {
+    item.bookingNumber = item.bookingReference || item.booking?.bookingId || null;
+  }
+  return item;
+};
 
 export const createComplaint = async (req, res) => {
   try {
-    const { bookingId, subject, description } = req.body || {};
+    const { bookingId, bookingReference, bookingNumber, subject, description } = req.body || {};
     if (typeof subject !== "string" || !subject.trim() || subject.trim().length > 200) {
       return errorResponse(res, "subject is required and must be at most 200 characters", 400);
     }
     if (typeof description !== "string" || !description.trim() || description.trim().length > 2000) {
       return errorResponse(res, "description is required and must be at most 2000 characters", 400);
     }
-    if (Object.keys(req.body || {}).some((key) => !["bookingId", "subject", "description"].includes(key))) {
+    const allowedKeys = ["bookingId", "bookingReference", "bookingNumber", "subject", "description"];
+    if (Object.keys(req.body || {}).some((key) => !allowedKeys.includes(key))) {
       return errorResponse(res, "Unsupported complaint field", 400);
     }
 
+    const rawBooking = bookingReference !== undefined && bookingReference !== null && String(bookingReference).trim() !== ""
+      ? bookingReference
+      : (bookingNumber !== undefined && bookingNumber !== null && String(bookingNumber).trim() !== ""
+        ? bookingNumber
+        : bookingId);
+
     let booking = null;
-    if (bookingId !== undefined && bookingId !== null && bookingId !== "") {
-      if (typeof bookingId !== "string") return errorResponse(res, "Invalid booking ID", 400);
+    if (rawBooking !== undefined && rawBooking !== null && String(rawBooking).trim() !== "") {
+      const trimmedRef = String(rawBooking).trim();
       booking = await Booking.findOne({
         $or: [
-          ...(mongoose.isValidObjectId(bookingId) ? [{ _id: bookingId }] : []),
-          { bookingId: bookingId.trim() }
+          ...(mongoose.isValidObjectId(trimmedRef) ? [{ _id: trimmedRef }] : []),
+          { bookingId: trimmedRef }
         ],
         customer: req.user._id
-      }).select("_id");
+      }).select("_id bookingId");
       if (!booking) return errorResponse(res, "Booking not found", 404);
     }
 
-    const complaint = await Complaint.create({
+    const ticketId = await generateTicketId();
+
+    const complaintData = {
+      ticketId,
       raisedBy: req.user._id,
       booking: booking?._id || null,
+      bookingReference: booking?.bookingId || (booking ? String(booking._id) : null),
       subject: subject.trim(),
       description: description.trim()
-    });
-    return successResponse(res, { complaint }, "Complaint submitted", 201);
+    };
+
+    const complaint = await Complaint.create(complaintData);
+
+    if (complaint && typeof complaint.populate === "function") {
+      await complaint.populate([
+        { path: "raisedBy", select: "name phone email" },
+        {
+          path: "booking",
+          select: "bookingId bookingStatus bookingMode vehicleType vehicleName pickup drop finalFare estimatedFare createdAt"
+        }
+      ]);
+    }
+
+    return successResponse(res, { complaint: formatComplaint(complaint) }, "Complaint submitted", 201);
   } catch (error) {
     console.error("Create complaint error:", error);
     return errorResponse(res, "Failed to submit complaint", 500);
@@ -64,10 +107,11 @@ export const getMyComplaints = async (req, res) => {
       return errorResponse(res, error.message, 400);
     }
     const query = { raisedBy: req.user._id };
-    const [complaints, total] = await Promise.all([
+    const [rawComplaints, total] = await Promise.all([
       populateComplaint(Complaint.find(query).sort({ createdAt: -1 }).skip(pagination.skip).limit(pagination.limit)),
       Complaint.countDocuments(query)
     ]);
+    const complaints = (rawComplaints || []).map(formatComplaint);
     return successResponse(res, {
       complaints,
       pagination: {
@@ -86,12 +130,12 @@ export const getMyComplaints = async (req, res) => {
 export const getMyComplaintById = async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return errorResponse(res, "Invalid complaint ID", 400);
-    const complaint = await populateComplaint(Complaint.findOne({
+    const rawComplaint = await populateComplaint(Complaint.findOne({
       _id: req.params.id,
       raisedBy: req.user._id
     }));
-    if (!complaint) return errorResponse(res, "Complaint not found", 404);
-    return successResponse(res, { complaint }, "Complaint fetched");
+    if (!rawComplaint) return errorResponse(res, "Complaint not found", 404);
+    return successResponse(res, { complaint: formatComplaint(rawComplaint) }, "Complaint fetched");
   } catch (error) {
     console.error("Customer complaint detail error:", error);
     return errorResponse(res, "Failed to fetch complaint", 500);
@@ -115,14 +159,17 @@ export const getAdminComplaints = async (req, res) => {
       const regex = new RegExp(req.query.search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
       const matchingBookings = await Booking.find({ bookingId: regex }).select("_id").lean();
       query.$or = [
+        { ticketId: regex },
         { subject: regex },
+        { bookingReference: regex },
         { booking: { $in: matchingBookings.map((booking) => booking._id) } }
       ];
     }
-    const [complaints, total] = await Promise.all([
+    const [rawComplaints, total] = await Promise.all([
       populateComplaint(Complaint.find(query).sort({ createdAt: -1 }).skip(pagination.skip).limit(pagination.limit)),
       Complaint.countDocuments(query)
     ]);
+    const complaints = (rawComplaints || []).map(formatComplaint);
     return successResponse(res, {
       complaints,
       pagination: {
@@ -141,9 +188,9 @@ export const getAdminComplaints = async (req, res) => {
 export const getAdminComplaintById = async (req, res) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return errorResponse(res, "Invalid complaint ID", 400);
-    const complaint = await populateComplaint(Complaint.findById(req.params.id));
-    if (!complaint) return errorResponse(res, "Complaint not found", 404);
-    return successResponse(res, { complaint }, "Complaint fetched");
+    const rawComplaint = await populateComplaint(Complaint.findById(req.params.id));
+    if (!rawComplaint) return errorResponse(res, "Complaint not found", 404);
+    return successResponse(res, { complaint: formatComplaint(rawComplaint) }, "Complaint fetched");
   } catch (error) {
     console.error("Admin complaint detail error:", error);
     return errorResponse(res, "Failed to fetch complaint", 500);
@@ -167,11 +214,16 @@ export const updateAdminComplaintStatus = async (req, res) => {
       ? complaint.resolvedAt || new Date()
       : null;
     await complaint.save();
-    await complaint.populate([
-      { path: "raisedBy", select: "name phone email" },
-      { path: "booking", select: "bookingId" }
-    ]);
-    return successResponse(res, { complaint }, "Complaint status updated");
+    if (complaint.populate) {
+      await complaint.populate([
+        { path: "raisedBy", select: "name phone email" },
+        {
+          path: "booking",
+          select: "bookingId bookingStatus bookingMode vehicleType vehicleName pickup drop finalFare estimatedFare createdAt"
+        }
+      ]);
+    }
+    return successResponse(res, { complaint: formatComplaint(complaint) }, "Complaint status updated");
   } catch (error) {
     console.error("Admin complaint status update error:", error);
     return errorResponse(res, "Failed to update complaint status", 500);
@@ -192,11 +244,16 @@ export const updateAdminComplaintResponse = async (req, res) => {
       { new: true, runValidators: true }
     );
     if (!complaint) return errorResponse(res, "Complaint not found", 404);
-    await complaint.populate([
-      { path: "raisedBy", select: "name phone email" },
-      { path: "booking", select: "bookingId" }
-    ]);
-    return successResponse(res, { complaint }, "Complaint response saved");
+    if (complaint.populate) {
+      await complaint.populate([
+        { path: "raisedBy", select: "name phone email" },
+        {
+          path: "booking",
+          select: "bookingId bookingStatus bookingMode vehicleType vehicleName pickup drop finalFare estimatedFare createdAt"
+        }
+      ]);
+    }
+    return successResponse(res, { complaint: formatComplaint(complaint) }, "Complaint response saved");
   } catch (error) {
     console.error("Admin complaint response error:", error);
     return errorResponse(res, "Failed to save complaint response", 500);

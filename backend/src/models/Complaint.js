@@ -2,10 +2,24 @@ import mongoose from "mongoose";
 
 const complaintSchema = new mongoose.Schema(
   {
+    ticketId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true
+    },
+
     booking: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Booking",
       default: null,
+      index: true
+    },
+
+    bookingReference: {
+      type: String,
+      default: null,
+      trim: true,
       index: true
     },
 
@@ -53,9 +67,15 @@ const complaintSchema = new mongoose.Schema(
     }
   },
   {
-    timestamps: true
+    timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true }
   }
 );
+
+complaintSchema.virtual("bookingNumber").get(function () {
+  return this.bookingReference || this.booking?.bookingId || null;
+});
 
 const Complaint = mongoose.model(
   "Complaint",
