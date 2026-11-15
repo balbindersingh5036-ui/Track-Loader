@@ -34,24 +34,38 @@ export const fetchRazorpayPayment = async (paymentId) => {
 };
 
 export const verifyRazorpayPaymentSignature = (orderId, paymentId, signature) => {
+  if (
+    typeof orderId !== "string" ||
+    typeof paymentId !== "string" ||
+    typeof signature !== "string"
+  ) {
+    return false;
+  }
   const secret = env.razorpay.keySecret;
   const body = orderId + "|" + paymentId;
   const expectedSignature = crypto
     .createHmac("sha256", secret)
     .update(body.toString())
-    .digest("hex");
+    .digest();
+  const receivedSignature = Buffer.from(signature, "hex");
 
-  return expectedSignature === signature;
+  return receivedSignature.length === expectedSignature.length &&
+    crypto.timingSafeEqual(receivedSignature, expectedSignature);
 };
 
 export const verifyRazorpayWebhookSignature = (rawBody, signature) => {
+  if (typeof rawBody !== "string" || typeof signature !== "string") {
+    return false;
+  }
   const secret = env.razorpay.webhookSecret;
   const expectedSignature = crypto
     .createHmac("sha256", secret)
     .update(rawBody)
-    .digest("hex");
+    .digest();
+  const receivedSignature = Buffer.from(signature, "hex");
 
-  return expectedSignature === signature;
+  return receivedSignature.length === expectedSignature.length &&
+    crypto.timingSafeEqual(receivedSignature, expectedSignature);
 };
 
 export const createRefund = async (paymentId, amount = null) => {

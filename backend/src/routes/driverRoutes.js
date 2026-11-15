@@ -26,8 +26,11 @@ import {
   acceptBooking,
   rejectBooking,
   startTrip,
-  completeTrip
+  completeTrip,
+  updateTripStage,
+  uploadDeliveryProof
 } from "../controllers/bookingController.js";
+import { uploadDeliveryProofMiddleware } from "../middleware/uploadMiddleware.js";
 import { getDriverRatings } from "../controllers/ratingController.js";
 import { sanitizeDriverDocumentResponse } from "../utils/driverDocumentResponse.js";
 import { serializeAgencyKycStatus } from "../utils/agencyKycStatus.js";
@@ -53,6 +56,8 @@ router.patch("/bookings/:id/accept", protect, driverOnly, acceptBooking);
 router.patch("/bookings/:id/reject", protect, driverOnly, rejectBooking);
 router.patch("/bookings/:id/start", protect, driverOnly, startTrip);
 router.patch("/bookings/:id/complete", protect, driverOnly, completeTrip);
+router.patch("/bookings/:id/stage", protect, driverOnly, updateTripStage);
+router.post("/bookings/:id/delivery-proof", protect, driverOnly, uploadDeliveryProofMiddleware, uploadDeliveryProof);
 router.get("/ratings", protect, driverOnly, getDriverRatings);
 
 router.patch("/location", protect, driverOnly, async (req, res) => {
@@ -247,7 +252,7 @@ export const getDriverProfile = async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
     const driverObj = driver.toObject();
-    sanitizeDriverDocumentResponse(driverObj);
+    sanitizeDriverDocumentResponse(driverObj, { includeSignedUrls: true });
     driverObj.agencyKyc = serializeAgencyKycStatus(driverObj.agency);
     const safeVehicles = vehicles.map((vehicle) => sanitizeVehicleDocumentResponse(vehicle));
     if (driverObj.agency) {

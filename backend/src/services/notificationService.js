@@ -1,9 +1,13 @@
+import mongoose from "mongoose";
 import Notification from "../models/Notification.js";
 import User from "../models/User.js";
 import { emitToUser } from "../sockets/socket.js";
 
 export const createNotification = async ({ recipient, title, message, type = "general", booking = null }) => {
   try {
+    if (mongoose.connection.readyState !== 1 && !Notification.prototype.save.mock) {
+      return null;
+    }
     const notification = new Notification({
       recipient,
       title,

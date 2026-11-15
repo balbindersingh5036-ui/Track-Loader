@@ -31,9 +31,11 @@ export default function BookingConfirmScreen({ route, navigation }) {
   const weightInTon = details.weight?.unit === "ton" ? weightVal : weightVal / 1000;
   const distanceCharge = distanceKm * (fareEstimate?.perKmRate || 0);
   const weightCharge = weightInTon * (fareEstimate?.perTonRate || 0);
-  const calculatedFare = distanceCharge + weightCharge;
+  const loadingCharge = details.loadingRequired ? Number(fareEstimate?.loadingCharge || 0) : 0;
+  const unloadingCharge = details.unloadingRequired ? Number(fareEstimate?.unloadingCharge || 0) : 0;
+  const calculatedFare = distanceCharge + weightCharge + loadingCharge + unloadingCharge;
   const estimatedTotal = fareEstimate
-    ? Math.max(calculatedFare, fareEstimate.minimumFare || 0)
+    ? Number(details.estimatedFare ?? Math.max(calculatedFare, fareEstimate.minimumFare || 0))
     : null;
 
   const resolvedVehicleModel = getCleanVehicleDisplayName(
@@ -66,6 +68,18 @@ export default function BookingConfirmScreen({ route, navigation }) {
           setBusy(false);
           return;
         }
+
+        const category = details.serviceCategory;
+        if (category === "EV_GOODS" && config["service.ev_goods.enabled"] === false) {
+          setError("EV Goods Transport is currently disabled by the administrator. Please choose an alternative transport service.");
+          setBusy(false);
+          return;
+        }
+        if (category === "GOODS_TAXI" && config["service.goods_taxi.enabled"] === false) {
+          setError("Goods Taxi Transport is currently disabled by the administrator. Please choose an alternative transport service.");
+          setBusy(false);
+          return;
+        }
       } catch (cfgErr) {
         // Non-blocking: let backend server enforce authoritative availability
       }
@@ -80,9 +94,15 @@ export default function BookingConfirmScreen({ route, navigation }) {
         drop: details.drop,
         goods: details.goods,
         weight: details.weight,
+        quantity: details.quantity,
+        loadingRequired: details.loadingRequired,
+        unloadingRequired: details.unloadingRequired,
+        loadingInstructions: details.loadingInstructions,
+        unloadingInstructions: details.unloadingInstructions,
         preferredPickupDate: isInstant ? todayDate : details.preferredPickupDate,
         preferredPickupTime: isInstant ? currentTime : details.preferredPickupTime,
         vehicleType: details.vehicleType,
+        serviceCategory: details.serviceCategory,
         bookingMode,
         paymentMethod,
         vehicleModel: resolvedVehicleModel
@@ -167,6 +187,22 @@ export default function BookingConfirmScreen({ route, navigation }) {
             <Text style={styles.gridLabel}>Cargo</Text>
             <Text style={styles.gridValue}>{details.goods}</Text>
           </View>
+          <View style={styles.grid2}>
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>Quantity</Text>
+              <Text style={styles.gridValue}>{details.quantity ?? 1}</Text>
+            </View>
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>Service Category</Text>
+              <Text style={styles.gridValue}>
+                {details.serviceCategory === "EV_GOODS"
+                  ? "EV Goods Transport"
+                  : details.serviceCategory === "GOODS_TAXI"
+                    ? "Goods Taxi Transport"
+                    : "Truck"}
+              </Text>
+            </View>
+          </View>
           <View style={styles.gridItem}>
             <Text style={styles.gridLabel}>Weight</Text>
             <Text style={styles.gridValue}>
@@ -199,6 +235,21 @@ export default function BookingConfirmScreen({ route, navigation }) {
           <View style={styles.noteBox}>
             <Text style={styles.noteLabel}>Driver Note:</Text>
             <Text style={styles.noteText}>{details.customerNote}</Text>
+          </View>
+        ) : null}
+        {details.loadingRequired || details.unloadingRequired ? (
+          <View style={styles.noteBox}>
+            <Text style={styles.noteLabel}>Handling Requirements</Text>
+            {details.loadingRequired ? (
+              <Text style={styles.noteText}>
+                Loading required{details.loadingInstructions ? `: ${details.loadingInstructions}` : ""}
+              </Text>
+            ) : null}
+            {details.unloadingRequired ? (
+              <Text style={styles.noteText}>
+                Unloading required{details.unloadingInstructions ? `: ${details.unloadingInstructions}` : ""}
+              </Text>
+            ) : null}
           </View>
         ) : null}
       </Card>
@@ -258,6 +309,15 @@ export default function BookingConfirmScreen({ route, navigation }) {
             </Text>
             <Text style={styles.noteText}>
               • Minimum Fare: ₹{fareEstimate.minimumFare} (Applied if calculated total is less)
+            </Text>
+            {details.loadingRequired ? (
+              <Text style={styles.noteText}>• Loading: ₹{loadingCharge.toFixed(2)}</Text>
+            ) : null}
+            {details.unloadingRequired ? (
+              <Text style={styles.noteText}>• Unloading: ₹{unloadingCharge.toFixed(2)}</Text>
+            ) : null}
+            <Text style={styles.noteText}>
+              Waiting and extra-distance charges, if applicable, are settled based on recorded trip details.
             </Text>
           </View>
         ) : null}

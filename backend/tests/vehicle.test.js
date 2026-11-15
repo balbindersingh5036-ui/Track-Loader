@@ -9,7 +9,27 @@ test("vehicle schema defines supported types and capacity units", () => {
     "pickup",
     "small-truck",
     "medium-truck",
-    "large-truck"
+    "large-truck",
+    "electric-cargo-loader",
+    "electric-goods-e-rickshaw",
+    "electric-mini-cargo-carrier",
+    "other-electric-goods",
+    "mini-pickup",
+    "tata-ace",
+    "cargo-pickup",
+    "goods-loading-taxi",
+    "other-goods-carrier"
+  ]);
+  assert.deepEqual(Vehicle.schema.path("serviceCategory").enumValues, [
+    "TRUCK",
+    "EV_GOODS",
+    "GOODS_TAXI"
+  ]);
+  assert.deepEqual(Vehicle.schema.path("fuelType").enumValues, [
+    "petrol",
+    "diesel",
+    "cng",
+    "electric"
   ]);
   assert.deepEqual(Vehicle.schema.path("loadCapacity.unit").enumValues, [
     "kg",

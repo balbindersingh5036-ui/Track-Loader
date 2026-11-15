@@ -519,6 +519,7 @@ test("Agency Lifecycle: 9. Driver accepts, starts trip, completes delivery, and 
       return this;
     }
   };
+  let currentBookingStatus = mockBooking.bookingStatus;
 
   t.mock.method(Driver, "findOne", async () => ({
     _id: driverId,
@@ -533,7 +534,8 @@ test("Agency Lifecycle: 9. Driver accepts, starts trip, completes delivery, and 
 
   t.mock.method(Booking, "findOne", async () => ({
     _id: bookingId,
-    bookingStatus: "pending",
+    bookingStatus: currentBookingStatus,
+    serviceCategory: "TRUCK",
     assignmentStatus: "pending_acceptance",
     driver: driverId,
     vehicle: vehicleId,
@@ -556,6 +558,7 @@ test("Agency Lifecycle: 9. Driver accepts, starts trip, completes delivery, and 
 
   t.mock.method(Booking, "findOneAndUpdate", async (filter, update) => {
     mockBooking.bookingStatus = update.$set.bookingStatus;
+    currentBookingStatus = mockBooking.bookingStatus;
     mockBooking.assignmentStatus = update.$set.assignmentStatus || mockBooking.assignmentStatus;
     return mockBooking;
   });
@@ -578,7 +581,11 @@ test("Agency Lifecycle: 9. Driver accepts, starts trip, completes delivery, and 
 
   // Driver completes trip
   const resComplete = createResponse();
-  await completeTrip({ user: { _id: driverUserId }, params: { id: bookingId.toString() } }, resComplete);
+  await completeTrip({
+    user: { _id: driverUserId },
+    params: { id: bookingId.toString() },
+    body: { actualDistanceKm: 0 }
+  }, resComplete);
   assert.equal(resComplete.statusCode, 200);
   assert.equal(resComplete.body.data.booking.bookingStatus, "completed");
   assert.equal(resComplete.body.data.booking.finalFare, 450);

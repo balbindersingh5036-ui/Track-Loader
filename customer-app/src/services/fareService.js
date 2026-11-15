@@ -9,8 +9,22 @@ const fareService = {
     const { data } = await api.get(`/fares/${encodeURIComponent(vehicleType)}`);
     return data.data?.fare || null;
   },
-  async getQuotes({ distanceKm, weight, vehicleType } = {}) {
-    const { data } = await api.post("/fares/quotes", { distanceKm, weight, vehicleType });
+  async getQuotes({
+    distanceKm,
+    weight,
+    vehicleType,
+    serviceCategory,
+    loadingRequired = false,
+    unloadingRequired = false
+  } = {}) {
+    const { data } = await api.post("/fares/quotes", {
+      distanceKm,
+      weight,
+      vehicleType,
+      serviceCategory,
+      loadingRequired,
+      unloadingRequired
+    });
     return data.data;
   }
 };

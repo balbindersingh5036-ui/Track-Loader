@@ -10,8 +10,18 @@ import { extractCloudinaryAssetInfo } from "../utils/documentSigner.js";
 import { isDesignatedSuperAdmin } from "../utils/superAdmin.js";
 import { checkDriverAssignableToVehicle } from "../utils/driverEligibility.js";
 import { isValidVehicleModel, formatFullVehicleModel } from "../utils/vehicleValidation.js";
+import {
+  getCategoryEnabledSettingKey,
+  getServiceCategoryForVehicleType,
+  isValidCategoryVehicleType,
+  SERVICE_CATEGORIES,
+  VEHICLE_TYPES
+} from "../utils/vehicleCategories.js";
+import { isSettingEnabled } from "../services/systemSettingService.js";
+import { vehicleServesRoute } from "../services/vehicleCategoryService.js";
 
-const vehicleTypes = Vehicle.schema.path("vehicleType").enumValues;
+const vehicleTypes = VEHICLE_TYPES;
+const serviceCategories = Object.values(SERVICE_CATEGORIES);
 const bodyTypes = Vehicle.schema.path("bodyType").enumValues;
 const capacityUnits = Vehicle.schema.path("loadCapacity.unit").enumValues;
 const driverProjection = "fullName phone rating approvalStatus isActive agencyAssociation.status documents.idProof.status documents.drivingLicense.status";
@@ -40,6 +50,12 @@ const vehicleFields = [
   "vehicleMake",
   "vehicleModel",
   "vehicleType",
+  "serviceCategory",
+  "fuelType",
+  "batteryRangeKm",
+  "chargingInformation",
+  "dimensions",
+  "serviceAreas",
   "loadCapacity",
   "bodyType",
   "vehicleImage",
@@ -140,6 +156,101 @@ const parseVehicleUpdates = (body, { creating = false, allowedFields }) => {
     updates.vehicleType = body.vehicleType;
   }
 
+  if (Object.hasOwn(body, "serviceCategory")) {
+    if (
+      typeof body.serviceCategory !== "string" ||
+      !serviceCategories.includes(body.serviceCategory)
+    ) {
+      return { error: "Invalid service category" };
+    }
+    updates.serviceCategory = body.serviceCategory;
+    if (!creating && !Object.hasOwn(body, "vehicleType")) {
+      return { error: "vehicleType is required when changing serviceCategory" };
+    }
+  }
+
+  if (Object.hasOwn(body, "fuelType")) {
+    if (
+      body.fuelType !== null &&
+      (typeof body.fuelType !== "string" ||
+        !["petrol", "diesel", "cng", "electric"].includes(body.fuelType))
+    ) {
+      return { error: "Invalid fuel type" };
+    }
+    updates.fuelType = body.fuelType;
+  }
+
+  const resolvedType = updates.vehicleType || body.vehicleType;
+  const resolvedCategory =
+    updates.serviceCategory ||
+    body.serviceCategory ||
+    getServiceCategoryForVehicleType(resolvedType) ||
+    SERVICE_CATEGORIES.TRUCK;
+  if (resolvedType) updates.serviceCategory = resolvedCategory;
+  if (resolvedType && !isValidCategoryVehicleType(resolvedCategory, resolvedType)) {
+    return { error: "Vehicle type does not belong to the selected service category" };
+  }
+  if (
+    resolvedCategory === SERVICE_CATEGORIES.EV_GOODS &&
+    (updates.fuelType || body.fuelType) !== "electric"
+  ) {
+    return { error: "EV Goods vehicles must use electric power" };
+  }
+  if (Object.hasOwn(body, "batteryRangeKm")) {
+    if (
+      body.batteryRangeKm !== null &&
+      (!Number.isFinite(Number(body.batteryRangeKm)) || Number(body.batteryRangeKm) < 0)
+    ) {
+      return { error: "Battery range must be a non-negative number" };
+    }
+    updates.batteryRangeKm = body.batteryRangeKm === null ? null : Number(body.batteryRangeKm);
+  }
+  if (Object.hasOwn(body, "chargingInformation")) {
+    if (typeof body.chargingInformation !== "string") {
+      return { error: "Charging information must be a string" };
+    }
+    updates.chargingInformation = body.chargingInformation.trim();
+  }
+  if (Object.hasOwn(body, "dimensions")) {
+    const dimensions = body.dimensions;
+    if (!dimensions || typeof dimensions !== "object" || Array.isArray(dimensions)) {
+      return { error: "Vehicle dimensions must be an object" };
+    }
+    const parsedDimensions = {};
+    for (const field of ["lengthCm", "widthCm", "heightCm"]) {
+      const value = dimensions[field];
+      if (value !== undefined && value !== null && (!Number.isFinite(Number(value)) || Number(value) < 0)) {
+        return { error: "Vehicle dimensions must be non-negative measurements in centimetres" };
+      }
+      parsedDimensions[field] = value == null ? null : Number(value);
+    }
+    updates.dimensions = parsedDimensions;
+  }
+  if (Object.hasOwn(body, "serviceAreas")) {
+    if (
+      !Array.isArray(body.serviceAreas) ||
+      body.serviceAreas.some((area) => typeof area !== "string" || !area.trim())
+    ) {
+      return { error: "Service areas must be a list of non-empty area names" };
+    }
+    updates.serviceAreas = body.serviceAreas.map((area) => area.trim());
+  }
+  if (
+    resolvedCategory === SERVICE_CATEGORIES.EV_GOODS &&
+    (!Number.isFinite(Number(updates.batteryRangeKm ?? body.batteryRangeKm)) ||
+      Number(updates.batteryRangeKm ?? body.batteryRangeKm) <= 0 ||
+      typeof (updates.chargingInformation ?? body.chargingInformation) !== "string" ||
+      !(updates.chargingInformation ?? body.chargingInformation).trim())
+  ) {
+    return { error: "EV Goods vehicles require a positive battery range and charging information" };
+  }
+  if (
+    resolvedCategory !== SERVICE_CATEGORIES.TRUCK &&
+    !(updates.serviceAreas || body.serviceAreas || []).length
+  ) {
+    return { error: "Goods vehicles must list at least one operating area" };
+  }
+
   if (Object.hasOwn(body, "loadCapacity")) {
     const capacity = body.loadCapacity;
     if (
@@ -211,7 +322,37 @@ const getDriverForUser = (userId) => Driver.findOne({ user: userId });
 export const getVehicles = async (req, res) => {
   try {
     const filter = { isActive: true, isAvailable: true };
-    const { vehicleType, minCapacity, maxCapacity } = req.query;
+    const {
+      vehicleType,
+      serviceCategory,
+      minCapacity,
+      maxCapacity,
+      pickupAddress,
+      dropAddress
+    } = req.query;
+
+    if (serviceCategory !== undefined) {
+      if (!serviceCategories.includes(serviceCategory)) {
+        return errorResponse(res, "Invalid service category", 400);
+      }
+      const settingKey = getCategoryEnabledSettingKey(serviceCategory);
+      if (settingKey && !(await isSettingEnabled(settingKey))) {
+        return successResponse(res, { vehicles: [] }, "Service category is unavailable");
+      }
+      filter.serviceCategory = serviceCategory === SERVICE_CATEGORIES.TRUCK
+        ? { $in: [SERVICE_CATEGORIES.TRUCK, null] }
+        : serviceCategory;
+    } else {
+      const enabledCategories = [SERVICE_CATEGORIES.TRUCK];
+      for (const category of [
+        SERVICE_CATEGORIES.EV_GOODS,
+        SERVICE_CATEGORIES.GOODS_TAXI
+      ]) {
+        const settingKey = getCategoryEnabledSettingKey(category);
+        if (await isSettingEnabled(settingKey)) enabledCategories.push(category);
+      }
+      filter.serviceCategory = { $in: [...enabledCategories, null] };
+    }
 
     if (vehicleType !== undefined) {
       if (
@@ -221,6 +362,22 @@ export const getVehicles = async (req, res) => {
         return errorResponse(res, "Invalid vehicle type", 400);
       }
       filter.vehicleType = vehicleType;
+      const expectedCategory = getServiceCategoryForVehicleType(vehicleType);
+      if (
+        serviceCategory !== undefined &&
+        expectedCategory !== serviceCategory
+      ) {
+        return errorResponse(res, "Vehicle type does not belong to the selected service category", 400);
+      }
+      if (serviceCategory === undefined) {
+        const settingKey = getCategoryEnabledSettingKey(expectedCategory);
+        if (settingKey && !(await isSettingEnabled(settingKey))) {
+          return successResponse(res, { vehicles: [] }, "Service category is unavailable");
+        }
+        filter.serviceCategory = expectedCategory === SERVICE_CATEGORIES.TRUCK
+          ? { $in: [SERVICE_CATEGORIES.TRUCK, null] }
+          : expectedCategory;
+      }
     }
 
     const capacityFilter = {};
@@ -260,8 +417,26 @@ export const getVehicles = async (req, res) => {
       .populate("agency", "agencyName approvalStatus isActive")
       .sort({ createdAt: -1 })
       .lean();
+    const approvedCategoryVehicles = vehicles.filter((vehicle) => {
+      const category = vehicle.serviceCategory || SERVICE_CATEGORIES.TRUCK;
+      if (
+        category !== SERVICE_CATEGORIES.TRUCK &&
+        pickupAddress !== undefined &&
+        dropAddress !== undefined &&
+        !vehicleServesRoute(vehicle, pickupAddress, dropAddress)
+      ) return false;
+      if (category === SERVICE_CATEGORIES.TRUCK) {
+        return true;
+      }
+      return (
+        vehicle.documents?.registration?.status === "approved" &&
+        vehicle.documents?.insurance?.status === "approved" &&
+        vehicle.agency?.approvalStatus === "approved" &&
+        vehicle.agency?.isActive === true
+      );
+    });
     return successResponse(res, {
-      vehicles: vehicles.map((vehicle) => sanitizeVehicleDocumentResponse(vehicle))
+      vehicles: approvedCategoryVehicles.map((vehicle) => sanitizeVehicleDocumentResponse(vehicle))
     }, "Vehicles fetched successfully");
   } catch (error) {
     return handleError(res, error, "Fetch vehicles");
@@ -297,17 +472,35 @@ export const getVehiclesByType = async (req, res) => {
     if (!vehicleTypes.includes(vehicleType)) {
       return errorResponse(res, "Invalid vehicle type", 400);
     }
+    const category = getServiceCategoryForVehicleType(vehicleType);
+    const settingKey = getCategoryEnabledSettingKey(category);
+    if (settingKey && !(await isSettingEnabled(settingKey))) {
+      return successResponse(res, { vehicles: [] }, "Service category is unavailable");
+    }
 
+    const categoryFilter = category === SERVICE_CATEGORIES.TRUCK
+      ? { $in: [SERVICE_CATEGORIES.TRUCK, null] }
+      : category;
     const vehicles = await Vehicle.find({
       vehicleType,
+      serviceCategory: categoryFilter,
       isActive: true,
       isAvailable: true
     })
       .populate("driver", driverProjection)
+      .populate("agency", "approvalStatus isActive")
       .sort({ createdAt: -1 })
       .lean();
+    const approvedCategoryVehicles = category === SERVICE_CATEGORIES.TRUCK
+      ? vehicles
+      : vehicles.filter((vehicle) =>
+        vehicle.documents?.registration?.status === "approved" &&
+        vehicle.documents?.insurance?.status === "approved" &&
+        vehicle.agency?.approvalStatus === "approved" &&
+        vehicle.agency?.isActive === true
+      );
     return successResponse(res, {
-      vehicles: vehicles.map((vehicle) => sanitizeVehicleDocumentResponse(vehicle))
+      vehicles: approvedCategoryVehicles.map((vehicle) => sanitizeVehicleDocumentResponse(vehicle))
     }, "Vehicles fetched successfully");
   } catch (error) {
     return handleError(res, error, "Fetch vehicles by type");
@@ -352,7 +545,10 @@ export const createDriverVehicle = async (req, res) => {
 
     const vehicle = await Vehicle.create({
       ...parsed.updates,
-      driver: driver._id
+      driver: driver._id,
+      ...(parsed.updates.serviceCategory !== SERVICE_CATEGORIES.TRUCK
+        ? { isActive: false }
+        : {})
     });
     return successResponse(
       res,
@@ -384,7 +580,15 @@ export const updateDriverVehicle = async (req, res) => {
 
     const vehicle = await Vehicle.findOneAndUpdate(
       { _id: req.params.id, driver: driver._id },
-      { $set: parsed.updates },
+      {
+        $set: {
+          ...parsed.updates,
+          ...(parsed.updates.serviceCategory &&
+          parsed.updates.serviceCategory !== SERVICE_CATEGORIES.TRUCK
+            ? { isActive: false }
+            : {})
+        }
+      },
       { new: true, runValidators: true }
     );
     if (!vehicle) {

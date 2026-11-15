@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Image,
   Pressable,
@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import vehicleService from "../../services/vehicleService";
+import configService from "../../services/configService";
 import {
   Button,
   Card,
@@ -22,32 +23,79 @@ import {
 import { colors, shadows } from "../../theme/theme";
 import { getErrorMessage } from "../../utils/errorMessage";
 import { getOptimizedImageUrl } from "../../utils/imageOptimizer";
-
-const types = [
-  { key: "all", label: "All" },
-  { key: "mini-truck", label: "Mini Truck" },
-  { key: "pickup", label: "Pickup" },
-  { key: "small-truck", label: "Small Truck" },
-  { key: "medium-truck", label: "Medium Truck" },
-  { key: "large-truck", label: "Large Truck" }
-];
+import {
+  SERVICE_CATEGORIES,
+  SERVICE_CATEGORY_LABELS,
+  VEHICLE_TYPES_BY_CATEGORY,
+  formatVehicleCategory
+} from "../../utils/vehicleDisplay";
 
 export default function VehicleListScreen({ navigation, route }) {
+  const [serviceCategory, setServiceCategory] = useState(
+    route.params?.serviceCategory || "all"
+  );
   const [vehicleType, setVehicleType] = useState(route.params?.vehicleType || "all");
   const [minCapacity, setMinCapacity] = useState("");
   const [maxCapacity, setMaxCapacity] = useState("");
   const [showFilterPanel, setShowFilterPanel] = useState(false);
   const [vehicles, setVehicles] = useState([]);
+  const [config, setConfig] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+
+  const isEvEnabled = config["service.ev_goods.enabled"] !== false;
+  const isTaxiEnabled = config["service.goods_taxi.enabled"] !== false;
+
+  useEffect(() => {
+    configService.getPublicConfig()
+      .then((cfg) => setConfig(cfg || {}))
+      .catch(() => {});
+  }, []);
+
+  const categoryTabs = useMemo(() => {
+    const tabs = [
+      { key: "all", label: "All Vehicles" },
+      { key: SERVICE_CATEGORIES.TRUCK, label: "Trucks" }
+    ];
+    if (isEvEnabled) {
+      tabs.push({ key: SERVICE_CATEGORIES.EV_GOODS, label: "EV Goods" });
+    }
+    if (isTaxiEnabled) {
+      tabs.push({ key: SERVICE_CATEGORIES.GOODS_TAXI, label: "Goods Taxi" });
+    }
+    return tabs;
+  }, [isEvEnabled, isTaxiEnabled]);
+
+  const subcategoryChips = useMemo(() => {
+    const chips = [{ key: "all", label: "All Types" }];
+    let allowedTypes = [];
+    if (serviceCategory === "all") {
+      allowedTypes = [
+        ...VEHICLE_TYPES_BY_CATEGORY.TRUCK,
+        ...(isEvEnabled ? VEHICLE_TYPES_BY_CATEGORY.EV_GOODS : []),
+        ...(isTaxiEnabled ? VEHICLE_TYPES_BY_CATEGORY.GOODS_TAXI : [])
+      ];
+    } else if (VEHICLE_TYPES_BY_CATEGORY[serviceCategory]) {
+      allowedTypes = VEHICLE_TYPES_BY_CATEGORY[serviceCategory];
+    }
+    for (const t of allowedTypes) {
+      chips.push({ key: t, label: formatVehicleCategory(t) });
+    }
+    return chips;
+  }, [serviceCategory, isEvEnabled, isTaxiEnabled]);
 
   const load = useCallback(
     async (capacityFilters = {}) => {
       setError("");
       try {
         const filters = {};
-        if (vehicleType !== "all") filters.vehicleType = vehicleType;
+        if (serviceCategory !== "all") {
+          filters.serviceCategory = serviceCategory;
+        }
+        if (vehicleType !== "all") {
+          filters.vehicleType = vehicleType;
+        }
         if (capacityFilters.minCapacity?.trim()) {
           filters.minCapacity = capacityFilters.minCapacity.trim();
         }
@@ -55,13 +103,7 @@ export default function VehicleListScreen({ navigation, route }) {
           filters.maxCapacity = capacityFilters.maxCapacity.trim();
         }
 
-        const result =
-          vehicleType !== "all" &&
-          !capacityFilters.minCapacity?.trim() &&
-          !capacityFilters.maxCapacity?.trim()
-            ? await vehicleService.getVehiclesByType(vehicleType)
-            : await vehicleService.getVehicles(filters);
-
+        const result = await vehicleService.getVehicles(filters);
         setVehicles(result || []);
       } catch (requestError) {
         setError(getErrorMessage(requestError));
@@ -70,17 +112,28 @@ export default function VehicleListScreen({ navigation, route }) {
         setRefreshing(false);
       }
     },
-    [vehicleType]
+    [serviceCategory, vehicleType]
   );
 
   useEffect(() => {
-    setVehicleType(route.params?.vehicleType || "all");
-  }, [route.params?.vehicleType]);
+    if (route.params?.serviceCategory) {
+      setServiceCategory(route.params.serviceCategory);
+    }
+    if (route.params?.vehicleType) {
+      setVehicleType(route.params.vehicleType);
+    }
+  }, [route.params?.serviceCategory, route.params?.vehicleType]);
 
   useEffect(() => {
     setLoading(true);
     load();
   }, [load]);
+
+  const handleCategoryChange = (newCat) => {
+    setServiceCategory(newCat);
+    setVehicleType("all");
+    setLoading(true);
+  };
 
   const handleApplyFilter = () => {
     setLoading(true);
@@ -91,6 +144,8 @@ export default function VehicleListScreen({ navigation, route }) {
   const handleClearFilter = () => {
     setMinCapacity("");
     setMaxCapacity("");
+    setVehicleType("all");
+    setServiceCategory("all");
     setLoading(true);
     load({});
     setShowFilterPanel(false);
@@ -106,7 +161,7 @@ export default function VehicleListScreen({ navigation, route }) {
     >
       <Heading
         title="Available Vehicles"
-        subtitle="Browse verified vehicles available for booking."
+        subtitle="Browse verified commercial vehicles ready for dispatch."
         right={
           <Pressable
             style={styles.filterToggleBtn}
@@ -122,27 +177,53 @@ export default function VehicleListScreen({ navigation, route }) {
         }
       />
 
-      {/* CATEGORY FILTER CHIPS */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipContainer}
-      >
-        {types.map((t) => {
-          const active = vehicleType === t.key;
-          return (
-            <Pressable
-              key={t.key}
-              onPress={() => setVehicleType(t.key)}
-              style={[styles.chip, active && styles.chipActive]}
-            >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                {t.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      {/* PRIMARY CATEGORY TABS */}
+      <View style={styles.categoryTabRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryScroll}
+        >
+          {categoryTabs.map((tab) => {
+            const active = serviceCategory === tab.key;
+            return (
+              <Pressable
+                key={tab.key}
+                onPress={() => handleCategoryChange(tab.key)}
+                style={[styles.categoryTab, active && styles.categoryTabActive]}
+              >
+                <Text style={[styles.categoryTabText, active && styles.categoryTabTextActive]}>
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* SUBCATEGORY FILTER CHIPS */}
+      {subcategoryChips.length > 2 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.chipContainer}
+        >
+          {subcategoryChips.map((t) => {
+            const active = vehicleType === t.key;
+            return (
+              <Pressable
+                key={t.key}
+                onPress={() => setVehicleType(t.key)}
+                style={[styles.chip, active && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                  {t.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
 
       {/* COLLAPSIBLE CAPACITY FILTER PANEL */}
       {showFilterPanel ? (
@@ -189,93 +270,123 @@ export default function VehicleListScreen({ navigation, route }) {
       ) : vehicles.length === 0 ? (
         <Empty
           title="No vehicles found"
-          detail="Try selecting a different category or clearing capacity filters."
+          detail="Try selecting a different service category or clearing capacity filters."
           actionTitle="Reset filters"
           onAction={handleClearFilter}
         />
       ) : (
         <View style={styles.list}>
-          {vehicles.map((vehicle) => (
-            <Pressable
-              key={vehicle._id}
-              style={[styles.vehicleCard, shadows.soft]}
-              onPress={() =>
-                navigation.navigate("VehicleDetails", { vehicleId: vehicle._id })
-              }
-            >
-              {vehicle.vehicleImage ? (
-                <Image
-                  source={{ uri: getOptimizedImageUrl(vehicle.vehicleImage, { width: 600 }) }}
-                  style={styles.cardImg}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View style={styles.cardImgPlaceholder}>
-                  <MaterialCommunityIcons
-                    name="truck-outline"
-                    size={36}
-                    color={colors.textLight}
-                  />
-                </View>
-              )}
+          {vehicles.map((vehicle) => {
+            const isEV = vehicle.serviceCategory === SERVICE_CATEGORIES.EV_GOODS;
+            const isTaxi = vehicle.serviceCategory === SERVICE_CATEGORIES.GOODS_TAXI;
 
-              <View style={styles.cardContent}>
-                <View style={styles.cardTitleRow}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.modelName} numberOfLines={1}>
-                      {vehicle.vehicleModel}
-                    </Text>
-                    <Text style={styles.typeLabel}>
-                      {vehicle.vehicleType?.replace(/-/g, " ")}
-                    </Text>
-                  </View>
+            return (
+              <Pressable
+                key={vehicle._id}
+                style={[styles.vehicleCard, shadows.soft]}
+                onPress={() =>
+                  navigation.navigate("VehicleDetails", { vehicleId: vehicle._id })
+                }
+              >
+                {vehicle.vehicleImage ? (
+                  <Image
+                    source={{ uri: getOptimizedImageUrl(vehicle.vehicleImage, { width: 600 }) }}
+                    style={styles.cardImg}
+                    resizeMode="cover"
+                  />
+                ) : (
                   <View
                     style={[
-                      styles.statusPill,
-                      vehicle.isAvailable ? styles.statusAvail : styles.statusBusy
+                      styles.cardImgPlaceholder,
+                      isEV && styles.cardImgPlaceholderEV,
+                      isTaxi && styles.cardImgPlaceholderTaxi
                     ]}
                   >
-                    <Text
+                    <MaterialCommunityIcons
+                      name={isEV ? "lightning-bolt-outline" : isTaxi ? "truck-delivery-outline" : "truck-outline"}
+                      size={36}
+                      color={isEV ? "#10B981" : isTaxi ? "#F59E0B" : colors.textLight}
+                    />
+                  </View>
+                )}
+
+                <View style={styles.cardContent}>
+                  <View style={styles.cardTitleRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.modelName} numberOfLines={1}>
+                        {vehicle.vehicleModel}
+                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+                        <View
+                          style={[
+                            styles.catBadge,
+                            isEV && styles.catBadgeEV,
+                            isTaxi && styles.catBadgeTaxi
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.catBadgeText,
+                              isEV && styles.catBadgeTextEV,
+                              isTaxi && styles.catBadgeTextTaxi
+                            ]}
+                          >
+                            {SERVICE_CATEGORY_LABELS[vehicle.serviceCategory] || "Truck"}
+                          </Text>
+                        </View>
+                        <Text style={styles.typeLabel}>
+                          {formatVehicleCategory(vehicle.vehicleType)}
+                        </Text>
+                      </View>
+                    </View>
+                    <View
                       style={[
-                        styles.statusPillText,
-                        vehicle.isAvailable ? styles.statusTextAvail : styles.statusTextBusy
+                        styles.statusPill,
+                        vehicle.isAvailable ? styles.statusAvail : styles.statusBusy
                       ]}
                     >
-                      {vehicle.isAvailable ? "Available" : "Assigned"}
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.specsGrid}>
-                  <View style={styles.specBadge}>
-                    <Ionicons name="speedometer-outline" size={13} color={colors.primary} />
-                    <Text style={styles.specVal}>
-                      {vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit}
-                    </Text>
-                  </View>
-
-                  <View style={styles.specBadge}>
-                    <Ionicons name="cube-outline" size={13} color={colors.primary} />
-                    <Text style={styles.specVal}>
-                      {vehicle.bodyType || "Open Body"}
-                    </Text>
-                  </View>
-
-                  {vehicle.vehicleNumber ? (
-                    <View style={styles.specBadge}>
-                      <Ionicons name="card-outline" size={13} color={colors.primary} />
-                      <Text style={styles.specVal}>{vehicle.vehicleNumber}</Text>
+                      <Text
+                        style={[
+                          styles.statusPillText,
+                          vehicle.isAvailable ? styles.statusTextAvail : styles.statusTextBusy
+                        ]}
+                      >
+                        {vehicle.isAvailable ? "Available" : "Assigned"}
+                      </Text>
                     </View>
-                  ) : null}
-                </View>
+                  </View>
 
-                <View style={styles.cardFooter}>
-                  <Text style={styles.detailsLink}>View Specs & Pricing</Text>
-                  <Ionicons name="arrow-forward" size={15} color={colors.primary} />
+                  <View style={styles.specsGrid}>
+                    <View style={styles.specBadge}>
+                      <Ionicons name="speedometer-outline" size={13} color={colors.primary} />
+                      <Text style={styles.specVal}>
+                        {vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit}
+                      </Text>
+                    </View>
+
+                    <View style={styles.specBadge}>
+                      <Ionicons name="cube-outline" size={13} color={colors.primary} />
+                      <Text style={styles.specVal}>
+                        {vehicle.bodyType || (isEV ? "EV Loader" : "Open Body")}
+                      </Text>
+                    </View>
+
+                    {vehicle.vehicleNumber ? (
+                      <View style={styles.specBadge}>
+                        <Ionicons name="card-outline" size={13} color={colors.primary} />
+                        <Text style={styles.specVal}>{vehicle.vehicleNumber}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  <View style={styles.cardFooter}>
+                    <Text style={styles.detailsLink}>View Specs & Pricing</Text>
+                    <Ionicons name="arrow-forward" size={15} color={colors.primary} />
+                  </View>
                 </View>
-              </View>
-            </Pressable>
-          ))}
+              </Pressable>
+            );
+          })}
         </View>
       )}
     </Screen>
@@ -297,38 +408,66 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700"
   },
-  chipContainer: {
+  categoryTabRow: {
+    marginBottom: 10
+  },
+  categoryScroll: {
     gap: 8,
     paddingVertical: 2
   },
-  chip: {
-    paddingVertical: 7,
-    paddingHorizontal: 14,
-    backgroundColor: colors.surface,
+  categoryTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: 20
+    borderColor: colors.line
   },
-  chipActive: {
+  categoryTabActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary
   },
-  chipText: {
-    color: colors.textMuted,
+  categoryTabText: {
     fontSize: 13,
-    fontWeight: "600"
+    fontWeight: "700",
+    color: colors.textMuted
+  },
+  categoryTabTextActive: {
+    color: "#FFFFFF"
+  },
+  chipContainer: {
+    gap: 8,
+    paddingBottom: 12
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line
+  },
+  chipActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.surfaceAlt
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.textMuted
   },
   chipTextActive: {
-    color: colors.white,
+    color: colors.primary,
     fontWeight: "700"
   },
   filterPanel: {
     backgroundColor: colors.surface,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 14,
-    padding: 16,
-    gap: 12
+    padding: 14,
+    marginBottom: 14,
+    gap: 10
   },
   filterPanelTitle: {
     color: colors.text,
@@ -352,15 +491,21 @@ const styles = StyleSheet.create({
   },
   cardImg: {
     width: "100%",
-    height: 150,
+    height: 160,
     backgroundColor: colors.surfaceAlt
   },
   cardImgPlaceholder: {
     width: "100%",
-    height: 110,
+    height: 140,
     backgroundColor: colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center"
+  },
+  cardImgPlaceholderEV: {
+    backgroundColor: "rgba(16, 185, 129, 0.08)"
+  },
+  cardImgPlaceholderTaxi: {
+    backgroundColor: "rgba(245, 158, 11, 0.08)"
   },
   cardContent: {
     padding: 14,
@@ -370,18 +515,40 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: 8
+    gap: 10
   },
   modelName: {
     color: colors.text,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "700"
   },
   typeLabel: {
     color: colors.textMuted,
-    fontSize: 12,
-    textTransform: "capitalize",
-    marginTop: 1
+    fontSize: 13,
+    fontWeight: "500"
+  },
+  catBadge: {
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4
+  },
+  catBadgeEV: {
+    backgroundColor: "rgba(16, 185, 129, 0.15)"
+  },
+  catBadgeTaxi: {
+    backgroundColor: "rgba(245, 158, 11, 0.15)"
+  },
+  catBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.textMuted
+  },
+  catBadgeTextEV: {
+    color: "#059669"
+  },
+  catBadgeTextTaxi: {
+    color: "#D97706"
   },
   statusPill: {
     borderRadius: 6,
@@ -395,8 +562,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.warningBg
   },
   statusPillText: {
-    fontSize: 10,
-    fontWeight: "800"
+    fontSize: 11,
+    fontWeight: "700"
   },
   statusTextAvail: {
     color: colors.successText
@@ -412,16 +579,17 @@ const styles = StyleSheet.create({
   specBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 4,
     backgroundColor: colors.surfaceAlt,
-    borderRadius: 6,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    paddingHorizontal: 8
+    borderRadius: 6
   },
   specVal: {
-    color: colors.textLight,
+    color: colors.textMuted,
     fontSize: 12,
-    fontWeight: "500"
+    fontWeight: "600",
+    textTransform: "capitalize"
   },
   cardFooter: {
     flexDirection: "row",
@@ -429,7 +597,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     borderTopWidth: 1,
     borderTopColor: colors.lineLight,
-    paddingTop: 10
+    paddingTop: 10,
+    marginTop: 2
   },
   detailsLink: {
     color: colors.primary,

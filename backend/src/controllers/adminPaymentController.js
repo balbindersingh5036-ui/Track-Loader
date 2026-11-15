@@ -5,8 +5,8 @@ import User from "../models/User.js";
 import { errorResponse, successResponse } from "../utils/response.js";
 import { parsePagination } from "../utils/pagination.js";
 
-const paymentFields = "booking customer amount method provider transactionId orderId status paidAt refundId refundAmount refundStatus refundInitiatedAt refundedAt createdAt updatedAt";
-const bookingFields = "bookingId pickup drop bookingMode vehicleType estimatedFare finalFare bookingStatus paymentStatus preferredPickupDate preferredPickupTime createdAt";
+const paymentFields = "booking customer amount method paymentPurpose provider transactionId orderId status paidAt refundId refundAmount refundStatus refundInitiatedAt refundedAt createdAt updatedAt";
+const bookingFields = "bookingId pickup drop bookingMode serviceCategory vehicleType estimatedFare finalFare pricingSnapshot finalPricingSnapshot postTripAdjustments settlementStatus paymentHistory bookingStatus paymentStatus preferredPickupDate preferredPickupTime createdAt";
 const paymentStatuses = ["pending", "success", "failed", "refunded"];
 const paymentMethods = ["online", "cash"];
 
@@ -21,8 +21,14 @@ const safePayment = (payment) => {
       drop: payment.booking.drop || null,
       bookingMode: payment.booking.bookingMode || "",
       vehicleType: payment.booking.vehicleType || "",
+      serviceCategory: payment.booking.serviceCategory || "",
       estimatedFare: payment.booking.estimatedFare,
       finalFare: payment.booking.finalFare,
+      pricingSnapshot: payment.booking.pricingSnapshot || null,
+      finalPricingSnapshot: payment.booking.finalPricingSnapshot || null,
+      postTripAdjustments: payment.booking.postTripAdjustments || null,
+      settlementStatus: payment.booking.settlementStatus || "",
+      paymentHistory: payment.booking.paymentHistory || [],
       bookingStatus: payment.booking.bookingStatus || "",
       paymentStatus: payment.booking.paymentStatus || "",
       preferredPickupDate: payment.booking.preferredPickupDate || null,
@@ -42,6 +48,7 @@ const safePayment = (payment) => {
       email: payment.customer.email || ""
     } : null,
     amount: payment.amount,
+    paymentPurpose: payment.paymentPurpose || "initial",
     method: payment.method,
     provider: payment.provider,
     transactionId: payment.transactionId,

@@ -30,6 +30,21 @@ export default function GoodsDetailsScreen({ route, navigation }) {
     route.params?.preferredPickupTime || (bookingMode === "instant" ? getCurrentTimeString() : "")
   );
   const [customerNote, setCustomerNote] = useState(route.params?.customerNote || "");
+  const [quantity, setQuantity] = useState(
+    route.params?.quantity !== undefined ? String(route.params.quantity) : "1"
+  );
+  const [loadingRequired, setLoadingRequired] = useState(
+    route.params?.loadingRequired === true
+  );
+  const [unloadingRequired, setUnloadingRequired] = useState(
+    route.params?.unloadingRequired === true
+  );
+  const [loadingInstructions, setLoadingInstructions] = useState(
+    route.params?.loadingInstructions || ""
+  );
+  const [unloadingInstructions, setUnloadingInstructions] = useState(
+    route.params?.unloadingInstructions || ""
+  );
   const [error, setError] = useState("");
 
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -101,6 +116,9 @@ export default function GoodsDetailsScreen({ route, navigation }) {
     if (!["kg", "ton"].includes(weightUnit)) {
       return setError("Please select either kilograms (kg) or tons (ton).");
     }
+    if (!quantity.trim() || !Number.isFinite(Number(quantity)) || Number(quantity) < 0) {
+      return setError("Please enter a valid quantity.");
+    }
     const isInstant = bookingMode === "instant";
     const pickupDateToUse = isInstant ? getTodayDateString() : preferredPickupDate.trim();
     let pickupTimeToUse = isInstant ? getCurrentTimeString() : preferredPickupTime.trim();
@@ -130,6 +148,11 @@ export default function GoodsDetailsScreen({ route, navigation }) {
       bookingMode,
       goods: goods.trim(),
       weight: { value: weight, unit: weightUnit },
+      quantity: Number(quantity),
+      loadingRequired,
+      unloadingRequired,
+      loadingInstructions: loadingInstructions.trim(),
+      unloadingInstructions: unloadingInstructions.trim(),
       preferredPickupDate: pickupDateToUse,
       preferredPickupTime: pickupTimeToUse,
       customerNote: customerNote.trim()
@@ -191,6 +214,15 @@ export default function GoodsDetailsScreen({ route, navigation }) {
           icon={<Ionicons name="cube-outline" size={18} color={colors.textMuted} />}
         />
 
+        <Field
+          label="Quantity"
+          value={quantity}
+          onChangeText={setQuantity}
+          keyboardType="number-pad"
+          placeholder="e.g. 12"
+          icon={<Ionicons name="layers-outline" size={18} color={colors.textMuted} />}
+        />
+
         <View style={styles.weightRow}>
           <Field
             style={{ flex: 1 }}
@@ -224,6 +256,54 @@ export default function GoodsDetailsScreen({ route, navigation }) {
             </View>
           </View>
         </View>
+      </Card>
+
+      <Card>
+        <Text style={styles.cardSectionTitle}>Loading & Unloading</Text>
+        <Pressable
+          style={styles.requirementRow}
+          onPress={() => setLoadingRequired((value) => !value)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: loadingRequired }}
+        >
+          <Ionicons
+            name={loadingRequired ? "checkbox" : "square-outline"}
+            size={20}
+            color={colors.primary}
+          />
+          <Text style={styles.requirementLabel}>Loading assistance required</Text>
+        </Pressable>
+        {loadingRequired ? (
+          <Field
+            label="Loading requirements (Optional)"
+            value={loadingInstructions}
+            onChangeText={setLoadingInstructions}
+            multiline
+            placeholder="Describe loading help or equipment needed"
+          />
+        ) : null}
+        <Pressable
+          style={styles.requirementRow}
+          onPress={() => setUnloadingRequired((value) => !value)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: unloadingRequired }}
+        >
+          <Ionicons
+            name={unloadingRequired ? "checkbox" : "square-outline"}
+            size={20}
+            color={colors.primary}
+          />
+          <Text style={styles.requirementLabel}>Unloading assistance required</Text>
+        </Pressable>
+        {unloadingRequired ? (
+          <Field
+            label="Unloading requirements (Optional)"
+            value={unloadingInstructions}
+            onChangeText={setUnloadingInstructions}
+            multiline
+            placeholder="Describe unloading help needed"
+          />
+        ) : null}
       </Card>
 
       <Card>
@@ -412,6 +492,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     marginBottom: 2
+  },
+  requirementRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    paddingVertical: 8
+  },
+  requirementLabel: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: "600"
   },
   weightRow: {
     flexDirection: "row",

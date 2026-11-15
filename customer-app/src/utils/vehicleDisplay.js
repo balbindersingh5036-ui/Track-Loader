@@ -1,9 +1,61 @@
+export const SERVICE_CATEGORIES = Object.freeze({
+  TRUCK: "TRUCK",
+  EV_GOODS: "EV_GOODS",
+  GOODS_TAXI: "GOODS_TAXI"
+});
+
+export const SERVICE_CATEGORY_LABELS = Object.freeze({
+  TRUCK: "Trucks",
+  EV_GOODS: "EV Goods",
+  GOODS_TAXI: "Goods Taxi"
+});
+
+export const VEHICLE_TYPES_BY_CATEGORY = Object.freeze({
+  TRUCK: [
+    "mini-truck",
+    "pickup",
+    "small-truck",
+    "medium-truck",
+    "large-truck"
+  ],
+  EV_GOODS: [
+    "electric-cargo-loader",
+    "electric-goods-e-rickshaw",
+    "electric-mini-cargo-carrier",
+    "other-electric-goods"
+  ],
+  GOODS_TAXI: [
+    "mini-pickup",
+    "tata-ace",
+    "cargo-pickup",
+    "goods-loading-taxi",
+    "other-goods-carrier"
+  ]
+});
+
+export const getServiceCategoryForVehicleType = (vehicleType) =>
+  Object.entries(VEHICLE_TYPES_BY_CATEGORY).find(([, types]) =>
+    types.includes(vehicleType)
+  )?.[0] || "TRUCK";
+
 const CATEGORY_LABELS = {
+  // Standard Trucks
   "mini-truck": "Mini Truck",
   "pickup": "Pickup Truck",
   "small-truck": "Small Truck",
   "medium-truck": "Medium Truck",
-  "large-truck": "Large Heavy Truck"
+  "large-truck": "Large Heavy Truck",
+  // EV Goods
+  "electric-cargo-loader": "Electric Cargo Loader",
+  "electric-goods-e-rickshaw": "Electric Goods E-Rickshaw",
+  "electric-mini-cargo-carrier": "Electric Mini Cargo Carrier",
+  "other-electric-goods": "Electric Goods Carrier",
+  // Goods Taxi
+  "mini-pickup": "Mini Goods Pickup",
+  "tata-ace": "Tata Ace / Chota Hathi",
+  "cargo-pickup": "Cargo Pickup Taxi",
+  "goods-loading-taxi": "Goods Loading Taxi",
+  "other-goods-carrier": "Goods Carrier Taxi"
 };
 
 export const formatVehicleCategory = (category) => {

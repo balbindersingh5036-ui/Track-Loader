@@ -20,6 +20,10 @@ export const bookingService = {
   async cancelBooking(id, reason) {
     const { data } = await api.patch(`/bookings/${encodeURIComponent(id)}/cancel`, { reason });
     return data.data.booking;
+  },
+  async approveTripAdjustments(id, decisions) {
+    const { data } = await api.post(`/bookings/${encodeURIComponent(id)}/adjustments/approve`, decisions);
+    return data.data.booking;
   }
 };
 export default bookingService;

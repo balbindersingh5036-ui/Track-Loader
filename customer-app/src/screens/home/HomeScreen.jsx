@@ -225,6 +225,66 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
 
+        {(config["service.ev_goods.enabled"] === true ||
+          config["service.goods_taxi.enabled"] === true) ? (
+          <View style={styles.goodsServices}>
+            <Text style={styles.goodsServicesTitle}>More Goods Transport</Text>
+            <Text style={styles.goodsServicesSubtitle}>
+              Choose a goods-only vehicle service for your load.
+            </Text>
+            {[
+              config["service.ev_goods.enabled"] === true && {
+                category: "EV_GOODS",
+                title: "EV Goods Transport",
+                icon: "lightning-bolt-outline",
+                description: "Electric cargo vehicles"
+              },
+              config["service.goods_taxi.enabled"] === true && {
+                category: "GOODS_TAXI",
+                title: "Goods Taxi Transport",
+                icon: "truck-outline",
+                description: "Small goods carriers only"
+              }
+            ].filter(Boolean).map((service) => (
+              <View key={service.category} style={styles.goodsServiceCard}>
+                <View style={styles.goodsServiceInfo}>
+                  <MaterialCommunityIcons
+                    name={service.icon}
+                    size={24}
+                    color={colors.primary}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.goodsServiceTitle}>{service.title}</Text>
+                    <Text style={styles.goodsServiceDescription}>{service.description}</Text>
+                  </View>
+                </View>
+                <View style={styles.goodsServiceActions}>
+                  <Pressable
+                    style={styles.goodsServiceButton}
+                    disabled={isBookingDisabled}
+                    onPress={() => navigation.navigate("BookingLocation", {
+                      bookingMode: "instant",
+                      serviceCategory: service.category
+                    })}
+                  >
+                    <Text style={styles.goodsServiceButtonText}>Book Now</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.goodsServiceScheduleButton}
+                    disabled={isBookingDisabled}
+                    onPress={() => navigation.navigate("BookingLocation", {
+                      bookingMode: "scheduled",
+                      serviceCategory: service.category
+                    })}
+                  >
+                    <Text style={styles.goodsServiceScheduleText}>Schedule</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         {/* ACTIVE BOOKING CARD (IF EXISTS) */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Active Booking</Text>
@@ -528,6 +588,71 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10
+  },
+  goodsServices: {
+    marginTop: 16,
+    gap: 8
+  },
+  goodsServicesTitle: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: "800"
+  },
+  goodsServicesSubtitle: {
+    color: colors.textMuted,
+    fontSize: 13,
+    marginBottom: 2
+  },
+  goodsServiceCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.line,
+    borderRadius: 14,
+    padding: 14,
+    gap: 12
+  },
+  goodsServiceInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10
+  },
+  goodsServiceTitle: {
+    color: colors.text,
+    fontWeight: "700",
+    fontSize: 14
+  },
+  goodsServiceDescription: {
+    color: colors.textMuted,
+    fontSize: 12,
+    marginTop: 2
+  },
+  goodsServiceActions: {
+    flexDirection: "row",
+    gap: 8
+  },
+  goodsServiceButton: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 10,
+    backgroundColor: colors.primary,
+    borderRadius: 9
+  },
+  goodsServiceButtonText: {
+    color: colors.white,
+    fontWeight: "700",
+    fontSize: 12
+  },
+  goodsServiceScheduleButton: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 10,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: 9
+  },
+  goodsServiceScheduleText: {
+    color: colors.primary,
+    fontWeight: "700",
+    fontSize: 12
   },
   primaryCta: {
     flex: 1,

@@ -1,12 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, Text, View, StyleSheet, Image, ActivityIndicator } from "react-native";
+import { Pressable, Text, View, StyleSheet, Image, ActivityIndicator, ScrollView } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import vehicleService from "../../services/vehicleService";
 import fareService from "../../services/fareService";
+import configService from "../../services/configService";
 import { Button, Heading, Loading, Notice, Screen } from "../../components/Phase12UI";
 import { colors, shadows } from "../../theme/theme";
 import { getErrorMessage } from "../../utils/errorMessage";
-import { getCleanVehicleDisplayName, formatVehicleCategory } from "../../utils/vehicleDisplay";
+import {
+  getCleanVehicleDisplayName,
+  formatVehicleCategory,
+  SERVICE_CATEGORIES,
+  SERVICE_CATEGORY_LABELS
+} from "../../utils/vehicleDisplay";
 
 const formatCategory = (category) => formatVehicleCategory(category);
 
@@ -34,6 +40,9 @@ const getValidRegistrationPlate = (vehicleNumber) => {
 export default function VehicleSelectionScreen({ route, navigation }) {
   const [vehicles, setVehicles] = useState([]);
   const [selectedId, setSelectedId] = useState(route.params?.vehicleId || "");
+  const [config, setConfig] = useState({});
+  const initialCategory = route.params?.serviceCategory || "all";
+  const [categoryFilter, setCategoryFilter] = useState(initialCategory);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -42,6 +51,9 @@ export default function VehicleSelectionScreen({ route, navigation }) {
   const [quotesLoading, setQuotesLoading] = useState(false);
 
   const isInstant = route.params?.bookingMode === "instant";
+  const serviceCategory = route.params?.serviceCategory;
+  const loadingRequired = route.params?.loadingRequired === true;
+  const unloadingRequired = route.params?.unloadingRequired === true;
 
   const distanceKm = useMemo(() => {
     const raw = Number(route.params?.distanceKm);
@@ -65,14 +77,45 @@ export default function VehicleSelectionScreen({ route, navigation }) {
     return weightObj?.value || 0;
   }, [weightObj]);
 
-  // Load available vehicles matching category filter if provided
+  // Load public config
   useEffect(() => {
+    configService.getPublicConfig()
+      .then((cfg) => setConfig(cfg || {}))
+      .catch(() => {});
+  }, []);
+
+  const isEvEnabled = config["service.ev_goods.enabled"] !== false;
+  const isTaxiEnabled = config["service.goods_taxi.enabled"] !== false;
+
+  const availableCategoryTabs = useMemo(() => {
+    const tabs = [
+      { key: "all", label: "All Vehicles" },
+      { key: SERVICE_CATEGORIES.TRUCK, label: "Trucks" }
+    ];
+    if (isEvEnabled) {
+      tabs.push({ key: SERVICE_CATEGORIES.EV_GOODS, label: "EV Goods" });
+    }
+    if (isTaxiEnabled) {
+      tabs.push({ key: SERVICE_CATEGORIES.GOODS_TAXI, label: "Goods Taxi" });
+    }
+    return tabs;
+  }, [isEvEnabled, isTaxiEnabled]);
+
+  // Load available vehicles matching filters
+  useEffect(() => {
+    const queryParams = {
+      ...(route.params?.vehicleType ? { vehicleType: route.params.vehicleType } : {}),
+      ...(serviceCategory ? { serviceCategory } : {}),
+      ...(route.params?.pickup?.address ? { pickupAddress: route.params.pickup.address } : {}),
+      ...(route.params?.drop?.address ? { dropAddress: route.params.drop.address } : {})
+    };
+
     vehicleService
-      .getVehicles(route.params?.vehicleType ? { vehicleType: route.params.vehicleType } : {})
+      .getVehicles(queryParams)
       .then(setVehicles)
       .catch((requestError) => setError(getErrorMessage(requestError)))
       .finally(() => setLoading(false));
-  }, [route.params?.vehicleType]);
+  }, [route.params?.vehicleType, serviceCategory]);
 
   // Load authoritative backend fare quotations using actual ORS road distance
   useEffect(() => {
@@ -84,10 +127,15 @@ export default function VehicleSelectionScreen({ route, navigation }) {
     let isCurrent = true;
     setQuotesLoading(true);
 
+    const quoteCategory = categoryFilter !== "all" ? categoryFilter : serviceCategory;
+
     fareService
       .getQuotes({
         distanceKm,
-        weight: weightObj
+        weight: weightObj,
+        serviceCategory: quoteCategory,
+        loadingRequired,
+        unloadingRequired
       })
       .then((data) => {
         if (!isCurrent) return;
@@ -109,7 +157,7 @@ export default function VehicleSelectionScreen({ route, navigation }) {
     return () => {
       isCurrent = false;
     };
-  }, [distanceKm, weightObj]);
+  }, [distanceKm, weightObj, categoryFilter, serviceCategory, loadingRequired, unloadingRequired]);
 
   // Filter only active, available vehicles belonging to approved active agencies with sufficient capacity
   const cargoCompatibleVehicles = useMemo(() => {
@@ -120,6 +168,12 @@ export default function VehicleSelectionScreen({ route, navigation }) {
         vehicle.agency.isActive;
       if (!isApprovedAgency) return false;
 
+      // Filter by Category selector tab
+      if (categoryFilter !== "all") {
+        const vCat = vehicle.serviceCategory || SERVICE_CATEGORIES.TRUCK;
+        if (vCat !== categoryFilter) return false;
+      }
+
       const capacityKg =
         vehicle.loadCapacity?.unit === "ton"
           ? Number(vehicle.loadCapacity.value || 0) * 1000
@@ -127,11 +181,12 @@ export default function VehicleSelectionScreen({ route, navigation }) {
 
       return capacityKg >= requestedWeightKg;
     });
-  }, [vehicles, requestedWeightKg]);
+  }, [vehicles, requestedWeightKg, categoryFilter]);
 
-  // Auto-select first compatible vehicle if none is selected
+  // Auto-select first compatible vehicle if none is selected or current selection is filtered out
   useEffect(() => {
-    if (!selectedId && cargoCompatibleVehicles.length > 0) {
+    const isSelectedInList = cargoCompatibleVehicles.some((v) => v._id === selectedId);
+    if (!isSelectedInList && cargoCompatibleVehicles.length > 0) {
       setSelectedId(cargoCompatibleVehicles[0]._id);
     }
   }, [cargoCompatibleVehicles, selectedId]);
@@ -150,12 +205,18 @@ export default function VehicleSelectionScreen({ route, navigation }) {
 
     const selectedAgencyId = selected.agency?._id || selected.agency || null;
     const estimatedFare = fareQuotes[selected.vehicleType] ?? null;
+    if (estimatedFare == null) {
+      setError("Fare is not configured for this vehicle type. Please choose another available option.");
+      return;
+    }
     const displayName = getVehicleDisplayName(selected);
+    const resolvedCategory = selected.serviceCategory || (categoryFilter !== "all" ? categoryFilter : serviceCategory || SERVICE_CATEGORIES.TRUCK);
 
     navigation.navigate("BookingConfirm", {
       ...route.params,
       distanceKm,
       vehicleType: selected.vehicleType || route.params?.vehicleType || "mini-truck",
+      serviceCategory: resolvedCategory,
       vehicleId: selected._id,
       agencyId: selectedAgencyId,
       vehicle: {
@@ -214,6 +275,30 @@ export default function VehicleSelectionScreen({ route, navigation }) {
         />
       )}
 
+      {/* CATEGORY SELECTOR TABS */}
+      <View style={styles.categoryTabRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryScroll}
+        >
+          {availableCategoryTabs.map((tab) => {
+            const active = categoryFilter === tab.key;
+            return (
+              <Pressable
+                key={tab.key}
+                onPress={() => setCategoryFilter(tab.key)}
+                style={[styles.categoryTab, active && styles.categoryTabActive]}
+              >
+                <Text style={[styles.categoryTabText, active && styles.categoryTabTextActive]}>
+                  {tab.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
       {loading ? (
         <Loading label="Finding available vehicles..." />
       ) : (
@@ -227,10 +312,10 @@ export default function VehicleSelectionScreen({ route, navigation }) {
                 {requestedWeightKg >= 1000
                   ? `${(requestedWeightKg / 1000).toFixed(1)} Tons`
                   : `${requestedWeightKg} kg`}
-                ) currently ready for dispatch.
+                ) currently ready for dispatch in this category.
               </Text>
               <Text style={styles.emptyHint}>
-                Please check your cargo weight or select another vehicle category.
+                Please switch to &quot;All Vehicles&quot; or adjust cargo weight.
               </Text>
             </View>
           ) : (
@@ -239,6 +324,8 @@ export default function VehicleSelectionScreen({ route, navigation }) {
               const estimatedFare = fareQuotes[vehicle.vehicleType];
               const displayName = getVehicleDisplayName(vehicle);
               const validPlate = getValidRegistrationPlate(vehicle.vehicleNumber);
+              const isEV = vehicle.serviceCategory === SERVICE_CATEGORIES.EV_GOODS;
+              const isTaxi = vehicle.serviceCategory === SERVICE_CATEGORIES.GOODS_TAXI;
 
               return (
                 <Pressable
@@ -260,8 +347,18 @@ export default function VehicleSelectionScreen({ route, navigation }) {
                         resizeMode="cover"
                       />
                     ) : (
-                      <View style={styles.iconContainer}>
-                        <MaterialCommunityIcons name="truck-fast-outline" size={28} color={colors.primary} />
+                      <View
+                        style={[
+                          styles.iconContainer,
+                          isEV && styles.iconContainerEV,
+                          isTaxi && styles.iconContainerTaxi
+                        ]}
+                      >
+                        <MaterialCommunityIcons
+                          name={isEV ? "lightning-bolt-outline" : isTaxi ? "truck-delivery-outline" : "truck-fast-outline"}
+                          size={28}
+                          color={isEV ? "#10B981" : isTaxi ? "#F59E0B" : colors.primary}
+                        />
                       </View>
                     )}
 
@@ -270,6 +367,23 @@ export default function VehicleSelectionScreen({ route, navigation }) {
                         {displayName}
                       </Text>
                       <View style={styles.categoryBadgeRow}>
+                        <View
+                          style={[
+                            styles.catBadge,
+                            isEV && styles.catBadgeEV,
+                            isTaxi && styles.catBadgeTaxi
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.catBadgeText,
+                              isEV && styles.catBadgeTextEV,
+                              isTaxi && styles.catBadgeTextTaxi
+                            ]}
+                          >
+                            {SERVICE_CATEGORY_LABELS[vehicle.serviceCategory] || "Truck"}
+                          </Text>
+                        </View>
                         <Text style={styles.categoryText}>
                           {formatCategory(vehicle.vehicleType)}
                         </Text>
@@ -332,10 +446,7 @@ export default function VehicleSelectionScreen({ route, navigation }) {
       {!loading && cargoCompatibleVehicles.length > 0 ? (
         <Button
           title="Review & Confirm Booking"
-          icon={<Ionicons name="arrow-forward" size={16} color={colors.white} />}
-          iconPosition="right"
           onPress={continueToConfirm}
-          disabled={!selectedId || !distanceKm}
           style={{ marginTop: 16 }}
         />
       ) : null}
@@ -347,63 +458,58 @@ const styles = StyleSheet.create({
   stepRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.line,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    marginBottom: 10
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 16
   },
   stepDot: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: colors.surfaceAlt,
     alignItems: "center",
-    justifyContent: "center"
-  },
-  stepDotDone: {
-    backgroundColor: colors.primary
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: colors.textLight
   },
   stepDotActive: {
+    borderColor: colors.primary,
     backgroundColor: colors.primary
+  },
+  stepDotDone: {
+    borderColor: colors.primaryDark || "#0071AB",
+    backgroundColor: colors.primaryDark || "#0071AB"
   },
   stepNumActive: {
     color: colors.white,
     fontSize: 12,
     fontWeight: "700"
   },
-  stepLabelDone: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: "600",
-    marginLeft: 4
-  },
   stepLabelActive: {
     color: colors.primary,
-    fontSize: 12,
-    fontWeight: "700",
-    marginLeft: 4
+    fontSize: 13,
+    fontWeight: "700"
+  },
+  stepLabelDone: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: "600"
+  },
+  stepLine: {
+    width: 20,
+    height: 2,
+    backgroundColor: colors.line
   },
   stepLineDone: {
-    backgroundColor: colors.primary,
-    flex: 1,
-    height: 1,
-    marginHorizontal: 8
+    backgroundColor: colors.primaryDark || "#0071AB"
   },
   metricsBanner: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-around",
     backgroundColor: colors.surfaceAlt,
     borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.line
+    padding: 12,
+    marginBottom: 14,
+    alignItems: "center",
+    justifyContent: "space-around"
   },
   metricItem: {
     flexDirection: "row",
@@ -412,16 +518,43 @@ const styles = StyleSheet.create({
   },
   metricDivider: {
     width: 1,
-    height: 18,
+    height: 20,
     backgroundColor: colors.line
   },
   metricText: {
     color: colors.textMuted,
-    fontSize: 12
+    fontSize: 13
   },
   metricBold: {
     color: colors.text,
     fontWeight: "700"
+  },
+  categoryTabRow: {
+    marginBottom: 12
+  },
+  categoryScroll: {
+    gap: 8,
+    paddingVertical: 2
+  },
+  categoryTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.line
+  },
+  categoryTabActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary
+  },
+  categoryTabText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.textMuted
+  },
+  categoryTabTextActive: {
+    color: "#FFFFFF"
   },
   list: {
     gap: 12
@@ -431,11 +564,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: colors.line,
-    padding: 14
+    padding: 14,
+    marginBottom: 2
   },
   selectedVehicleCard: {
     borderColor: colors.primary,
-    backgroundColor: "#F0F9FF"
+    backgroundColor: colors.surfaceAlt
   },
   cardHeader: {
     flexDirection: "row",
@@ -456,30 +590,59 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center"
   },
+  iconContainerEV: {
+    backgroundColor: "rgba(16, 185, 129, 0.12)"
+  },
+  iconContainerTaxi: {
+    backgroundColor: "rgba(245, 158, 11, 0.12)"
+  },
   metaContainer: {
     flex: 1
   },
   vehicleModelText: {
     color: colors.text,
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700"
   },
   categoryBadgeRow: {
     flexDirection: "row",
     alignItems: "center",
-    flexWrap: "wrap",
-    marginTop: 2
+    gap: 4,
+    marginTop: 2,
+    flexWrap: "wrap"
+  },
+  catBadge: {
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4
+  },
+  catBadgeEV: {
+    backgroundColor: "rgba(16, 185, 129, 0.15)"
+  },
+  catBadgeTaxi: {
+    backgroundColor: "rgba(245, 158, 11, 0.15)"
+  },
+  catBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.textMuted
+  },
+  catBadgeTextEV: {
+    color: "#059669"
+  },
+  catBadgeTextTaxi: {
+    color: "#D97706"
   },
   categoryText: {
-    color: colors.primary,
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: "600"
   },
   plateText: {
-    color: colors.textMuted,
+    color: colors.primary,
     fontSize: 11,
-    fontWeight: "600",
-    letterSpacing: 0.3
+    fontWeight: "700"
   },
   capacityRow: {
     flexDirection: "row",

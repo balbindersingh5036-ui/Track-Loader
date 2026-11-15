@@ -3,6 +3,7 @@ import { Image, Text, View, StyleSheet, ScrollView } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import vehicleService from "../../services/vehicleService";
 import fareService from "../../services/fareService";
+import configService from "../../services/configService";
 import { Button, Card, Empty, Heading, Loading, Notice, Screen } from "../../components/Phase12UI";
 import { colors, shadows } from "../../theme/theme";
 import { getErrorMessage } from "../../utils/errorMessage";
@@ -11,15 +12,21 @@ import { getOptimizedImageUrl } from "../../utils/imageOptimizer";
 export default function VehicleDetailsScreen({ route, navigation }) {
   const vehicleId = route.params?.vehicleId;
   const [vehicle, setVehicle] = useState(null);
+  const [config, setConfig] = useState({});
   const [fare, setFare] = useState(null);
   const [fareError, setFareError] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    vehicleService
-      .getVehicle(vehicleId)
-      .then(setVehicle)
+    Promise.all([
+      vehicleService.getVehicle(vehicleId),
+      configService.getPublicConfig().catch(() => ({}))
+    ])
+      .then(([vehicleData, configData]) => {
+        setVehicle(vehicleData);
+        setConfig(configData || {});
+      })
       .catch((requestError) => setError(getErrorMessage(requestError)))
       .finally(() => setLoading(false));
   }, [vehicleId]);
@@ -39,6 +46,11 @@ export default function VehicleDetailsScreen({ route, navigation }) {
       </Screen>
     );
   }
+
+  const resolvedCategory = vehicle?.serviceCategory || "TRUCK";
+  const isCategoryDisabled =
+    (resolvedCategory === "EV_GOODS" && config["service.ev_goods.enabled"] === false) ||
+    (resolvedCategory === "GOODS_TAXI" && config["service.goods_taxi.enabled"] === false);
 
   return (
     <Screen>
@@ -178,13 +190,26 @@ export default function VehicleDetailsScreen({ route, navigation }) {
           </Card>
 
           {/* ACTION BUTTONS */}
+          {isCategoryDisabled ? (
+            <Notice
+              message="This transport service category is currently unavailable."
+              tone="warning"
+            />
+          ) : null}
           <Button
-            title={vehicle.isAvailable ? "Book This Vehicle" : "Vehicle Currently Unavailable"}
-            disabled={!vehicle.isAvailable}
+            title={
+              isCategoryDisabled
+                ? "Service Category Unavailable"
+                : vehicle.isAvailable
+                  ? "Book This Vehicle"
+                  : "Vehicle Currently Unavailable"
+            }
+            disabled={!vehicle.isAvailable || isCategoryDisabled}
             onPress={() =>
               navigation.navigate("BookingLocation", {
                 vehicleType: vehicle.vehicleType,
-                vehicleId: vehicle._id
+                vehicleId: vehicle._id,
+                serviceCategory: resolvedCategory
               })
             }
           />

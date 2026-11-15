@@ -882,21 +882,35 @@ test("Trip start and completion notify the Customer", async (t) => {
   const bookingId = new mongoose.Types.ObjectId();
   const customer = new mongoose.Types.ObjectId();
   const notifications = [];
+  let bookingStatus = "accepted";
   t.mock.method(Driver, "findOne", async () => ({
     _id: approvedDriverId,
     user: approvedDriverUserId
   }));
-  t.mock.method(Booking, "findOneAndUpdate", async (filter, update) => ({
+  t.mock.method(Booking, "findOne", async () => ({
     _id: bookingId,
     customer,
     driver: approvedDriverId,
     vehicle: selectedVehicleId,
-    bookingStatus: update.$set.bookingStatus,
-    estimatedFare: 250,
-    save: async function () {
-      return this;
-    }
+    serviceCategory: "TRUCK",
+    bookingStatus,
+    paymentMethod: "COD",
+    estimatedFare: 250
   }));
+  t.mock.method(Booking, "findOneAndUpdate", async (filter, update) => {
+    bookingStatus = update.$set.bookingStatus;
+    return {
+      _id: bookingId,
+      customer,
+      driver: approvedDriverId,
+      vehicle: selectedVehicleId,
+      bookingStatus,
+      estimatedFare: 250,
+      save: async function () {
+        return this;
+      }
+    };
+  });
   t.mock.method(Driver, "findByIdAndUpdate", async () => ({ totalTrips: 1 }));
   t.mock.method(Vehicle, "findByIdAndUpdate", async () => ({ isAvailable: true }));
   t.mock.method(User, "find", async () => []);
@@ -912,7 +926,11 @@ test("Trip start and completion notify the Customer", async (t) => {
   );
   const completeResponse = createResponse();
   await completeTrip(
-    { params: { id: bookingId.toString() }, user: { _id: approvedDriverUserId } },
+    {
+      params: { id: bookingId.toString() },
+      user: { _id: approvedDriverUserId },
+      body: { actualDistanceKm: 0 }
+    },
     completeResponse
   );
 

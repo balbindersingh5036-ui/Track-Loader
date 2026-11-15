@@ -97,6 +97,7 @@ test("Flow A: Complete Driver Lifecycle (Requests, Accept, Start, Complete, Rati
     weight: { value: 500, unit: "kg" },
     paymentMethod: "COD",
     paymentStatus: "pending",
+    estimatedFare: 850,
     finalFare: 850,
     assignmentHistory: [],
     pickup: { address: "Sector 18, Noida", latitude: 28.57, longitude: 77.32 },
@@ -159,7 +160,11 @@ test("Flow A: Complete Driver Lifecycle (Requests, Accept, Start, Complete, Rati
   t.mock.method(Driver, "findByIdAndUpdate", () => Promise.resolve({}));
   t.mock.method(Vehicle, "findByIdAndUpdate", () => Promise.resolve({}));
 
-  const reqComplete = { user: { _id: driverUserId }, params: { id: bookingId.toString() } };
+  const reqComplete = {
+    user: { _id: driverUserId },
+    params: { id: bookingId.toString() },
+    body: { actualDistanceKm: 0 }
+  };
   const resComplete = response();
   await completeTrip(reqComplete, resComplete);
 

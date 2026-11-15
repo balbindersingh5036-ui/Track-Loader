@@ -38,7 +38,11 @@ export default function FareManagement() {
   const [editForm, setEditForm] = useState({
     perKmRate: '',
     perTonRate: '',
-    minimumFare: ''
+    minimumFare: '',
+    loadingCharge: '0',
+    unloadingCharge: '0',
+    waitingCharge: '0',
+    extraDistanceCharge: '0'
   });
 
   // Confirmation Modal state
@@ -85,6 +89,10 @@ export default function FareManagement() {
           perKmRate: matchingFare?.perKmRate ?? c.perKmRate ?? null,
           perTonRate: matchingFare?.perTonRate ?? c.perTonRate ?? null,
           minimumFare: matchingFare?.minimumFare ?? c.minimumFare ?? null,
+          loadingCharge: matchingFare?.loadingCharge ?? 0,
+          unloadingCharge: matchingFare?.unloadingCharge ?? 0,
+          waitingCharge: matchingFare?.waitingCharge ?? 0,
+          extraDistanceCharge: matchingFare?.extraDistanceCharge ?? 0,
           isActive: matchingFare ? matchingFare.isActive : false,
           updatedAt: matchingFare?.updatedAt || c.updatedAt || null,
           updatedBy: matchingFare?.updatedBy || c.updatedBy || null
@@ -116,7 +124,11 @@ export default function FareManagement() {
     setEditForm({
       perKmRate: item.perKmRate != null ? String(item.perKmRate) : '',
       perTonRate: item.perTonRate != null ? String(item.perTonRate) : '',
-      minimumFare: item.minimumFare != null ? String(item.minimumFare) : ''
+      minimumFare: item.minimumFare != null ? String(item.minimumFare) : '',
+      loadingCharge: String(item.loadingCharge ?? 0),
+      unloadingCharge: String(item.unloadingCharge ?? 0),
+      waitingCharge: String(item.waitingCharge ?? 0),
+      extraDistanceCharge: String(item.extraDistanceCharge ?? 0)
     });
     setError('');
     setSuccess('');
@@ -129,11 +141,19 @@ export default function FareManagement() {
     const perKmRate = Number(editForm.perKmRate);
     const perTonRate = Number(editForm.perTonRate);
     const minimumFare = Number(editForm.minimumFare);
+    const loadingCharge = Number(editForm.loadingCharge);
+    const unloadingCharge = Number(editForm.unloadingCharge);
+    const waitingCharge = Number(editForm.waitingCharge);
+    const extraDistanceCharge = Number(editForm.extraDistanceCharge);
 
     if (
       !Number.isFinite(perKmRate) || perKmRate < 0 ||
       !Number.isFinite(perTonRate) || perTonRate < 0 ||
-      !Number.isFinite(minimumFare) || minimumFare < 0
+      !Number.isFinite(minimumFare) || minimumFare < 0 ||
+      !Number.isFinite(loadingCharge) || loadingCharge < 0 ||
+      !Number.isFinite(unloadingCharge) || unloadingCharge < 0 ||
+      !Number.isFinite(waitingCharge) || waitingCharge < 0 ||
+      !Number.isFinite(extraDistanceCharge) || extraDistanceCharge < 0
     ) {
       setError('Please enter valid, non-negative numbers for all rate fields.');
       return;
@@ -147,12 +167,20 @@ export default function FareManagement() {
       current: {
         perKmRate: editingTarget.perKmRate ?? 0,
         perTonRate: editingTarget.perTonRate ?? 0,
-        minimumFare: editingTarget.minimumFare ?? 0
+        minimumFare: editingTarget.minimumFare ?? 0,
+        loadingCharge: editingTarget.loadingCharge ?? 0,
+        unloadingCharge: editingTarget.unloadingCharge ?? 0,
+        waitingCharge: editingTarget.waitingCharge ?? 0,
+        extraDistanceCharge: editingTarget.extraDistanceCharge ?? 0
       },
       newRates: {
         perKmRate,
         perTonRate,
-        minimumFare
+        minimumFare,
+        loadingCharge,
+        unloadingCharge,
+        waitingCharge,
+        extraDistanceCharge
       }
     });
   };
@@ -168,14 +196,22 @@ export default function FareManagement() {
           vehicleType: confirmData.category,
           perKmRate: confirmData.newRates.perKmRate,
           perTonRate: confirmData.newRates.perTonRate,
-          minimumFare: confirmData.newRates.minimumFare
+          minimumFare: confirmData.newRates.minimumFare,
+          loadingCharge: confirmData.newRates.loadingCharge,
+          unloadingCharge: confirmData.newRates.unloadingCharge,
+          waitingCharge: confirmData.newRates.waitingCharge,
+          extraDistanceCharge: confirmData.newRates.extraDistanceCharge
         });
         setSuccess(`Dynamic pricing configured successfully for ${confirmData.categoryLabel}!`);
       } else {
         await fareService.updateFare(confirmData.fareId, {
           perKmRate: confirmData.newRates.perKmRate,
           perTonRate: confirmData.newRates.perTonRate,
-          minimumFare: confirmData.newRates.minimumFare
+          minimumFare: confirmData.newRates.minimumFare,
+          loadingCharge: confirmData.newRates.loadingCharge,
+          unloadingCharge: confirmData.newRates.unloadingCharge,
+          waitingCharge: confirmData.newRates.waitingCharge,
+          extraDistanceCharge: confirmData.newRates.extraDistanceCharge
         });
         setSuccess(`Dynamic pricing updated successfully for ${confirmData.categoryLabel}!`);
       }
@@ -309,7 +345,7 @@ export default function FareManagement() {
       {/* PRICING FORMULA SPEC CARD */}
       <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '18px 20px', marginBottom: '24px' }}>
         <h3 style={{ margin: '0 0 10px 0', fontSize: '15px', fontWeight: '700', color: '#0f172a' }}>
-          📐 Authoritative 3-Tier Vehicle Road Pricing Formula
+          📐 Vehicle Road Pricing Formula
         </h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px', fontSize: '13px', color: '#334155' }}>
           <div style={{ background: 'white', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
@@ -322,7 +358,7 @@ export default function FareManagement() {
           </div>
           <div style={{ background: 'white', padding: '10px 14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
             <strong>3. Final Booking Fare:</strong><br />
-            <code>MAX(Distance Charge + Weight Charge, Minimum Fare)</code>
+            <code>MAX(Distance + Weight + Requested Handling Charges, Minimum Fare)</code>
           </div>
         </div>
       </div>
@@ -475,7 +511,7 @@ export default function FareManagement() {
       {/* EDIT MODAL */}
       {editingTarget && !confirmData && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }}>
-          <div style={{ background: 'white', borderRadius: '14px', padding: '28px', width: '460px', maxWidth: '100%', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+          <div style={{ background: 'white', borderRadius: '14px', padding: '28px', width: '460px', maxWidth: '100%', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div>
                 <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>
@@ -488,7 +524,7 @@ export default function FareManagement() {
             </div>
 
             <p style={{ margin: '0 0 20px 0', fontSize: '13px', color: '#64748b', lineHeight: '1.5' }}>
-              Define exactly three authoritative pricing rates. Base Fare and extra add-ons are strictly disabled.
+              Set admin-controlled route, weight, handling, waiting, and extra-distance rates. No prices are prefilled for new services.
             </p>
 
             <form onSubmit={handleReviewChanges}>
@@ -555,6 +591,32 @@ export default function FareManagement() {
                 <span style={{ fontSize: '11px', color: '#64748b' }}>Guaranteed floor fare applied if formula total is less.</span>
               </div>
 
+              {[
+                ['loadingCharge', 'Loading Charge (₹)', 'Flat per booking when loading is requested'],
+                ['unloadingCharge', 'Unloading Charge (₹)', 'Flat per booking when unloading is requested'],
+                ['waitingCharge', 'Waiting Charge (₹ / hour)', 'Prorated per hour from recorded waiting time'],
+                ['extraDistanceCharge', 'Extra Distance Charge (₹ / km)', 'Applied per km beyond the estimated route']
+              ].map(([field, label, hint], index) => (
+                <div key={field} style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+                    {index + 4}. {label}
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '12px', top: '10px', color: '#64748b', fontWeight: '600' }}>₹</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      required
+                      value={editForm[field]}
+                      onChange={(event) => setEditForm({ ...editForm, [field]: event.target.value })}
+                      style={{ width: '100%', padding: '10px 12px 10px 28px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                    />
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#64748b' }}>{hint}</span>
+                </div>
+              ))}
+
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 <button
                   type="button"
@@ -617,11 +679,19 @@ export default function FareManagement() {
                   <td style={{ padding: '10px 12px', textAlign: 'right', color: '#64748b' }}>₹{confirmData.current.perTonRate}</td>
                   <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '700', color: '#059669' }}>₹{confirmData.newRates.perTonRate}</td>
                 </tr>
-                <tr>
-                  <td style={{ padding: '10px 12px', fontWeight: '600' }}>Minimum Fare</td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', color: '#64748b' }}>₹{confirmData.current.minimumFare}</td>
-                  <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '700', color: '#334155' }}>₹{confirmData.newRates.minimumFare}</td>
-                </tr>
+                {[
+                  ['Minimum Fare', 'minimumFare'],
+                  ['Loading Charge', 'loadingCharge'],
+                  ['Unloading Charge', 'unloadingCharge'],
+                  ['Waiting Charge / Hour', 'waitingCharge'],
+                  ['Extra Distance / KM', 'extraDistanceCharge']
+                ].map(([label, field]) => (
+                  <tr key={field} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '10px 12px', fontWeight: '600' }}>{label}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', color: '#64748b' }}>₹{confirmData.current[field]}</td>
+                    <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: '700', color: '#334155' }}>₹{confirmData.newRates[field]}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
 

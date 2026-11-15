@@ -5,6 +5,10 @@ const fareHistorySchema = new mongoose.Schema(
     perKmRate: { type: Number, required: true, min: 0 },
     perTonRate: { type: Number, required: true, min: 0 },
     minimumFare: { type: Number, required: true, min: 0 },
+    loadingCharge: { type: Number, default: 0, min: 0 },
+    unloadingCharge: { type: Number, default: 0, min: 0 },
+    waitingCharge: { type: Number, default: 0, min: 0 },
+    extraDistanceCharge: { type: Number, default: 0, min: 0 },
     updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     updatedAt: { type: Date, default: Date.now }
   },
@@ -51,6 +55,18 @@ const fareSchema = new mongoose.Schema(
     },
 
     unloadingCharge: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+
+    waitingCharge: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+
+    extraDistanceCharge: {
       type: Number,
       default: 0,
       min: 0

@@ -6,6 +6,8 @@ import Agency from "../models/Agency.js";
 import User from "../models/User.js";
 import Payment from "../models/Payment.js";
 import Fare from "../models/Fare.js";
+import cloudinary from "../config/cloudinary.js";
+import { env } from "../config/env.js";
 import * as fareService from "../services/fareService.js";
 import { calculateRoadRoute } from "../services/routingService.js";
 import generateBookingId from "../utils/generateBookingId.js";
@@ -22,6 +24,19 @@ import {
 import { getCleanVehicleDisplayName } from "../utils/vehicleDocumentResponse.js";
 import { isValidVehicleModel } from "../utils/vehicleValidation.js";
 import { isActualDriverProfile } from "../utils/actualDriver.js";
+import {
+  getCategoryEnabledSettingKey,
+  getServiceCategoryForVehicleType,
+  isValidCategoryVehicleType,
+  SERVICE_CATEGORIES
+} from "../utils/vehicleCategories.js";
+import { vehicleServesRoute } from "../services/vehicleCategoryService.js";
+import {
+  calculateFinalPricingSnapshot,
+  getVerifiedOnlineNetPaid,
+  initiateSettlementRefund,
+  reconcileOnlineSettlement
+} from "../services/bookingSettlementService.js";
 
 const isFiniteNumericInput = (value) =>
   (typeof value === "number" || (typeof value === "string" && value.trim() !== "")) &&
@@ -86,9 +101,15 @@ export const createBooking = async (req, res) => {
       drop,
       goods,
       weight,
+      quantity = 1,
+      loadingRequired = false,
+      unloadingRequired = false,
+      loadingInstructions = "",
+      unloadingInstructions = "",
       preferredPickupDate,
       preferredPickupTime,
       vehicleType,
+      serviceCategory,
       vehicle,
       customerNote,
       agencyId: requestedAgencyId,
@@ -141,6 +162,31 @@ export const createBooking = async (req, res) => {
     }
     if (!preferredPickupDate || !preferredPickupTime) return errorResponse(res, "Preferred date and time are required", 400);
     if (!vehicleType) return errorResponse(res, "Vehicle type is required", 400);
+    const resolvedServiceCategory =
+      serviceCategory || getServiceCategoryForVehicleType(vehicleType);
+    if (
+      !resolvedServiceCategory ||
+      !isValidCategoryVehicleType(resolvedServiceCategory, vehicleType)
+    ) {
+      return errorResponse(res, "Vehicle type does not belong to the selected service category", 400);
+    }
+    const categorySettingKey = getCategoryEnabledSettingKey(resolvedServiceCategory);
+    if (
+      categorySettingKey &&
+      !(await isSettingEnabled(categorySettingKey))
+    ) {
+      return errorResponse(res, "This service category is currently unavailable", 403);
+    }
+    if (
+      !isFiniteNumericInput(quantity) ||
+      Number(quantity) < 0 ||
+      typeof loadingRequired !== "boolean" ||
+      typeof unloadingRequired !== "boolean" ||
+      typeof loadingInstructions !== "string" ||
+      typeof unloadingInstructions !== "string"
+    ) {
+      return errorResponse(res, "Invalid cargo quantity or loading/unloading details", 400);
+    }
 
     // Validate scheduled pickup date & time if bookingMode is scheduled
     if (normalizedBookingMode === "scheduled") {
@@ -162,6 +208,10 @@ export const createBooking = async (req, res) => {
     const canDispatchWithVehicle = async (candidate) => {
       if (!candidate?.isActive || !candidate.isAvailable) return false;
       if (vehicleType && candidate.vehicleType !== vehicleType) return false;
+      if (
+        resolvedServiceCategory !== SERVICE_CATEGORIES.TRUCK &&
+        !vehicleServesRoute(candidate, pickup.address, drop.address)
+      ) return false;
       const driver = candidate.driver;
       if (!driver) return false;
       const isRoleDriver = await isActualDriverProfile(driver);
@@ -194,6 +244,26 @@ export const createBooking = async (req, res) => {
 
       if (vehicleDoc.vehicleType) {
         vehicleType = vehicleDoc.vehicleType;
+      }
+      const selectedCategory = vehicleDoc.serviceCategory ||
+        getServiceCategoryForVehicleType(vehicleDoc.vehicleType);
+      if (selectedCategory !== resolvedServiceCategory) {
+        return errorResponse(res, "Selected vehicle does not belong to the requested service category", 400);
+      }
+      if (
+        resolvedServiceCategory === SERVICE_CATEGORIES.EV_GOODS &&
+        vehicleDoc.fuelType !== "electric"
+      ) {
+        return errorResponse(res, "Only electric vehicles can serve EV Goods bookings", 400);
+      }
+      if (
+        resolvedServiceCategory !== SERVICE_CATEGORIES.TRUCK &&
+        (!vehicleDoc.isActive ||
+          !vehicleDoc.isAvailable ||
+          !isVehicleEligibleForBookings(vehicleDoc) ||
+          !vehicleServesRoute(vehicleDoc, pickup.address, drop.address))
+      ) {
+        return errorResponse(res, "Selected vehicle is not approved, available, and serving this route", 409);
       }
 
       const isSelectedUsable = vehicleDoc.isActive && vehicleDoc.isAvailable;
@@ -252,6 +322,9 @@ export const createBooking = async (req, res) => {
       const agencyVehicles = await Vehicle.find({
         agency: agencyDoc._id,
         vehicleType,
+        serviceCategory: resolvedServiceCategory === SERVICE_CATEGORIES.TRUCK
+          ? { $in: [SERVICE_CATEGORIES.TRUCK, null] }
+          : resolvedServiceCategory,
         isActive: true,
         isAvailable: true
       }).populate({
@@ -273,6 +346,12 @@ export const createBooking = async (req, res) => {
       await hasConflictingDriverBooking(assignmentCandidate.driver._id || assignmentCandidate.driver)
     ) {
       assignmentCandidate = null;
+    }
+    if (
+      resolvedServiceCategory !== SERVICE_CATEGORIES.TRUCK &&
+      !assignmentCandidate
+    ) {
+      return errorResponse(res, "No approved, available vehicle and driver serve this route and cargo", 409);
     }
     if (assignmentCandidate) {
       vehicleDoc = assignmentCandidate;
@@ -312,7 +391,9 @@ export const createBooking = async (req, res) => {
         vehicleType,
         distanceKm,
         weightValue: weight.value,
-        weightUnit: weight.unit
+        weightUnit: weight.unit,
+        loadingRequired,
+        unloadingRequired
       });
     } catch (err) {
       return errorResponse(res, err.message, 400);
@@ -374,12 +455,22 @@ export const createBooking = async (req, res) => {
         ratePerKm: fareBreakdown.ratePerKm,
         ratePerTon: fareBreakdown.ratePerTon,
         minimumFare: fareBreakdown.minimumFare,
+        loadingChargeRate: Number(fareBreakdown.fareConfig.loadingCharge || 0),
+        unloadingChargeRate: Number(fareBreakdown.fareConfig.unloadingCharge || 0),
+        waitingChargePerHour: Number(fareBreakdown.fareConfig.waitingCharge || 0),
+        extraDistanceChargePerKm: Number(fareBreakdown.fareConfig.extraDistanceCharge || 0),
         distanceKm: fareBreakdown.distanceKm,
         distanceMeters: routeResult.distanceMeters,
         cargoWeightKg: fareBreakdown.cargoWeightKg,
         weightInTon: fareBreakdown.weightInTon,
         distanceCharge: fareBreakdown.distanceCharge,
         weightCharge: fareBreakdown.weightCharge,
+        loadingCharge: fareBreakdown.loadingCharge,
+        unloadingCharge: fareBreakdown.unloadingCharge,
+        waitingMinutes: fareBreakdown.waitingMinutes,
+        waitingCharge: fareBreakdown.waitingCharge,
+        extraDistanceKm: fareBreakdown.extraDistanceKm,
+        extraDistanceCharge: fareBreakdown.extraDistanceCharge,
         calculatedFare: fareBreakdown.calculatedFare,
         finalFare: fareBreakdown.finalFare,
         durationSeconds: routeResult.durationSeconds,
@@ -387,6 +478,12 @@ export const createBooking = async (req, res) => {
         calculatedAt: new Date()
       },
       goods,
+      serviceCategory: resolvedServiceCategory,
+      quantity: Number(quantity),
+      loadingRequired,
+      unloadingRequired,
+      loadingInstructions: loadingInstructions.trim(),
+      unloadingInstructions: unloadingInstructions.trim(),
       weight,
       preferredPickupDate,
       preferredPickupTime,
@@ -811,6 +908,21 @@ export const startTrip = async (req, res) => {
     const driver = await Driver.findOne({ user: req.user._id });
     if (!driver) return errorResponse(res, "Driver profile not found", 404);
 
+    const currentBooking = await Booking.findOne({ _id: id, driver: driver._id });
+    if (
+      currentBooking &&
+      (currentBooking.serviceCategory || SERVICE_CATEGORIES.TRUCK) !== SERVICE_CATEGORIES.TRUCK &&
+      !currentBooking.loadedAt
+    ) {
+      return errorResponse(res, "Confirm pickup arrival and loading before starting the journey", 409);
+    }
+    if (
+      currentBooking?.paymentMethod === "ONLINE" &&
+      await getVerifiedOnlineNetPaid(currentBooking._id) < Number(currentBooking.estimatedFare || 0)
+    ) {
+      return errorResponse(res, "Verify the estimated fare payment before starting this online booking", 409);
+    }
+
     const booking = await Booking.findOneAndUpdate(
       { _id: id, driver: driver._id, bookingStatus: "accepted" },
       {
@@ -834,33 +946,338 @@ export const startTrip = async (req, res) => {
 export const completeTrip = async (req, res) => {
   try {
     const { id } = req.params;
+    const {
+      waitingMinutes = 0,
+      waitingReason = "",
+      actualDistanceKm,
+      extraDistanceReason = ""
+    } = req.body || {};
+    if (!isFiniteNumericInput(waitingMinutes) || Number(waitingMinutes) < 0) {
+      return errorResponse(res, "Waiting time must be a valid non-negative number", 400);
+    }
+    if (
+      Number(waitingMinutes) > 0 &&
+      !["customer_requested", "customer_unavailable"].includes(waitingReason)
+    ) {
+      return errorResponse(res, "Waiting charges are allowed only for customer-requested waits or customer unavailability", 400);
+    }
     if (!mongoose.Types.ObjectId.isValid(id)) return errorResponse(res, "Invalid ID", 400);
 
     const driver = await Driver.findOne({ user: req.user._id });
     if (!driver) return errorResponse(res, "Driver not found", 404);
 
+    const currentBooking = await Booking.findOne({ _id: id, driver: driver._id });
+    if (!currentBooking) return errorResponse(res, "Booking not assigned to this driver", 403);
+    if (
+      (currentBooking.serviceCategory || SERVICE_CATEGORIES.TRUCK) !== SERVICE_CATEGORIES.TRUCK &&
+      !currentBooking.unloadedAt
+    ) {
+      return errorResponse(res, "Confirm destination arrival and unloading before completing delivery", 409);
+    }
+
+    if (currentBooking.bookingStatus === "completed") {
+      return successResponse(res, { booking: currentBooking }, "Delivery already completed");
+    }
+    if (currentBooking.bookingStatus !== "in-progress") {
+      return errorResponse(res, "Trip is not in progress", 400);
+    }
+    if (!isFiniteNumericInput(actualDistanceKm) || Number(actualDistanceKm) < 0) {
+      return errorResponse(res, "Actual trip distance is required and must be a valid non-negative number", 400);
+    }
+
+    const estimatedDistanceKm = Number(
+      currentBooking.distanceKm || currentBooking.pricingSnapshot?.distanceKm || 0
+    );
+    const extraDistanceKm = Math.max(
+      0,
+      Number((Number(actualDistanceKm) - estimatedDistanceKm).toFixed(2))
+    );
+    if (
+      extraDistanceKm > 0 &&
+      (typeof extraDistanceReason !== "string" || !extraDistanceReason.trim() || extraDistanceReason.trim().length > 300)
+    ) {
+      return errorResponse(res, "A valid reason is required for extra distance", 400);
+    }
+
+    const hasRequestedAdjustments = Number(waitingMinutes) > 0 || Number(extraDistanceKm) > 0;
     const booking = await Booking.findOneAndUpdate(
       { _id: id, driver: driver._id, bookingStatus: "in-progress" },
       {
-        $set: { bookingStatus: "completed", completedAt: new Date() },
+        $set: {
+          bookingStatus: "completed",
+          completedAt: new Date(),
+          "postTripAdjustments.waitingMinutes": Number(waitingMinutes),
+          "postTripAdjustments.waitingReason": Number(waitingMinutes) > 0 ? waitingReason : "",
+          "postTripAdjustments.actualDistanceKm": Number(actualDistanceKm),
+          "postTripAdjustments.actualDistanceProvided": true,
+          "postTripAdjustments.extraDistanceKm": Number(extraDistanceKm),
+          "postTripAdjustments.extraDistanceReason": Number(extraDistanceKm) > 0 ? extraDistanceReason.trim() : "",
+          "postTripAdjustments.waitingApproved": false,
+          "postTripAdjustments.extraDistanceApproved": false,
+          "postTripAdjustments.status": hasRequestedAdjustments ? "awaiting_customer_approval" : "not_required",
+          "postTripAdjustments.driverSubmittedAt": hasRequestedAdjustments ? new Date() : null,
+          settlementStatus: hasRequestedAdjustments ? "awaiting_customer_approval" : "pending"
+        },
         $push: { assignmentHistory: { action: "completed", actor: req.user._id, actorRole: "driver", driver: driver._id } }
       },
       { new: true }
     );
     if (!booking) return errorResponse(res, "Not in progress", 400);
 
-    booking.finalFare = booking.estimatedFare;
+    if (!hasRequestedAdjustments) {
+      booking.finalPricingSnapshot = calculateFinalPricingSnapshot({
+        estimatedFare: booking.estimatedFare,
+        estimatedDistanceKm,
+        actualDistanceKm: Number(actualDistanceKm),
+        recalculateDistance: Boolean(booking.pricingSnapshot?.category),
+        distanceRatePerKm: booking.pricingSnapshot?.ratePerKm,
+        minimumFare: booking.pricingSnapshot?.minimumFare,
+        weightCharge: booking.pricingSnapshot?.weightCharge,
+        loadingCharge: booking.pricingSnapshot?.loadingCharge,
+        unloadingCharge: booking.pricingSnapshot?.unloadingCharge,
+        waitingMinutes: 0,
+        waitingReason: "",
+        waitingChargePerHour: booking.pricingSnapshot?.waitingChargePerHour,
+        extraDistanceKm: 0,
+        extraDistanceReason: "",
+        extraDistanceChargePerKm: booking.pricingSnapshot?.extraDistanceChargePerKm
+      });
+      booking.finalFare = booking.finalPricingSnapshot.finalFare;
+      if (booking.paymentMethod === "ONLINE") {
+        const settlement = await reconcileOnlineSettlement(booking);
+        if (settlement.refundDue > 0) {
+          await booking.save();
+          await initiateSettlementRefund(booking, settlement.refundDue);
+        }
+      } else {
+        booking.settlementStatus = "pending";
+      }
+    }
     await booking.save();
     await Driver.findByIdAndUpdate(driver._id, { $inc: { totalTrips: 1 } });
     if (booking.vehicle) await Vehicle.findByIdAndUpdate(booking.vehicle, { isAvailable: true });
 
-    await notifyCustomer(booking.customer, "Trip Completed", "Your trip has been completed", booking._id);
+    await notifyCustomer(
+      booking.customer,
+      "Trip Completed",
+      hasRequestedAdjustments
+        ? "Your delivery is complete. Review and approve the submitted waiting-time and extra-distance charges."
+        : "Your trip has been completed",
+      booking._id
+    );
     await notifyAdmins("Trip Completed", `Booking ${booking.bookingId} completed`, booking._id);
     emitBookingEvent(booking, "booking:completed");
 
     return successResponse(res, { booking }, "Completed");
   } catch (error) {
     return errorResponse(res, "Failed", 500);
+  }
+};
+
+export const approveTripAdjustments = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { approveWaiting, approveExtraDistance } = req.body || {};
+    if (!mongoose.Types.ObjectId.isValid(id)) return errorResponse(res, "Invalid booking ID", 400);
+    if (typeof approveWaiting !== "boolean" || typeof approveExtraDistance !== "boolean") {
+      return errorResponse(res, "Choose whether to approve each submitted adjustment", 400);
+    }
+
+    const currentBooking = await Booking.findOne({ _id: id, customer: req.user._id });
+    if (!currentBooking) return errorResponse(res, "Booking not found", 404);
+    if (
+      currentBooking.bookingStatus !== "completed" ||
+      currentBooking.postTripAdjustments?.status !== "awaiting_customer_approval"
+    ) {
+      return errorResponse(res, "No trip adjustments are awaiting your approval", 409);
+    }
+
+    const adjustments = currentBooking.postTripAdjustments;
+    const waitingApproved = adjustments.waitingMinutes > 0 && approveWaiting;
+    const extraDistanceApproved = adjustments.extraDistanceKm > 0 && approveExtraDistance;
+    const finalPricingSnapshot = calculateFinalPricingSnapshot({
+      estimatedFare: currentBooking.estimatedFare,
+      estimatedDistanceKm: Number(
+        currentBooking.distanceKm || currentBooking.pricingSnapshot?.distanceKm || 0
+      ),
+      actualDistanceKm: adjustments.actualDistanceProvided
+        ? adjustments.actualDistanceKm
+        : undefined,
+      recalculateDistance: Boolean(currentBooking.pricingSnapshot?.category),
+      distanceRatePerKm: currentBooking.pricingSnapshot?.ratePerKm,
+      minimumFare: currentBooking.pricingSnapshot?.minimumFare,
+      weightCharge: currentBooking.pricingSnapshot?.weightCharge,
+      loadingCharge: currentBooking.pricingSnapshot?.loadingCharge,
+      unloadingCharge: currentBooking.pricingSnapshot?.unloadingCharge,
+      waitingMinutes: waitingApproved ? adjustments.waitingMinutes : 0,
+      waitingReason: waitingApproved ? adjustments.waitingReason : "",
+      waitingChargePerHour: currentBooking.pricingSnapshot?.waitingChargePerHour,
+      extraDistanceKm: extraDistanceApproved ? adjustments.extraDistanceKm : 0,
+      extraDistanceReason: extraDistanceApproved ? adjustments.extraDistanceReason : "",
+      extraDistanceChargePerKm: currentBooking.pricingSnapshot?.extraDistanceChargePerKm
+    });
+    const booking = await Booking.findOneAndUpdate(
+      {
+        _id: id,
+        customer: req.user._id,
+        bookingStatus: "completed",
+        "postTripAdjustments.status": "awaiting_customer_approval",
+        finalPricingSnapshot: null
+      },
+      {
+        $set: {
+          "postTripAdjustments.waitingApproved": waitingApproved,
+          "postTripAdjustments.extraDistanceApproved": extraDistanceApproved,
+          "postTripAdjustments.customerReviewedAt": new Date(),
+          "postTripAdjustments.status": "reviewed",
+          finalPricingSnapshot,
+          finalFare: finalPricingSnapshot.finalFare
+        },
+        $push: {
+          paymentHistory: {
+            action: waitingApproved || extraDistanceApproved
+              ? "adjustment_approved"
+              : "adjustment_rejected",
+            paymentMethod: currentBooking.paymentMethod,
+            status: "reviewed",
+            amount: finalPricingSnapshot.adjustmentsTotal,
+            actor: req.user._id,
+            actorRole: "customer",
+            occurredAt: new Date()
+          }
+        }
+      },
+      { new: true, runValidators: true }
+    );
+    if (!booking) return errorResponse(res, "Trip adjustments were already reviewed", 409);
+
+    if (booking.paymentMethod === "ONLINE") {
+      booking.settlementStatus = "pending";
+      const settlement = await reconcileOnlineSettlement(booking);
+      if (settlement.refundDue > 0) {
+        await booking.save();
+        await initiateSettlementRefund(booking, settlement.refundDue);
+      }
+    } else {
+      booking.paymentStatus = "pending";
+      booking.settlementStatus = "pending";
+    }
+    await booking.save();
+
+    await notifyCustomer(
+      booking.customer,
+      "Final Fare Ready",
+      `The final fare for booking ${booking.bookingId} is ₹${booking.finalFare.toFixed(2)}.`,
+      booking._id
+    );
+    emitBookingEvent(booking, "booking:settlement_updated", booking.customer);
+    return successResponse(res, { booking }, "Trip adjustments reviewed and final fare calculated");
+  } catch (error) {
+    console.error("Approve trip adjustments error:", error?.message || error);
+    return errorResponse(res, error.message || "Failed to review trip adjustments", 500);
+  }
+};
+
+export const updateTripStage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { stage, deliveryProofUrl } = req.body || {};
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return errorResponse(res, "Invalid booking ID", 400);
+    }
+    if (
+      !["pickup_arrived", "loaded", "destination_arrived", "unloaded"].includes(stage)
+    ) {
+      return errorResponse(res, "Invalid delivery stage", 400);
+    }
+    if (deliveryProofUrl !== undefined && typeof deliveryProofUrl !== "string") {
+      return errorResponse(res, "Delivery proof must be a valid HTTPS URL", 400);
+    }
+    if (deliveryProofUrl) {
+      try {
+        if (new URL(deliveryProofUrl).protocol !== "https:") {
+          return errorResponse(res, "Delivery proof must be a valid HTTPS URL", 400);
+        }
+      } catch {
+        return errorResponse(res, "Delivery proof must be a valid HTTPS URL", 400);
+      }
+    }
+
+    const driver = await Driver.findOne({ user: req.user._id });
+    if (!driver) return errorResponse(res, "Driver profile not found", 404);
+    const booking = await Booking.findOne({ _id: id, driver: driver._id });
+    if (!booking) return errorResponse(res, "Booking not assigned to this driver", 403);
+
+    const stageDetails = {
+      pickup_arrived: {
+        field: "pickupArrivedAt",
+        requiredField: null,
+        bookingStatus: "accepted",
+        message: "Driver arrived at pickup"
+      },
+      loaded: {
+        field: "loadedAt",
+        requiredField: "pickupArrivedAt",
+        bookingStatus: "accepted",
+        message: "Goods loading confirmed"
+      },
+      destination_arrived: {
+        field: "destinationArrivedAt",
+        requiredField: "startedAt",
+        bookingStatus: "in-progress",
+        message: "Driver arrived at destination"
+      },
+      unloaded: {
+        field: "unloadedAt",
+        requiredField: "destinationArrivedAt",
+        bookingStatus: "in-progress",
+        message: "Goods unloading and delivery confirmed"
+      }
+    };
+    const details = stageDetails[stage];
+    if (booking[details.field]) {
+      return successResponse(res, { booking }, "Delivery stage already confirmed");
+    }
+    if (booking.bookingStatus !== details.bookingStatus) {
+      return errorResponse(res, "Delivery stage is not valid for the current booking status", 409);
+    }
+    if (details.requiredField && !booking[details.requiredField]) {
+      return errorResponse(res, "Complete the previous delivery stage first", 409);
+    }
+
+    const update = { [details.field]: new Date() };
+    if (stage === "unloaded" && deliveryProofUrl) {
+      update.deliveryProofUrl = deliveryProofUrl;
+    }
+    const updatedBooking = await Booking.findOneAndUpdate(
+      {
+        _id: booking._id,
+        driver: driver._id,
+        bookingStatus: details.bookingStatus,
+        [details.field]: null
+      },
+      { $set: update },
+      { new: true }
+    );
+    if (!updatedBooking) {
+      const currentBooking = await Booking.findOne({ _id: id, driver: driver._id });
+      if (currentBooking?.[details.field]) {
+        return successResponse(res, { booking: currentBooking }, "Delivery stage already confirmed");
+      }
+      return errorResponse(res, "Booking changed before the delivery stage could be confirmed", 409);
+    }
+
+    await notifyCustomer(
+      updatedBooking.customer,
+      details.message,
+      `Booking ${updatedBooking.bookingId}: ${details.message.toLowerCase()}.`,
+      updatedBooking._id
+    );
+    emitBookingEvent(updatedBooking, `booking:${stage}`);
+    return successResponse(res, { booking: updatedBooking }, details.message);
+  } catch (error) {
+    console.error("Update trip stage error:", error);
+    return errorResponse(res, "Failed to update delivery stage", 500);
   }
 };
 
@@ -1044,11 +1461,135 @@ export const adminGetBookingById = async (req, res) => {
       .populate("vehicle", "vehicleNumber vehicleModel vehicleType loadCapacity bodyType documents.registration.status documents.insurance.status")
       .populate("assignmentHistory.actor", "name role");
     if (!booking) return errorResponse(res, "Not found", 404);
-    const payment = await Payment.findOne({ booking: booking._id })
-      .select("amount method provider orderId transactionId status paidAt refundAmount refundId refundedAt createdAt")
+    const payments = await Payment.find({ booking: booking._id })
+      .select("amount method paymentPurpose provider orderId transactionId status paidAt refundAmount refundId refundStatus refundInitiatedAt refundedAt createdAt")
+      .sort({ createdAt: 1 })
       .lean();
-    return successResponse(res, { booking, payment }, "Fetched");
+    return successResponse(res, { booking, payment: payments[payments.length - 1] || null, payments }, "Fetched");
   } catch (error) {
     return errorResponse(res, "Failed", 500);
+  }
+};
+
+export const uploadDeliveryProof = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return errorResponse(res, "Invalid booking ID", 400);
+    }
+    const file = req.file || req.files?.proof?.[0] || req.files?.deliveryProof?.[0] || req.files?.image?.[0];
+    if (!file) {
+      return errorResponse(res, "A delivery proof image is required", 400);
+    }
+
+    const mimeType = String(file.mimetype || "").toLowerCase();
+    const allowedMimeTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!allowedMimeTypes.includes(mimeType)) {
+      return errorResponse(res, "Invalid file type. Only JPEG, PNG, and WebP images are allowed.", 400);
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      return errorResponse(res, "File size exceeds the maximum limit of 5MB", 400);
+    }
+
+    const driver = await Driver.findOne({ user: req.user._id });
+    if (!driver) {
+      return errorResponse(res, "Driver profile not found", 404);
+    }
+
+    const booking = await Booking.findOne({ _id: id, driver: driver._id });
+    if (!booking) {
+      return errorResponse(res, "Booking not assigned to this driver", 403);
+    }
+
+    if (!["accepted", "in-progress", "completed"].includes(booking.bookingStatus)) {
+      return errorResponse(res, "Cannot upload delivery proof for this booking state", 409);
+    }
+
+    if (!env.cloudinary.apiKey || !env.cloudinary.apiSecret || !env.cloudinary.cloudName) {
+      return errorResponse(res, "Image upload service is not configured", 503);
+    }
+
+    const uploadMimeType = mimeType === "image/jpg" ? "image/jpeg" : mimeType;
+    const b64 = Buffer.from(file.buffer).toString("base64");
+    const dataURI = "data:" + uploadMimeType + ";base64," + b64;
+
+    const result = await cloudinary.uploader.upload(dataURI, {
+      folder: "loadbalbin_delivery_proofs",
+      resource_type: "image"
+    });
+
+    const proofData = {
+      url: result.secure_url,
+      publicId: result.public_id,
+      uploadedAt: new Date(),
+      uploadedBy: req.user._id
+    };
+
+    booking.deliveryProofUrl = result.secure_url;
+    booking.deliveryProof = proofData;
+    booking.markModified("deliveryProof");
+    await booking.save();
+
+    emitToBooking(booking._id, "delivery_proof_uploaded", {
+      bookingId: booking._id,
+      deliveryProofUrl: result.secure_url,
+      uploadedAt: proofData.uploadedAt
+    });
+
+    return successResponse(res, {
+      deliveryProofUrl: result.secure_url,
+      deliveryProof: proofData
+    }, "Delivery proof uploaded successfully", 201);
+  } catch (error) {
+    console.error("Upload delivery proof error:", error);
+    return errorResponse(res, "Failed to upload delivery proof", 500);
+  }
+};
+
+export const getDeliveryProof = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return errorResponse(res, "Invalid booking ID", 400);
+    }
+
+    const booking = await Booking.findById(id);
+    if (!booking) {
+      return errorResponse(res, "Booking not found", 404);
+    }
+
+    const isCustomer = req.user.role === "customer" && String(booking.customer) === String(req.user._id);
+    const isAdmin = req.user.role === "admin";
+    let isDriver = false;
+    let isAgency = false;
+
+    if (req.user.role === "driver") {
+      const driver = await Driver.findOne({ user: req.user._id });
+      isDriver = Boolean(driver && String(booking.driver) === String(driver._id));
+    }
+    if (req.user.role === "agency") {
+      const agency = await Agency.findOne({ owner: req.user._id });
+      isAgency = Boolean(agency && String(booking.agency) === String(agency._id));
+    }
+
+    if (!isAdmin && !isCustomer && !isDriver && !isAgency) {
+      return errorResponse(res, "You are not authorized to view this delivery proof", 403);
+    }
+
+    const proofUrl = booking.deliveryProofUrl || booking.deliveryProof?.url;
+    if (!proofUrl) {
+      return errorResponse(res, "No delivery proof uploaded for this booking", 404);
+    }
+
+    return successResponse(res, {
+      bookingId: booking._id,
+      bookingNumber: booking.bookingNumber,
+      deliveryProofUrl: proofUrl,
+      deliveryProof: booking.deliveryProof || { url: proofUrl },
+      unloadedAt: booking.unloadedAt
+    }, "Delivery proof fetched successfully");
+  } catch (error) {
+    console.error("Get delivery proof error:", error);
+    return errorResponse(res, "Failed to fetch delivery proof", 500);
   }
 };

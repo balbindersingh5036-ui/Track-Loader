@@ -1,8 +1,8 @@
 import api from "./api";
 
 export const paymentService = {
-  async createOrder(bookingId) {
-    const { data } = await api.post("/payments/create-order", { bookingId });
+  async createOrder(bookingId, paymentPurpose = "initial") {
+    const { data } = await api.post("/payments/create-order", { bookingId, paymentPurpose });
     return data.data;
   },
   async verifyPayment(details) {

@@ -1,4 +1,61 @@
 import mongoose from "mongoose";
+import {
+  isValidCategoryVehicleType,
+  SERVICE_CATEGORIES,
+  VEHICLE_TYPES
+} from "../utils/vehicleCategories.js";
+
+const pricingSnapshotSchema = new mongoose.Schema({
+  category: { type: String, default: "" },
+  ratePerKm: { type: Number, default: 0 },
+  ratePerTon: { type: Number, default: 0 },
+  minimumFare: { type: Number, default: 0 },
+  loadingChargeRate: { type: Number, default: 0 },
+  unloadingChargeRate: { type: Number, default: 0 },
+  waitingChargePerHour: { type: Number, default: 0 },
+  extraDistanceChargePerKm: { type: Number, default: 0 },
+  loadingCharge: { type: Number, default: 0 },
+  unloadingCharge: { type: Number, default: 0 },
+  waitingMinutes: { type: Number, default: 0 },
+  waitingCharge: { type: Number, default: 0 },
+  extraDistanceKm: { type: Number, default: 0 },
+  extraDistanceCharge: { type: Number, default: 0 },
+  distanceKm: { type: Number, default: 0 },
+  distanceMeters: { type: Number, default: 0 },
+  cargoWeightKg: { type: Number, default: 0 },
+  weightInTon: { type: Number, default: 0 },
+  distanceCharge: { type: Number, default: 0 },
+  weightCharge: { type: Number, default: 0 },
+  calculatedFare: { type: Number, default: 0 },
+  finalFare: { type: Number, default: 0 },
+  durationSeconds: { type: Number, default: 0 },
+  routingProfile: { type: String, default: "driving-hgv" },
+  calculatedAt: { type: Date, default: Date.now }
+}, { _id: false, strict: true });
+
+const finalPricingSnapshotSchema = new mongoose.Schema({
+  estimatedFare: { type: Number, required: true, min: 0 },
+  estimatedDistanceKm: { type: Number, default: 0, min: 0 },
+  actualDistanceKm: { type: Number, default: 0, min: 0 },
+  distanceRatePerKm: { type: Number, default: 0, min: 0 },
+  distanceCharge: { type: Number, default: 0, min: 0 },
+  minimumFare: { type: Number, default: 0, min: 0 },
+  weightCharge: { type: Number, default: 0, min: 0 },
+  loadingCharge: { type: Number, default: 0, min: 0 },
+  unloadingCharge: { type: Number, default: 0, min: 0 },
+  baseFare: { type: Number, default: 0, min: 0 },
+  waitingMinutes: { type: Number, default: 0, min: 0 },
+  waitingReason: { type: String, default: "" },
+  waitingChargePerHour: { type: Number, default: 0, min: 0 },
+  waitingCharge: { type: Number, default: 0, min: 0 },
+  extraDistanceKm: { type: Number, default: 0, min: 0 },
+  extraDistanceReason: { type: String, default: "" },
+  extraDistanceChargePerKm: { type: Number, default: 0, min: 0 },
+  extraDistanceCharge: { type: Number, default: 0, min: 0 },
+  adjustmentsTotal: { type: Number, default: 0, min: 0 },
+  finalFare: { type: Number, required: true, min: 0 },
+  calculatedAt: { type: Date, required: true }
+}, { _id: false, strict: true });
 
 const bookingSchema = new mongoose.Schema(
   {
@@ -34,6 +91,13 @@ const bookingSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Vehicle",
       default: null
+    },
+
+    serviceCategory: {
+      type: String,
+      enum: Object.values(SERVICE_CATEGORIES),
+      default: SERVICE_CATEGORIES.TRUCK,
+      index: true
     },
 
     vehicleModel: {
@@ -96,27 +160,110 @@ const bookingSchema = new mongoose.Schema(
     },
 
     pricingSnapshot: {
-      category: { type: String, default: "" },
-      ratePerKm: { type: Number, default: 0 },
-      ratePerTon: { type: Number, default: 0 },
-      minimumFare: { type: Number, default: 0 },
-      distanceKm: { type: Number, default: 0 },
-      distanceMeters: { type: Number, default: 0 },
-      cargoWeightKg: { type: Number, default: 0 },
-      weightInTon: { type: Number, default: 0 },
-      distanceCharge: { type: Number, default: 0 },
-      weightCharge: { type: Number, default: 0 },
-      calculatedFare: { type: Number, default: 0 },
-      finalFare: { type: Number, default: 0 },
-      durationSeconds: { type: Number, default: 0 },
-      routingProfile: { type: String, default: "driving-hgv" },
-      calculatedAt: { type: Date, default: Date.now }
+      type: pricingSnapshotSchema,
+      default: () => ({}),
+      immutable: true
+    },
+
+    finalPricingSnapshot: {
+      type: finalPricingSnapshotSchema,
+      default: null
+    },
+
+    postTripAdjustments: {
+      waitingMinutes: { type: Number, default: 0, min: 0 },
+      waitingReason: {
+        type: String,
+        enum: ["", "customer_requested", "customer_unavailable"],
+        default: ""
+      },
+      actualDistanceKm: { type: Number, default: 0, min: 0 },
+      actualDistanceProvided: { type: Boolean, default: false },
+      extraDistanceKm: { type: Number, default: 0, min: 0 },
+      extraDistanceReason: { type: String, default: "", trim: true, maxlength: 300 },
+      waitingApproved: { type: Boolean, default: false },
+      extraDistanceApproved: { type: Boolean, default: false },
+      status: {
+        type: String,
+        enum: ["not_required", "awaiting_customer_approval", "reviewed"],
+        default: "not_required"
+      },
+      driverSubmittedAt: { type: Date, default: null },
+      customerReviewedAt: { type: Date, default: null }
+    },
+
+    settlementStatus: {
+      type: String,
+      enum: ["pending", "awaiting_customer_approval", "pending_payment", "pending_refund", "settled", "refund_failed"],
+      default: "pending",
+      index: true
     },
 
     goods: {
       type: String,
       required: true,
       trim: true
+    },
+
+    quantity: {
+      type: Number,
+      min: 0,
+      default: 1
+    },
+
+    loadingRequired: {
+      type: Boolean,
+      default: false
+    },
+
+    unloadingRequired: {
+      type: Boolean,
+      default: false
+    },
+
+    loadingInstructions: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+
+    unloadingInstructions: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+
+    deliveryProofUrl: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+
+    deliveryProof: {
+      url: { type: String, default: "" },
+      publicId: { type: String, default: "" },
+      uploadedAt: { type: Date, default: null },
+      uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null }
+    },
+
+    pickupArrivedAt: {
+      type: Date,
+      default: null
+    },
+
+    loadedAt: {
+      type: Date,
+      default: null
+    },
+
+    destinationArrivedAt: {
+      type: Date,
+      default: null
+    },
+
+    unloadedAt: {
+      type: Date,
+      default: null
     },
 
     weight: {
@@ -145,13 +292,7 @@ const bookingSchema = new mongoose.Schema(
 
     vehicleType: {
       type: String,
-      enum: [
-        "mini-truck",
-        "pickup",
-        "small-truck",
-        "medium-truck",
-        "large-truck"
-      ],
+      enum: VEHICLE_TYPES,
       required: true,
       index: true
     },
@@ -159,7 +300,8 @@ const bookingSchema = new mongoose.Schema(
     estimatedFare: {
       type: Number,
       required: true,
-      min: 0
+      min: 0,
+      immutable: true
     },
 
     finalFare: {
@@ -180,6 +322,8 @@ const bookingSchema = new mongoose.Schema(
       type: String,
       enum: [
         "pending",
+        "partially_paid",
+        "refund_pending",
         "paid",
         "failed",
         "refunded",
@@ -209,7 +353,19 @@ const bookingSchema = new mongoose.Schema(
     paymentHistory: [{
       action: {
         type: String,
-        enum: ["initiated", "method_changed", "order_created", "paid", "cash_collected", "failed", "refunded"],
+        enum: [
+        "initiated",
+        "method_changed",
+        "order_created",
+        "paid",
+        "cash_collected",
+        "failed",
+        "refunded",
+        "adjustment_approved",
+        "adjustment_rejected",
+        "refund_initiated",
+        "settlement_updated"
+        ],
         required: true
       },
       paymentMethod: {
@@ -341,6 +497,12 @@ const bookingSchema = new mongoose.Schema(
     timestamps: true
   }
 );
+
+bookingSchema.pre("validate", function validateCategoryVehicleType() {
+  if (!isValidCategoryVehicleType(this.serviceCategory, this.vehicleType)) {
+    this.invalidate("vehicleType", "Vehicle type does not belong to the selected service category");
+  }
+});
 
 const Booking = mongoose.model("Booking", bookingSchema);
 

@@ -9,6 +9,13 @@ const paymentSchema = new mongoose.Schema(
       index: true
     },
 
+    paymentPurpose: {
+      type: String,
+      enum: ["initial", "balance"],
+      default: "initial",
+      index: true
+    },
+
     customer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

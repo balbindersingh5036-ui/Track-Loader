@@ -1,4 +1,9 @@
 import mongoose from "mongoose";
+import {
+  isValidCategoryVehicleType,
+  SERVICE_CATEGORIES,
+  VEHICLE_TYPES
+} from "../utils/vehicleCategories.js";
 
 const vehicleDocumentSchema = new mongoose.Schema(
   {
@@ -66,15 +71,45 @@ const vehicleSchema = new mongoose.Schema(
 
     vehicleType: {
       type: String,
-      enum: [
-        "mini-truck",
-        "pickup",
-        "small-truck",
-        "medium-truck",
-        "large-truck"
-      ],
+      enum: VEHICLE_TYPES,
       required: true,
       index: true
+    },
+
+    serviceCategory: {
+      type: String,
+      enum: Object.values(SERVICE_CATEGORIES),
+      default: SERVICE_CATEGORIES.TRUCK,
+      index: true
+    },
+
+    fuelType: {
+      type: String,
+      enum: ["petrol", "diesel", "cng", "electric"],
+      default: null
+    },
+
+    dimensions: {
+      lengthCm: { type: Number, min: 0, default: null },
+      widthCm: { type: Number, min: 0, default: null },
+      heightCm: { type: Number, min: 0, default: null }
+    },
+
+    batteryRangeKm: {
+      type: Number,
+      min: 0,
+      default: null
+    },
+
+    chargingInformation: {
+      type: String,
+      trim: true,
+      default: ""
+    },
+
+    serviceAreas: {
+      type: [{ type: String, trim: true }],
+      default: []
     },
 
     loadCapacity: {
@@ -144,6 +179,29 @@ const vehicleSchema = new mongoose.Schema(
     timestamps: true
   }
 );
+
+vehicleSchema.pre("validate", function validateCategoryVehicleType() {
+  if (!isValidCategoryVehicleType(this.serviceCategory, this.vehicleType)) {
+    this.invalidate("vehicleType", "Vehicle type does not belong to the selected service category");
+  }
+  if (this.serviceCategory === SERVICE_CATEGORIES.EV_GOODS && this.fuelType !== "electric") {
+    this.invalidate("fuelType", "EV Goods vehicles must use electric power");
+  }
+  if (this.serviceCategory === SERVICE_CATEGORIES.EV_GOODS) {
+    if (!Number.isFinite(this.batteryRangeKm) || this.batteryRangeKm <= 0) {
+      this.invalidate("batteryRangeKm", "EV Goods vehicles need a positive battery range");
+    }
+    if (!this.chargingInformation?.trim()) {
+      this.invalidate("chargingInformation", "EV Goods vehicles need charging information");
+    }
+  }
+  if (
+    this.serviceCategory === SERVICE_CATEGORIES.GOODS_TAXI &&
+    !this.fuelType
+  ) {
+    this.invalidate("fuelType", "Goods Taxi vehicles need a supported fuel type");
+  }
+});
 
 vehicleSchema.index(
   { driver: 1 },

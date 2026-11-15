@@ -382,9 +382,10 @@ test("Super Admin booking routes expose reads only and details include lifecycle
     };
     return chain;
   });
-  t.mock.method(Payment, "findOne", () => ({
+  t.mock.method(Payment, "find", () => ({
     select() { return this; },
-    lean() { return Promise.resolve(null); }
+    sort() { return this; },
+    lean() { return Promise.resolve([]); }
   }));
   const res = response();
   await adminGetBookingById({ params: { id: bookingId } }, res);

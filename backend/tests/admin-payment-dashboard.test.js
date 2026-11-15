@@ -178,7 +178,7 @@ test("admin payment detail resolves safe customer, booking, and refund fields", 
   await getAdminPaymentById({ params: { id: paymentId } }, res);
   assert.equal(res.statusCode, 200);
   assert.deepEqual(detailQuery.populated, [
-    ["booking", "bookingId pickup drop bookingMode vehicleType estimatedFare finalFare bookingStatus paymentStatus preferredPickupDate preferredPickupTime createdAt"],
+    ["booking", "bookingId pickup drop bookingMode serviceCategory vehicleType estimatedFare finalFare pricingSnapshot finalPricingSnapshot postTripAdjustments settlementStatus paymentHistory bookingStatus paymentStatus preferredPickupDate preferredPickupTime createdAt"],
     ["customer", "name phone email"]
   ]);
   assert.equal(res.body.data.payment.customer.id, customerObjectId);
@@ -294,8 +294,8 @@ test("refund response outcomes persist provider state without overstating pendin
 
 test("signed refund webhooks complete pending refunds and preserve failed payment state", async (t) => {
   for (const [eventName, initial, expected] of [
-    ["refund.processed", { status: "success", refundStatus: "pending", refundAmount: 500 }, { status: "refunded", refundStatus: "processed", refundAmount: 500 }],
-    ["refund.failed", { status: "success", refundStatus: "pending", refundAmount: 500 }, { status: "success", refundStatus: "failed", refundAmount: 0 }]
+    ["refund.processed", { status: "success", refundStatus: "pending", amount: 500, refundAmount: 500 }, { status: "refunded", refundStatus: "processed", refundAmount: 500 }],
+    ["refund.failed", { status: "success", refundStatus: "pending", amount: 500, refundAmount: 500 }, { status: "success", refundStatus: "failed", refundAmount: 0 }]
   ]) {
     const payment = {
       ...initial,
@@ -306,7 +306,13 @@ test("signed refund webhooks complete pending refunds and preserve failed paymen
       async save() { this.saved = true; }
     };
     t.mock.method(Payment, "findOne", async (filter) => {
-      assert.deepEqual(filter, { transactionId: "pay_actual", refundId: "rfnd_actual" });
+      assert.deepEqual(filter, {
+        transactionId: "pay_actual",
+        $or: [
+          { refundId: "rfnd_actual" },
+          { refundStatus: "pending" }
+        ]
+      });
       return payment;
     });
     const body = {

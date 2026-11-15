@@ -81,6 +81,7 @@ export default function BookingDetails() {
   const navigate = useNavigate();
   const [booking, setBooking] = useState(null);
   const [payment, setPayment] = useState(null);
+  const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -95,6 +96,7 @@ export default function BookingDetails() {
       if (!data?.booking) throw new Error('The booking API did not return this booking.');
       setBooking(data.booking);
       setPayment(data.payment || null);
+      setPayments(data.payments || (data.payment ? [data.payment] : []));
     } catch (requestError) {
       setError(requestError.response?.data?.message || requestError.message || 'Unable to load booking details.');
     } finally {
@@ -233,6 +235,34 @@ export default function BookingDetails() {
           </div>
         </BookingCard>
 
+        {(booking.deliveryProofUrl || booking.deliveryProof?.url) && (
+          <BookingCard title="Delivery Proof" icon={Check}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <a
+                href={booking.deliveryProofUrl || booking.deliveryProof?.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ display: 'inline-block' }}
+              >
+                <img
+                  src={booking.deliveryProofUrl || booking.deliveryProof?.url}
+                  alt="Delivery Proof"
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '260px',
+                    borderRadius: '8px',
+                    objectFit: 'contain',
+                    border: '1px solid var(--border-color, #273549)'
+                  }}
+                />
+              </a>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary, #94a3b8)' }}>
+                {booking.unloadedAt ? `Delivered & Unloaded: ${formatTimestamp(booking.unloadedAt)}` : 'Delivery proof attached by driver'}
+              </div>
+            </div>
+          </BookingCard>
+        )}
+
         <BookingCard title="Fare and payment" icon={Wallet} className="booking-finance-card">
           <div className="booking-fare-highlight">
             <span>Estimated fare</span>
@@ -260,7 +290,18 @@ export default function BookingDetails() {
           </div>
           {payment?.provider && <div className="booking-payment-provider"><CreditCard size={14} /> Provider: {payment.provider}</div>}
 
-          {booking.paymentMethod === 'COD' && booking.paymentStatus !== 'paid' && booking.bookingStatus !== 'cancelled' && (
+          {payments.map((entry) => (
+            <div key={entry._id || `${entry.paymentPurpose}-${entry.createdAt}`} className="booking-payment-provider">
+              <span>{titleCase(entry.paymentPurpose || 'initial')} · {titleCase(entry.method)} · {titleCase(entry.status)}</span>
+              <span>{formatMoney(entry.amount)}</span>
+              {entry.refundAmount > 0 ? <span>Refund {titleCase(entry.refundStatus)} · {formatMoney(entry.refundAmount)}</span> : null}
+              <span>{entry.transactionId || entry.orderId || 'No gateway reference'}</span>
+            </div>
+          ))}
+          {booking.paymentMethod === 'COD' &&
+            booking.paymentStatus !== 'paid' &&
+            booking.bookingStatus === 'completed' &&
+            booking.finalPricingSnapshot && (
             <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color, #273549)' }}>
               <button
                 type="button"

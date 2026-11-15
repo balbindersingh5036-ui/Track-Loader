@@ -177,6 +177,7 @@ export default function PaymentDetails() {
           </div>
           <div className="payment-detail-fields">
             <DetailField label="Payment method">{titleCase(payment.method)}</DetailField>
+            <DetailField label="Payment purpose">{titleCase(payment.paymentPurpose || 'initial')}</DetailField>
             <DetailField label="Payment provider">{payment.provider ? titleCase(payment.provider) : null}</DetailField>
             <DetailField label="Booking reference">{booking?.bookingId || (typeof payment.bookingId === 'string' ? payment.bookingId : null)}</DetailField>
           </div>
@@ -202,8 +203,27 @@ export default function PaymentDetails() {
                 <DetailField label="Drop" wide>{booking.drop?.address}</DetailField>
                 <DetailField label="Booking mode">{titleCase(booking.bookingMode)}</DetailField>
                 <DetailField label="Vehicle category">{titleCase(booking.vehicleType)}</DetailField>
+                <DetailField label="Service category">{titleCase(booking.serviceCategory)}</DetailField>
                 <DetailField label="Estimated fare">{booking.estimatedFare === null || booking.estimatedFare === undefined ? null : formatMoney(booking.estimatedFare)}</DetailField>
                 <DetailField label="Final fare">{booking.finalFare === null || booking.finalFare === undefined ? null : formatMoney(booking.finalFare)}</DetailField>
+                <DetailField label="Settlement status">{titleCase(booking.settlementStatus)}</DetailField>
+                <DetailField label="Estimated waiting / extra-distance rates" wide>
+                  {booking.pricingSnapshot
+                    ? `${formatMoney(booking.pricingSnapshot.waitingChargePerHour || 0)} / hour · ${formatMoney(booking.pricingSnapshot.extraDistanceChargePerKm || 0)} / km`
+                    : null}
+                </DetailField>
+                {booking.finalPricingSnapshot ? (
+                  <>
+                    <DetailField label="Final waiting">{`${booking.finalPricingSnapshot.waitingMinutes} min · ${formatMoney(booking.finalPricingSnapshot.waitingCharge)}`}</DetailField>
+                    <DetailField label="Final extra distance">{`${booking.finalPricingSnapshot.extraDistanceKm} km · ${formatMoney(booking.finalPricingSnapshot.extraDistanceCharge)}`}</DetailField>
+                    <DetailField label="Final adjustment total">{formatMoney(booking.finalPricingSnapshot.adjustmentsTotal)}</DetailField>
+                  </>
+                ) : null}
+                {booking.postTripAdjustments?.status === 'awaiting_customer_approval' ? (
+                  <DetailField label="Submitted adjustments" wide>
+                    {`${booking.postTripAdjustments.waitingMinutes} waiting min (${booking.postTripAdjustments.waitingReason}) · ${booking.postTripAdjustments.extraDistanceKm} extra km (${booking.postTripAdjustments.extraDistanceReason || 'no reason'})`}
+                  </DetailField>
+                ) : null}
                 <DetailField label="Scheduled pickup" wide>
                   {booking.preferredPickupDate ? `${formatPaymentDate(booking.preferredPickupDate)}${booking.preferredPickupTime ? ` · ${booking.preferredPickupTime}` : ''}` : null}
                 </DetailField>
@@ -245,9 +265,27 @@ export default function PaymentDetails() {
           <div className="payment-breakdown">
             <div><span>Estimated booking fare</span><strong>{booking?.estimatedFare === null || booking?.estimatedFare === undefined ? 'Not available' : formatMoney(booking.estimatedFare)}</strong></div>
             <div><span>Final booking fare</span><strong>{booking?.finalFare === null || booking?.finalFare === undefined ? 'Not available' : formatMoney(booking.finalFare)}</strong></div>
+            <div><span>Payment purpose</span><strong>{titleCase(payment.paymentPurpose || 'initial')}</strong></div>
+            {booking?.finalPricingSnapshot ? (
+              <>
+                <div><span>Approved waiting charge</span><strong>{formatMoney(booking.finalPricingSnapshot.waitingCharge)}</strong></div>
+                <div><span>Approved extra-distance charge</span><strong>{formatMoney(booking.finalPricingSnapshot.extraDistanceCharge)}</strong></div>
+                <div><span>Adjustment total</span><strong>{formatMoney(booking.finalPricingSnapshot.adjustmentsTotal)}</strong></div>
+              </>
+            ) : null}
             <div><span>Actual payment amount</span><strong>{formatMoney(payment.amount)}</strong></div>
             <div><span>{payment.refundStatus === 'pending' ? 'Requested refund amount' : 'Processed amount refunded'}</span><strong>{payment.refundAmount === null || payment.refundAmount === undefined ? 'Not available' : formatMoney(payment.refundAmount)}</strong></div>
-            <p>Separate tax, discount, surcharge and settlement breakdowns are not stored in the current payment record.</p>
+            {booking?.paymentHistory?.length ? (
+              <div>
+                <strong>Settlement audit trail</strong>
+                {booking.paymentHistory.map((entry, index) => (
+                  <div key={`${entry.action}-${entry.occurredAt || index}`}>
+                    <span>{titleCase(entry.action)} · {titleCase(entry.status)} · {formatPaymentDate(entry.occurredAt)}</span>
+                    <strong>{formatMoney(entry.amount || 0)}{entry.notes ? ` · ${entry.notes}` : ''}</strong>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
         </DetailCard>
       </div>

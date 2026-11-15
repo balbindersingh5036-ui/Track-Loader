@@ -270,6 +270,10 @@ export default function App() {
   const [changeAgencySubmitting, setChangeAgencySubmitting] = useState(false);
   const [changeAgencyError, setChangeAgencyError] = useState('');
   const [selectedTripDetails, setSelectedTripDetails] = useState(null);
+  const [completionWaitingMinutes, setCompletionWaitingMinutes] = useState('');
+  const [completionWaitingReason, setCompletionWaitingReason] = useState('');
+  const [completionActualDistanceKm, setCompletionActualDistanceKm] = useState('');
+  const [completionExtraDistanceReason, setCompletionExtraDistanceReason] = useState('');
   const [tripFilter, setTripFilter] = useState('all');
   const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
   const [driverRatingsData, setDriverRatingsData] = useState(null);
@@ -485,7 +489,7 @@ export default function App() {
     return () => activeBookingIds.forEach((bookingId) => leaveBookingRoom(bookingId));
   }, [activeTab, trips]);
 
-  const runAction = async (action, booking) => {
+  const runAction = async (action, booking, actionData = {}) => {
     if (actionLoadingId) return;
     setError('');
     setNotice('');
@@ -495,13 +499,27 @@ export default function App() {
       if (action === 'accept') await bookingService.acceptBooking(id);
       if (action === 'reject') await bookingService.rejectBooking(id, 'Driver declined the request.');
       if (action === 'start') await bookingService.startTrip(id);
-      if (action === 'complete') await bookingService.completeTrip(id);
+      if (action === 'complete') await bookingService.completeTrip(id, actionData);
+      if (['pickup_arrived', 'loaded', 'destination_arrived', 'unloaded'].includes(action)) {
+        await bookingService.updateTripStage(id, action);
+      }
       if (action === 'collect-cash') await bookingService.confirmCashCollection(id, 'Cash collected by driver');
       if (action === 'accept') joinBookingRoom(id);
-      setNotice(`Booking ${action === 'start' ? 'trip started' : action === 'complete' ? 'completed' : action === 'collect-cash' ? 'cash collection confirmed' : `${action}ed`}.`);
+      const actionMessages = {
+        start: 'trip started',
+        complete: 'completed',
+        'collect-cash': 'cash collection confirmed',
+        pickup_arrived: 'pickup arrival confirmed',
+        loaded: 'loading confirmed',
+        destination_arrived: 'destination arrival confirmed',
+        unloaded: 'delivery confirmed'
+      };
+      setNotice(`Booking ${actionMessages[action] || `${action}ed`}.`);
       setRefreshKey((key) => key + 1);
+      return true;
     } catch (actionError) {
       setError(messageFor(actionError));
+      return false;
     } finally {
       setActionLoadingId(null);
     }
@@ -1108,6 +1126,24 @@ export default function App() {
               const activeTrip = trips.find((t) => ['accepted', 'in-progress'].includes(t.bookingStatus));
               if (!activeTrip) return null;
               const isInProgress = activeTrip.bookingStatus === 'in-progress';
+              const hasGoodsStages = ['EV_GOODS', 'GOODS_TAXI'].includes(activeTrip.serviceCategory);
+              const nextGoodsStage = hasGoodsStages
+                ? (!activeTrip.pickupArrivedAt
+                  ? 'pickup_arrived'
+                  : !activeTrip.loadedAt
+                    ? 'loaded'
+                    : isInProgress && !activeTrip.destinationArrivedAt
+                      ? 'destination_arrived'
+                      : isInProgress && !activeTrip.unloadedAt
+                        ? 'unloaded'
+                        : null)
+                : null;
+              const stageLabels = {
+                pickup_arrived: 'Confirm Pickup Arrival',
+                loaded: 'Confirm Loading',
+                destination_arrived: 'Confirm Destination Arrival',
+                unloaded: 'Confirm Unloading / Delivery'
+              };
               const isCOD = (activeTrip.paymentMethod || 'COD') === 'COD';
               const isPaid = activeTrip.paymentStatus === 'paid';
 
@@ -1179,7 +1215,15 @@ export default function App() {
 
                     {/* Action Buttons */}
                     <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-                      {!isInProgress ? (
+                      {nextGoodsStage ? (
+                        <ActionButton
+                          label={actionLoadingId === activeTrip._id ? 'Updating…' : stageLabels[nextGoodsStage]}
+                          disabled={actionLoadingId === activeTrip._id}
+                          onPress={() => runAction(nextGoodsStage, activeTrip)}
+                          style={{ flex: 1, backgroundColor: colors.teal, borderColor: colors.teal }}
+                          textStyle={{ color: '#000' }}
+                        />
+                      ) : !isInProgress ? (
                         <ActionButton
                           label={actionLoadingId === activeTrip._id ? 'Starting…' : 'Start Trip'}
                           disabled={actionLoadingId === activeTrip._id}
@@ -2029,7 +2073,13 @@ export default function App() {
                         fontWeight: '800',
                         textTransform: 'uppercase'
                       }}>
-                        {selectedTripDetails.paymentStatus === 'paid' ? 'PAID' : 'PAYMENT PENDING'}
+                        {selectedTripDetails.paymentStatus === 'paid'
+                          ? 'PAID'
+                          : selectedTripDetails.paymentStatus === 'partially_paid'
+                            ? 'PARTIALLY PAID'
+                            : selectedTripDetails.paymentStatus === 'refund_pending'
+                              ? 'REFUND PENDING'
+                              : 'PAYMENT PENDING'}
                       </Text>
                     </View>
                     <Text style={{ color: colors.muted, fontSize: 11, textTransform: 'capitalize' }}>
@@ -2102,8 +2152,22 @@ export default function App() {
                 <View style={{ backgroundColor: colors.card, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, gap: 6 }}>
                   <Text style={sectionTitle}>CARGO SPECIFICATIONS</Text>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={mutedText}>Service:</Text>
+                    <Text style={[bodyText, { fontSize: 12 }]}>
+                      {selectedTripDetails.serviceCategory === 'EV_GOODS'
+                        ? 'EV Goods Transport'
+                        : selectedTripDetails.serviceCategory === 'GOODS_TAXI'
+                          ? 'Goods Taxi Transport'
+                          : 'Truck'}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                     <Text style={mutedText}>Goods / Material:</Text>
                     <Text style={[bodyText, { fontSize: 12 }]}>{selectedTripDetails.goods || 'General Cargo'}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={mutedText}>Quantity:</Text>
+                    <Text style={[bodyText, { fontSize: 12 }]}>{selectedTripDetails.quantity ?? 1}</Text>
                   </View>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                     <Text style={mutedText}>Weight:</Text>
@@ -2118,6 +2182,12 @@ export default function App() {
                       <Text style={mutedText}>Assigned Vehicle:</Text>
                       <Text style={[bodyText, { fontSize: 12 }]}>{selectedTripDetails.vehicle.vehicleNumber || selectedTripDetails.vehicle.vehicleModel}</Text>
                     </View>
+                  ) : null}
+                  {selectedTripDetails.loadingRequired ? (
+                    <Text style={mutedText}>Loading: {selectedTripDetails.loadingInstructions || 'Assistance requested'}</Text>
+                  ) : null}
+                  {selectedTripDetails.unloadingRequired ? (
+                    <Text style={mutedText}>Unloading: {selectedTripDetails.unloadingInstructions || 'Assistance requested'}</Text>
                   ) : null}
                 </View>
 
@@ -2147,7 +2217,35 @@ export default function App() {
                     </View>
                   )}
 
-                  {selectedTripDetails.bookingStatus === 'accepted' && (
+                  {selectedTripDetails.bookingStatus === 'accepted' &&
+                    ['EV_GOODS', 'GOODS_TAXI'].includes(selectedTripDetails.serviceCategory) &&
+                    !selectedTripDetails.pickupArrivedAt && (
+                    <ActionButton
+                      label="Confirm Pickup Arrival"
+                      disabled={Boolean(actionLoadingId)}
+                      onPress={async () => {
+                        await runAction('pickup_arrived', selectedTripDetails);
+                        setSelectedTripDetails(null);
+                      }}
+                    />
+                  )}
+
+                  {selectedTripDetails.bookingStatus === 'accepted' &&
+                    ['EV_GOODS', 'GOODS_TAXI'].includes(selectedTripDetails.serviceCategory) &&
+                    selectedTripDetails.pickupArrivedAt && !selectedTripDetails.loadedAt && (
+                    <ActionButton
+                      label="Confirm Loading"
+                      disabled={Boolean(actionLoadingId)}
+                      onPress={async () => {
+                        await runAction('loaded', selectedTripDetails);
+                        setSelectedTripDetails(null);
+                      }}
+                    />
+                  )}
+
+                  {selectedTripDetails.bookingStatus === 'accepted' &&
+                    (!['EV_GOODS', 'GOODS_TAXI'].includes(selectedTripDetails.serviceCategory) ||
+                      selectedTripDetails.loadedAt) && (
                     <ActionButton
                       label="Start Trip"
                       disabled={Boolean(actionLoadingId)}
@@ -2160,20 +2258,110 @@ export default function App() {
                     />
                   )}
 
-                  {selectedTripDetails.bookingStatus === 'in-progress' && (
+                  {selectedTripDetails.bookingStatus === 'in-progress' &&
+                    ['EV_GOODS', 'GOODS_TAXI'].includes(selectedTripDetails.serviceCategory) &&
+                    !selectedTripDetails.destinationArrivedAt && (
                     <ActionButton
-                      label="Complete Trip"
+                      label="Confirm Destination Arrival"
                       disabled={Boolean(actionLoadingId)}
                       onPress={async () => {
-                        await runAction('complete', selectedTripDetails);
+                        await runAction('destination_arrived', selectedTripDetails);
                         setSelectedTripDetails(null);
                       }}
-                      style={{ backgroundColor: colors.green, borderColor: colors.green }}
-                      textStyle={{ color: '#000' }}
                     />
                   )}
 
-                  {(selectedTripDetails.paymentMethod || 'COD') === 'COD' && selectedTripDetails.paymentStatus !== 'paid' && ['in-progress', 'completed'].includes(selectedTripDetails.bookingStatus) && (
+                  {selectedTripDetails.bookingStatus === 'in-progress' &&
+                    ['EV_GOODS', 'GOODS_TAXI'].includes(selectedTripDetails.serviceCategory) &&
+                    selectedTripDetails.destinationArrivedAt && !selectedTripDetails.unloadedAt && (
+                    <ActionButton
+                      label="Confirm Unloading / Delivery"
+                      disabled={Boolean(actionLoadingId)}
+                      onPress={async () => {
+                        await runAction('unloaded', selectedTripDetails);
+                        setSelectedTripDetails(null);
+                      }}
+                    />
+                  )}
+
+                  {selectedTripDetails.bookingStatus === 'in-progress' &&
+                    (!['EV_GOODS', 'GOODS_TAXI'].includes(selectedTripDetails.serviceCategory) ||
+                      selectedTripDetails.unloadedAt) && (
+                    <>
+                      <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 12, gap: 8, borderWidth: 1, borderColor: colors.border }}>
+                        <Text style={{ color: colors.ink, fontWeight: '800', fontSize: 13 }}>Post-trip adjustments (optional)</Text>
+                        <Text style={{ color: colors.muted, fontSize: 11, lineHeight: 16 }}>
+                          Only customer-requested waits or customer unavailability may be submitted. Traffic, driver delays, and breakdowns are not billable. The customer must approve all charges.
+                        </Text>
+                        <TextInput
+                          value={completionWaitingMinutes}
+                          onChangeText={setCompletionWaitingMinutes}
+                          placeholder="Billable waiting time in minutes"
+                          placeholderTextColor={colors.muted}
+                          keyboardType="decimal-pad"
+                          style={{ color: colors.ink, borderColor: colors.border, borderWidth: 1, borderRadius: 8, padding: 10 }}
+                        />
+                        {[
+                          ['customer_requested', 'Customer requested a wait'],
+                          ['customer_unavailable', 'Customer was unavailable']
+                        ].map(([reason, label]) => (
+                          <Pressable
+                            key={reason}
+                            onPress={() => setCompletionWaitingReason(reason)}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                          >
+                            <Ionicons
+                              name={completionWaitingReason === reason ? 'radio-button-on' : 'radio-button-off'}
+                              size={17}
+                              color={completionWaitingReason === reason ? colors.primary : colors.muted}
+                            />
+                            <Text style={{ color: colors.muted, fontSize: 12 }}>{label}</Text>
+                          </Pressable>
+                        ))}
+                        <TextInput
+                          value={completionActualDistanceKm}
+                          onChangeText={setCompletionActualDistanceKm}
+                          placeholder={`Actual trip distance in km (estimated ${Number(selectedTripDetails.distanceKm || 0).toFixed(2)} km) *`}
+                          placeholderTextColor={colors.muted}
+                          keyboardType="decimal-pad"
+                          style={{ color: colors.ink, borderColor: colors.border, borderWidth: 1, borderRadius: 8, padding: 10 }}
+                        />
+                        <Text style={{ color: colors.muted, fontSize: 11 }}>
+                          Required to calculate your final fare. Enter the actual route distance, including any detour.
+                        </Text>
+                        <TextInput
+                          value={completionExtraDistanceReason}
+                          onChangeText={setCompletionExtraDistanceReason}
+                          placeholder="Reason for extra distance (customer approval required)"
+                          placeholderTextColor={colors.muted}
+                          style={{ color: colors.ink, borderColor: colors.border, borderWidth: 1, borderRadius: 8, padding: 10 }}
+                        />
+                      </View>
+                      <ActionButton
+                        label="Complete Trip"
+                        disabled={Boolean(actionLoadingId) || !completionActualDistanceKm.trim()}
+                        onPress={async () => {
+                          const completed = await runAction('complete', selectedTripDetails, {
+                            waitingMinutes: Number(completionWaitingMinutes || 0),
+                            waitingReason: completionWaitingReason,
+                            actualDistanceKm: Number(completionActualDistanceKm),
+                            extraDistanceReason: completionExtraDistanceReason.trim()
+                          });
+                          if (completed) {
+                            setSelectedTripDetails(null);
+                            setCompletionWaitingMinutes('');
+                            setCompletionWaitingReason('');
+                            setCompletionActualDistanceKm('');
+                            setCompletionExtraDistanceReason('');
+                          }
+                        }}
+                        style={{ backgroundColor: colors.green, borderColor: colors.green }}
+                        textStyle={{ color: '#000' }}
+                      />
+                    </>
+                  )}
+
+                  {(selectedTripDetails.paymentMethod || 'COD') === 'COD' && selectedTripDetails.paymentStatus !== 'paid' && selectedTripDetails.bookingStatus === 'completed' && selectedTripDetails.settlementStatus !== 'awaiting_customer_approval' && (
                     <ActionButton
                       label={`Confirm Cash Collection (₹${selectedTripDetails.finalFare || selectedTripDetails.estimatedFare || 0})`}
                       disabled={Boolean(actionLoadingId)}

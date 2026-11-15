@@ -13,6 +13,11 @@ import { notifyCustomer } from "../services/notificationService.js";
 import { emitToBooking } from "../sockets/socket.js";
 import { isSettingEnabled } from "../services/systemSettingService.js";
 import { env } from "../config/env.js";
+import {
+  getVerifiedOnlineNetPaid,
+  initiateSettlementRefund,
+  reconcileOnlineSettlement
+} from "../services/bookingSettlementService.js";
 
 export const createOrder = async (req, res) => {
   try {
@@ -22,25 +27,50 @@ export const createOrder = async (req, res) => {
     }
 
     const { bookingId } = req.body;
+    const paymentPurpose = req.body.paymentPurpose || "initial";
+    if (!["initial", "balance"].includes(paymentPurpose)) {
+      return errorResponse(res, "Invalid payment purpose", 400);
+    }
     if (!mongoose.Types.ObjectId.isValid(bookingId)) return errorResponse(res, "Invalid booking ID", 400);
 
     const booking = await Booking.findOne({ _id: bookingId, customer: req.user._id });
     if (!booking) return errorResponse(res, "Booking not found", 404);
 
-    if (booking.bookingStatus === "cancelled" || booking.bookingStatus === "completed") {
+    if (booking.bookingStatus === "cancelled") {
       return errorResponse(res, "Cannot pay for a cancelled or completed booking", 400);
-    }
-    if (booking.paymentStatus === "paid") {
-      return errorResponse(res, "Booking is already paid", 409);
     }
     if (booking.paymentMethod === "COD") {
       return errorResponse(res, "This booking is set to Cash on Delivery (COD) and cannot create an online payment order. Switch payment method to ONLINE if you wish to pay digitally.", 400);
     }
 
-    const amount = booking.estimatedFare;
+    let amount;
+    if (paymentPurpose === "initial") {
+      if (booking.bookingStatus === "completed" || booking.finalPricingSnapshot) {
+        return errorResponse(res, "The booking has been finalized; use its outstanding settlement balance", 409);
+      }
+      if (booking.paymentStatus === "paid") {
+        return errorResponse(res, "Booking estimate has already been paid", 409);
+      }
+      amount = Number(booking.estimatedFare);
+    } else {
+      if (booking.bookingStatus !== "completed" || !booking.finalPricingSnapshot) {
+        return errorResponse(res, "The final fare is not ready for balance payment", 409);
+      }
+      const netPaid = await getVerifiedOnlineNetPaid(booking._id);
+      amount = Number((Number(booking.finalPricingSnapshot.finalFare) - netPaid).toFixed(2));
+      if (amount <= 0 || booking.settlementStatus !== "pending_payment") {
+        return errorResponse(res, "No online balance is currently due", 409);
+      }
+    }
     if (!amount || amount <= 0) return errorResponse(res, "Invalid booking amount", 400);
 
-    let payment = await Payment.findOne({ booking: bookingId });
+    const paymentQuery = {
+      booking: bookingId,
+      ...(paymentPurpose === "initial"
+        ? { $or: [{ paymentPurpose: "initial" }, { paymentPurpose: { $exists: false } }] }
+        : { paymentPurpose })
+    };
+    let payment = await Payment.findOne(paymentQuery);
     if (payment) {
       if (payment.status === "success") return errorResponse(res, "Payment already successful", 409);
       // If a pending order already exists for the same amount, reuse it to prevent duplicate order generation
@@ -61,17 +91,34 @@ export const createOrder = async (req, res) => {
     if (payment) {
       payment.orderId = order.id;
       payment.amount = amount;
+      payment.paymentPurpose = paymentPurpose;
+      payment.status = "pending";
       await payment.save();
     } else {
       payment = new Payment({
         booking: bookingId,
         customer: req.user._id,
+        paymentPurpose,
         amount,
         method: "online",
         provider: "razorpay",
         orderId: order.id
       });
       await payment.save();
+    }
+
+    if (Array.isArray(booking.paymentHistory)) {
+      booking.paymentHistory.push({
+        action: "order_created",
+        paymentMethod: "ONLINE",
+        status: "pending",
+        amount,
+        actor: req.user._id,
+        actorRole: req.user.role || "customer",
+        notes: `Razorpay ${paymentPurpose} payment order created`,
+        occurredAt: new Date()
+      });
+      await booking.save();
     }
 
     return successResponse(res, {
@@ -98,8 +145,6 @@ export const verifyPayment = async (req, res) => {
     const booking = await Booking.findOne({ _id: bookingId, customer: req.user._id });
     if (!booking) return errorResponse(res, "Booking not found", 404);
 
-    if (booking.paymentStatus === "paid") return errorResponse(res, "Already paid", 409);
-
     const payment = await Payment.findOne({ booking: bookingId, orderId: razorpay_order_id });
     if (!payment) return errorResponse(res, "Payment record not found", 404);
     if (payment.status === "success") return errorResponse(res, "Already processed", 409);
@@ -120,8 +165,25 @@ export const verifyPayment = async (req, res) => {
       return errorResponse(res, "Payment does not match the booking order", 400);
     }
 
-    if (!["captured", "authorized"].includes(providerPayment.status)) {
+    if (
+      Number(providerPayment.amount) !== Math.round(Number(payment.amount) * 100) ||
+      providerPayment.currency !== "INR"
+    ) {
+      return errorResponse(res, "Payment amount does not match the expected booking amount", 400);
+    }
+    if (providerPayment.status !== "captured") {
       return errorResponse(res, `Payment status is ${providerPayment.status}, not completed`, 400);
+    }
+    if (payment.status === "success") {
+      if (payment.transactionId !== razorpay_payment_id) {
+        return errorResponse(res, "A different payment is already recorded for this order", 409);
+      }
+      const settlement = await reconcileOnlineSettlement(booking);
+      await booking.save();
+      if (settlement.refundDue > 0) {
+        await initiateSettlementRefund(booking, settlement.refundDue);
+      }
+      return successResponse(res, { payment }, "Payment was already verified");
     }
 
     payment.status = "success";
@@ -131,9 +193,7 @@ export const verifyPayment = async (req, res) => {
 
     booking.paymentStatus = "paid";
     booking.paymentMethod = "ONLINE";
-    if (!Array.isArray(booking.paymentHistory)) {
-      booking.paymentHistory = [];
-    }
+    if (!Array.isArray(booking.paymentHistory)) booking.paymentHistory = [];
     booking.paymentHistory.push({
       action: "paid",
       paymentMethod: "ONLINE",
@@ -141,9 +201,14 @@ export const verifyPayment = async (req, res) => {
       amount: payment.amount,
       actor: req.user._id,
       actorRole: req.user.role || "customer",
+      notes: `${payment.paymentPurpose || "initial"} payment verified`,
       occurredAt: new Date()
     });
+    const settlement = await reconcileOnlineSettlement(booking);
     await booking.save();
+    if (settlement.refundDue > 0) {
+      await initiateSettlementRefund(booking, settlement.refundDue);
+    }
 
     await notifyCustomer(booking.customer, "Payment Successful", `Your payment for booking ${booking.bookingId} was successful`, booking._id);
     emitToBooking(booking._id, "payment:success", { bookingId: booking._id, status: "success", paymentId: payment._id });
@@ -184,13 +249,34 @@ export const getPaymentStatus = async (req, res) => {
       }
     }
 
-    const payment = await Payment.findOne({ booking: bookingId });
+    const payments = await Payment.find({ booking: bookingId }).sort({ createdAt: -1 }).lean();
+    const payment = payments[0] || null;
+    const amountPaid = Number(payments.reduce((total, item) => {
+      if (!["success", "refunded"].includes(item.status)) return total;
+      const refunded = item.refundStatus === "processed" ? Number(item.refundAmount || 0) : 0;
+      return total + Math.max(0, Number(item.amount || 0) - refunded);
+    }, 0).toFixed(2));
+    const settlementAmount = Number(
+      booking.finalPricingSnapshot?.finalFare ?? booking.estimatedFare ?? 0
+    );
 
     return successResponse(res, {
       bookingId: booking._id,
       paymentMethod: booking.paymentMethod || "COD",
       paymentStatus: booking.paymentStatus,
-      amount: booking.finalFare || booking.estimatedFare,
+      amount: settlementAmount,
+      amountPaid,
+      balanceDue: Math.max(0, Number((settlementAmount - amountPaid).toFixed(2))),
+      settlementStatus: booking.settlementStatus,
+      finalPricingSnapshot: booking.finalPricingSnapshot || null,
+      payments: payments.map((item) => ({
+        paymentPurpose: item.paymentPurpose || "initial",
+        amount: item.amount,
+        status: item.status,
+        refundAmount: item.refundStatus === "processed" ? item.refundAmount : 0,
+        refundStatus: item.refundStatus || null,
+        paidAt: item.paidAt
+      })),
       currency: "INR",
       provider: payment?.provider || (booking.paymentMethod === "COD" ? "cash" : "razorpay"),
       orderId: payment?.orderId || "",
@@ -246,6 +332,9 @@ export const recordCashCollection = async (req, res) => {
     if (booking.bookingStatus === "cancelled") {
       return errorResponse(res, "Cannot record cash collection for a cancelled booking", 400);
     }
+    if (booking.bookingStatus !== "completed" || !booking.finalPricingSnapshot) {
+      return errorResponse(res, "Cash can be collected only after the final fare is calculated", 409);
+    }
 
     if (booking.paymentMethod !== "COD") {
       return errorResponse(res, `This booking is set to ${booking.paymentMethod || "ONLINE"}, not Cash on Delivery`, 400);
@@ -260,6 +349,7 @@ export const recordCashCollection = async (req, res) => {
     const collectionTime = new Date();
 
     booking.paymentStatus = "paid";
+    booking.settlementStatus = "settled";
     booking.cashCollectedAt = collectionTime;
     booking.cashCollectedBy = req.user._id;
     booking.cashCollectionNotes = notes ? String(notes).trim() : `Cash payment verified by ${authorizedRole}`;
@@ -281,7 +371,7 @@ export const recordCashCollection = async (req, res) => {
     await booking.save();
 
     // Create or update payment record
-    let payment = await Payment.findOne({ booking: booking._id });
+    let payment = await Payment.findOne({ booking: booking._id, method: "cash" });
     if (payment) {
       payment.method = "cash";
       payment.status = "success";
@@ -292,6 +382,7 @@ export const recordCashCollection = async (req, res) => {
       payment = await Payment.create({
         booking: booking._id,
         customer: booking.customer,
+        paymentPurpose: "initial",
         amount,
         method: "cash",
         provider: "cash",
@@ -352,6 +443,9 @@ export const updatePaymentMethod = async (req, res) => {
 
     if (booking.paymentStatus === "paid") {
       return errorResponse(res, "Cannot change payment method for an already paid booking", 409);
+    }
+    if (normalized === "COD" && await getVerifiedOnlineNetPaid(booking._id) > 0) {
+      return errorResponse(res, "Payment method cannot be changed after an online payment has been verified", 409);
     }
 
     if (booking.bookingStatus === "cancelled" || booking.bookingStatus === "completed") {
@@ -502,16 +596,34 @@ export const processWebhook = async (req, res) => {
       const transactionId = paymentEntity.id;
       
       const payment = await Payment.findOne({ orderId });
-      if (payment && payment.status !== "success") {
+      if (
+        payment &&
+        payment.status !== "success" &&
+        Number(paymentEntity.amount) === Math.round(Number(payment.amount) * 100) &&
+        paymentEntity.currency === "INR"
+      ) {
         payment.status = "success";
         payment.transactionId = transactionId;
         payment.paidAt = new Date();
         await payment.save();
 
         const booking = await Booking.findById(payment.booking);
-        if (booking && booking.paymentStatus !== "paid") {
-          booking.paymentStatus = "paid";
+        if (booking) {
+          if (!Array.isArray(booking.paymentHistory)) booking.paymentHistory = [];
+          booking.paymentHistory.push({
+            action: "paid",
+            paymentMethod: "ONLINE",
+            status: "paid",
+            amount: payment.amount,
+            actorRole: "system",
+            notes: `${payment.paymentPurpose || "initial"} payment confirmed by Razorpay webhook`,
+            occurredAt: new Date()
+          });
+          const settlement = await reconcileOnlineSettlement(booking);
           await booking.save();
+          if (settlement.refundDue > 0) {
+            await initiateSettlementRefund(booking, settlement.refundDue);
+          }
           await notifyCustomer(booking.customer, "Payment Successful", `Your payment for booking ${booking.bookingId} was successful`, booking._id);
           emitToBooking(booking._id, "payment:success", { bookingId: booking._id, status: "success" });
         }
@@ -521,14 +633,19 @@ export const processWebhook = async (req, res) => {
       const orderId = paymentEntity.order_id;
       
       const payment = await Payment.findOne({ orderId });
-      if (payment && payment.status === "pending") {
+      if (
+        payment &&
+        payment.status === "pending" &&
+        Number(paymentEntity.amount) === Math.round(Number(payment.amount) * 100) &&
+        paymentEntity.currency === "INR"
+      ) {
         payment.status = "failed";
         await payment.save();
         
         if (payment.booking) {
           const booking = await Booking.findById(payment.booking);
           if (booking) {
-            booking.paymentStatus = "failed";
+            await reconcileOnlineSettlement(booking);
             await booking.save();
             await notifyCustomer(booking.customer, "Payment Failed", `Your payment for booking ${booking.bookingId} has failed`, booking._id);
             emitToBooking(booking._id, "payment:failed", { bookingId: booking._id, status: "failed" });
@@ -539,13 +656,19 @@ export const processWebhook = async (req, res) => {
       const refundEntity = event.payload.refund.entity;
       const payment = await Payment.findOne({
         transactionId: refundEntity.payment_id,
-        refundId: refundEntity.id
+        $or: [
+          { refundId: refundEntity.id },
+          { refundStatus: "pending" }
+        ]
       });
       if (payment && payment.refundStatus !== "processed" && payment.refundStatus !== "failed") {
+        payment.refundId = refundEntity.id;
         payment.refundStatus = event.event === "refund.processed" ? "processed" : "failed";
         if (event.event === "refund.processed") {
-          payment.status = "refunded";
           payment.refundAmount = Number.isFinite(refundEntity.amount) ? refundEntity.amount / 100 : payment.refundAmount;
+          if (payment.refundAmount >= Number(payment.amount)) {
+            payment.status = "refunded";
+          }
           payment.refundedAt = refundEntity.processed_at
             ? new Date(refundEntity.processed_at * 1000)
             : new Date();
@@ -555,10 +678,34 @@ export const processWebhook = async (req, res) => {
         }
         await payment.save();
 
-        if (event.event === "refund.processed" && payment.booking) {
+        if (payment.booking) {
           const booking = await Booking.findById(payment.booking);
           if (booking) {
-            booking.paymentStatus = "refunded";
+            if (!Array.isArray(booking.paymentHistory)) booking.paymentHistory = [];
+            if (event.event === "refund.failed") {
+              booking.settlementStatus = "refund_failed";
+              booking.paymentStatus = "refund_pending";
+              booking.paymentHistory.push({
+                action: "settlement_updated",
+                paymentMethod: "ONLINE",
+                status: "refund_failed",
+                amount: 0,
+                actorRole: "system",
+                notes: `Razorpay refund ${payment.refundId} failed`,
+                occurredAt: new Date()
+              });
+            } else {
+              booking.paymentHistory.push({
+                action: "settlement_updated",
+                paymentMethod: "ONLINE",
+                status: "refund_processed",
+                amount: payment.refundAmount,
+                actorRole: "system",
+                notes: `Razorpay refund ${payment.refundId} processed`,
+                occurredAt: new Date()
+              });
+              await reconcileOnlineSettlement(booking);
+            }
             await booking.save();
             await notifyCustomer(payment.customer, "Payment Refunded", `Your payment for booking ${booking.bookingId} has been refunded`, booking._id);
             emitToBooking(booking._id, "payment:refunded", { bookingId: booking._id, status: "refunded" });

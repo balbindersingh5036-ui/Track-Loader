@@ -86,4 +86,26 @@ const handleUploadParser = (parse, fieldNames, fieldLimits = {}) => {
   };
 };
 
+export const uploadDeliveryProofMiddleware = (req, res, next) => {
+  upload.fields([
+    { name: "proof", maxCount: 1 },
+    { name: "deliveryProof", maxCount: 1 },
+    { name: "image", maxCount: 1 }
+  ])(req, res, (err) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        return res.status(400).json({
+          success: false,
+          message: "File size exceeds the maximum limit of 5MB"
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: err.message || "File upload error"
+      });
+    }
+    next();
+  });
+};
+
 export default upload;

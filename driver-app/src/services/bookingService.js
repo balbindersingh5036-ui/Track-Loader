@@ -6,7 +6,9 @@ export const bookingService = {
   acceptBooking: (id) => api.patch(`/driver/bookings/${id}/accept`),
   rejectBooking: (id, reason) => api.patch(`/driver/bookings/${id}/reject`, { reason }),
   startTrip: (id) => api.patch(`/driver/bookings/${id}/start`),
-  completeTrip: (id) => api.patch(`/driver/bookings/${id}/complete`),
+  completeTrip: (id, adjustments = {}) => api.patch(`/driver/bookings/${id}/complete`, adjustments),
+  updateTripStage: (id, stage, deliveryProofUrl) =>
+    api.patch(`/driver/bookings/${id}/stage`, { stage, deliveryProofUrl }),
   confirmCashCollection: (id, notes) => api.post(`/payments/${id}/cash-collection`, { notes })
 };
 

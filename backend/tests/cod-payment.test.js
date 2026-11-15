@@ -355,7 +355,12 @@ describe("Cash on Delivery (COD) and Online Payment Integration", () => {
       preferredPickupTime: "10:00",
       estimatedFare: 650,
       finalFare: 650,
-      bookingStatus: "in-progress",
+      finalPricingSnapshot: {
+        estimatedFare: 650,
+        finalFare: 650,
+        calculatedAt: new Date()
+      },
+      bookingStatus: "completed",
       paymentMethod: "COD",
       paymentStatus: "pending"
     });
@@ -399,6 +404,11 @@ describe("Cash on Delivery (COD) and Online Payment Integration", () => {
       preferredPickupTime: "10:00",
       estimatedFare: 400,
       finalFare: 400,
+      finalPricingSnapshot: {
+        estimatedFare: 400,
+        finalFare: 400,
+        calculatedAt: new Date()
+      },
       bookingStatus: "completed",
       paymentMethod: "COD",
       paymentStatus: "paid" // already paid
@@ -428,6 +438,11 @@ describe("Cash on Delivery (COD) and Online Payment Integration", () => {
       preferredPickupTime: "10:00",
       estimatedFare: 800,
       finalFare: 800,
+      finalPricingSnapshot: {
+        estimatedFare: 800,
+        finalFare: 800,
+        calculatedAt: new Date()
+      },
       bookingStatus: "completed",
       paymentMethod: "COD",
       paymentStatus: "pending"

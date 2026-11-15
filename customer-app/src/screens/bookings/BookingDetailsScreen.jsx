@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Alert, Text, View, StyleSheet, Pressable } from "react-native";
+import { Alert, Text, View, StyleSheet, Pressable, Image } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import bookingService from "../../services/bookingService";
@@ -28,6 +28,8 @@ export default function BookingDetailsScreen({ route, navigation }) {
   const [switchingPayment, setSwitchingPayment] = useState(false);
   const [checkoutModalVisible, setCheckoutModalVisible] = useState(false);
   const [activeCheckoutOrder, setActiveCheckoutOrder] = useState(null);
+  const [approveWaiting, setApproveWaiting] = useState(false);
+  const [approveExtraDistance, setApproveExtraDistance] = useState(false);
 
   const handleSwitchPaymentMethod = async (newMethod) => {
     if (!booking || switchingPayment) return;
@@ -140,7 +142,7 @@ export default function BookingDetailsScreen({ route, navigation }) {
     );
   };
 
-  const createPaymentOrder = async () => {
+  const createPaymentOrder = async (paymentPurpose = "initial") => {
     if (!booking || busy) return;
     setBusy(true);
     setError("");
@@ -151,7 +153,7 @@ export default function BookingDetailsScreen({ route, navigation }) {
         setBooking((prev) => ({ ...prev, paymentMethod: "ONLINE" }));
       }
 
-      const order = await paymentService.createOrder(booking._id);
+      const order = await paymentService.createOrder(booking._id, paymentPurpose);
       if (!order?.orderId) {
         throw new Error("Payment order could not be established by the gateway.");
       }
@@ -216,6 +218,26 @@ export default function BookingDetailsScreen({ route, navigation }) {
     setCheckoutModalVisible(false);
   };
 
+  const reviewTripAdjustments = async () => {
+    if (!booking || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const updatedBooking = await bookingService.approveTripAdjustments(booking._id, {
+        approveWaiting,
+        approveExtraDistance
+      });
+      setBooking(updatedBooking);
+      setApproveWaiting(false);
+      setApproveExtraDistance(false);
+      await load();
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) {
     return (
       <Screen>
@@ -243,6 +265,21 @@ export default function BookingDetailsScreen({ route, navigation }) {
 
   const isCancellable = ["pending", "accepted"].includes(booking.bookingStatus);
   const isCompleted = booking.bookingStatus === "completed";
+  const adjustmentRates = booking.pricingSnapshot || {};
+  const requestedAdjustments = booking.postTripAdjustments || {};
+  const waitingAdjustment = Number((
+    (Number(requestedAdjustments.waitingMinutes || 0) / 60) *
+    Number(adjustmentRates.waitingChargePerHour || 0)
+  ).toFixed(2));
+  const distanceAdjustment = Number((
+    Number(requestedAdjustments.extraDistanceKm || 0) *
+    Number(adjustmentRates.extraDistanceChargePerKm || 0)
+  ).toFixed(2));
+  const finalSnapshot = booking.finalPricingSnapshot;
+  const paymentDue = Number(paymentStatus?.balanceDue ?? Math.max(
+    0,
+    Number(((finalSnapshot?.finalFare ?? booking.estimatedFare) - Number(paymentStatus?.amountPaid || 0)).toFixed(2))
+  ));
 
   return (
     <Screen>
@@ -401,6 +438,27 @@ export default function BookingDetailsScreen({ route, navigation }) {
         ) : null}
       </Card>
 
+      {/* DELIVERY PROOF */}
+      {(booking.deliveryProofUrl || booking.deliveryProof?.url) ? (
+        <Card>
+          <View style={styles.sectionTitleRow}>
+            <Text style={styles.sectionTitle}>Delivery Proof</Text>
+            <Ionicons name="checkmark-done-circle-outline" size={18} color="#12B76A" />
+          </View>
+          <View style={{ marginTop: 10, alignItems: "center" }}>
+            <Image
+              source={{ uri: booking.deliveryProofUrl || booking.deliveryProof?.url }}
+              style={{ width: "100%", height: 220, borderRadius: 8, resizeMode: "cover" }}
+            />
+            {booking.unloadedAt ? (
+              <Text style={{ marginTop: 8, fontSize: 13, color: colors.textSecondary }}>
+                Delivered & Unloaded: {new Date(booking.unloadedAt).toLocaleString()}
+              </Text>
+            ) : null}
+          </View>
+        </Card>
+      ) : null}
+
       {/* PAYMENT & BILLING CARD */}
       <Card>
         <View style={styles.sectionTitleRow}>
@@ -432,17 +490,113 @@ export default function BookingDetailsScreen({ route, navigation }) {
                 booking.paymentStatus === "paid" ? styles.paidBadgeText : styles.pendingBadgeText
               ]}
             >
-              {booking.paymentStatus === "paid" ? "PAID" : "PENDING"}
+              {booking.paymentStatus === "paid"
+                ? "PAID"
+                : booking.paymentStatus === "partially_paid"
+                  ? "PARTIALLY PAID"
+                  : booking.paymentStatus === "refund_pending"
+                    ? "REFUND PENDING"
+                    : "PENDING"}
             </Text>
           </View>
         </View>
 
-        {booking.paymentStatus === "paid" ? (
+        <View style={{ marginTop: 10, gap: 4 }}>
+          <Text style={styles.paymentOptionDesc}>Estimated fare at booking: ₹{Number(booking.estimatedFare || 0).toFixed(2)}</Text>
+          {finalSnapshot ? (
+            <>
+              <Text style={styles.paymentOptionDesc}>
+                Trip distance: {Number(finalSnapshot.actualDistanceKm ?? finalSnapshot.estimatedDistanceKm ?? 0).toFixed(2)} km actual · {Number(finalSnapshot.estimatedDistanceKm || 0).toFixed(2)} km estimated
+              </Text>
+              <Text style={styles.paymentOptionDesc}>Base fare after trip distance: ₹{Number(finalSnapshot.baseFare || 0).toFixed(2)}</Text>
+              <Text style={styles.paymentOptionDesc}>Approved waiting: {finalSnapshot.waitingMinutes} min · ₹{Number(finalSnapshot.waitingCharge || 0).toFixed(2)}</Text>
+              <Text style={styles.paymentOptionDesc}>Approved extra distance: {finalSnapshot.extraDistanceKm} km · ₹{Number(finalSnapshot.extraDistanceCharge || 0).toFixed(2)}</Text>
+              <Text style={[styles.paymentOptionDesc, { fontWeight: "700", color: colors.text }]}>Final fare: ₹{Number(finalSnapshot.finalFare).toFixed(2)}</Text>
+            </>
+          ) : null}
+          <Text style={styles.paymentOptionDesc}>
+            Settlement: {(booking.settlementStatus || "pending").replace(/_/g, " ")}
+            {paymentStatus?.amountPaid != null ? ` · Verified paid: ₹${Number(paymentStatus.amountPaid).toFixed(2)}` : ""}
+          </Text>
+        </View>
+
+        {booking.settlementStatus === "awaiting_customer_approval" ? (
+          <View style={{ marginTop: 12, gap: 8 }}>
+            <Text style={styles.paymentOptionTitle}>Review delivery adjustments</Text>
+            {requestedAdjustments.waitingMinutes > 0 ? (
+              <Pressable
+                onPress={() => setApproveWaiting((current) => !current)}
+                style={styles.paymentOptionCard}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: approveWaiting }}
+              >
+                <Text style={styles.paymentOptionDesc}>
+                  {approveWaiting ? "☑" : "☐"} Approve {requestedAdjustments.waitingMinutes} minutes waiting
+                  ({requestedAdjustments.waitingReason === "customer_requested" ? "customer-requested wait" : "customer unavailable"}) · ₹{waitingAdjustment.toFixed(2)}
+                </Text>
+              </Pressable>
+            ) : null}
+            {requestedAdjustments.extraDistanceKm > 0 ? (
+              <Pressable
+                onPress={() => setApproveExtraDistance((current) => !current)}
+                style={styles.paymentOptionCard}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: approveExtraDistance }}
+              >
+                <Text style={styles.paymentOptionDesc}>
+                  {approveExtraDistance ? "☑" : "☐"} Approve {requestedAdjustments.extraDistanceKm} extra km · ₹{distanceAdjustment.toFixed(2)}
+                  {requestedAdjustments.extraDistanceReason ? `\nReason: ${requestedAdjustments.extraDistanceReason}` : ""}
+                </Text>
+              </Pressable>
+            ) : null}
+            <Text style={styles.paymentOptionDesc}>
+              Traffic, driver delays, and vehicle breakdowns are not billable waiting reasons. Unselected charges will not be added.
+            </Text>
+            <Button
+              title="Confirm Choices & Calculate Final Fare"
+              loading={busy}
+              disabled={busy}
+              onPress={reviewTripAdjustments}
+            />
+          </View>
+        ) : null}
+
+        {booking.paymentStatus === "paid" && booking.settlementStatus === "settled" ? (
           <View style={styles.paymentCompletedBox}>
             <Ionicons name="checkmark-done-circle" size={18} color="#027A48" />
             <Text style={styles.paymentCompletedText}>
               Payment confirmed via <Text style={{ fontWeight: "700" }}>{booking.paymentMethod === "COD" ? "Cash on Delivery" : "Online Payment (Razorpay)"}</Text>
               {booking.cashCollectedAt ? ` on ${new Date(booking.cashCollectedAt).toLocaleString()}` : ""}.
+            </Text>
+          </View>
+        ) : booking.settlementStatus === "pending_refund" ? (
+          <View style={[styles.codNoticeBox, { marginTop: 12 }]}>
+            <Ionicons name="time-outline" size={16} color={colors.primary} />
+            <Text style={styles.codNoticeText}>
+              A refund for the fare difference is being processed through Razorpay. No additional payment is due.
+            </Text>
+          </View>
+        ) : booking.paymentMethod === "ONLINE" && booking.settlementStatus === "pending_payment" ? (
+          <View style={{ marginTop: 12, gap: 8 }}>
+            <Text style={styles.paymentOptionDesc}>
+              Verified payments: ₹{Number(paymentStatus?.amountPaid || 0).toFixed(2)} · Outstanding balance: ₹{paymentDue.toFixed(2)}
+            </Text>
+            {paymentDue > 0 && paymentEnabled ? (
+              <Button
+                title={`Pay Outstanding Balance · ₹${paymentDue.toFixed(2)}`}
+                loading={busy}
+                icon={<Ionicons name="card-outline" size={16} color={colors.white} />}
+                onPress={() => createPaymentOrder("balance")}
+              />
+            ) : null}
+          </View>
+        ) : isCompleted ? (
+          <View style={[styles.codNoticeBox, { marginTop: 12 }]}>
+            <Ionicons name="information-circle-outline" size={16} color={colors.primary} />
+            <Text style={styles.codNoticeText}>
+              {booking.paymentMethod === "COD"
+                ? `Collect the final fare of ₹${Number(finalSnapshot?.finalFare ?? booking.estimatedFare).toFixed(2)} in cash from the driver.`
+                : "Waiting for customer approval of delivery adjustments before final settlement."}
             </Text>
           </View>
         ) : (
@@ -532,7 +686,7 @@ export default function BookingDetailsScreen({ route, navigation }) {
                 title="Pay Online (Razorpay)"
                 loading={busy}
                 icon={<Ionicons name="card-outline" size={16} color={colors.white} />}
-                onPress={createPaymentOrder}
+                onPress={() => createPaymentOrder("initial")}
                 style={{ marginTop: 4 }}
               />
             ) : (

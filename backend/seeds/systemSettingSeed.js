@@ -6,6 +6,14 @@ dotenv.config();
 
 const defaultSettings = [
   { key: "booking.enabled", value: true, type: "boolean", category: "booking", description: "Enable new customer bookings" },
+  { key: "service.ev_goods.enabled", value: false, type: "boolean", category: "booking", description: "Enable EV Goods Transport bookings" },
+  { key: "service.goods_taxi.enabled", value: false, type: "boolean", category: "booking", description: "Enable Goods Taxi Transport bookings" },
+  { key: "service.ev_goods.allowed_vehicle_types", value: ["electric-cargo-loader", "electric-goods-e-rickshaw", "electric-mini-cargo-carrier"], type: "json", category: "booking", description: "Approved EV Goods vehicle subcategories" },
+  { key: "service.goods_taxi.allowed_vehicle_types", value: ["mini-pickup", "tata-ace", "cargo-pickup", "goods-loading-taxi"], type: "json", category: "booking", description: "Approved Goods Taxi vehicle subcategories" },
+  { key: "service.ev_goods.max_capacity_kg", value: 0, type: "number", category: "booking", description: "Maximum EV Goods vehicle capacity in kg; 0 means no category limit configured" },
+  { key: "service.goods_taxi.max_capacity_kg", value: 0, type: "number", category: "booking", description: "Maximum Goods Taxi vehicle capacity in kg; 0 means no category limit configured" },
+  { key: "service.ev_goods.service_areas", value: [], type: "json", category: "booking", description: "Operating areas supported for EV Goods" },
+  { key: "service.goods_taxi.service_areas", value: [], type: "json", category: "booking", description: "Operating areas supported for Goods Taxi" },
   { key: "booking.customerCancellationEnabled", value: true, type: "boolean", category: "booking", description: "Allow customers to cancel bookings" },
   { key: "booking.allowCancellationAfterAcceptance", value: false, type: "boolean", category: "booking", description: "Allow cancellation after a driver accepts" },
   { key: "driver.enabled", value: true, type: "boolean", category: "driver", description: "Enable driver operations" },
@@ -27,7 +35,9 @@ const seedSettings = async () => {
     for (const setting of defaultSettings) {
       await SystemSetting.findOneAndUpdate(
         { key: setting.key },
-        { $set: setting },
+        setting.key.startsWith("service.")
+          ? { $setOnInsert: setting }
+          : { $set: setting },
         { upsert: true }
       );
     }

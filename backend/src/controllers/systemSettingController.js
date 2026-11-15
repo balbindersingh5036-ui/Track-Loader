@@ -5,6 +5,8 @@ import { setSetting } from "../services/systemSettingService.js";
 const PROTECTED_KEYS = [
   "system.maintenanceMode",
   "booking.enabled",
+  "service.ev_goods.enabled",
+  "service.goods_taxi.enabled",
   "payment.enabled",
   "driver.enabled"
 ];
@@ -118,6 +120,8 @@ export const deleteSetting = async (req, res) => {
 
 const PUBLIC_SETTINGS = [
   ["booking.enabled", "booking.enabled"],
+  ["service.ev_goods.enabled", "service.ev_goods.enabled"],
+  ["service.goods_taxi.enabled", "service.goods_taxi.enabled"],
   ["payment.enabled", "payment.enabled"],
   ["customer.registrationenabled", "customer.registrationEnabled"],
   ["driver.enabled", "driver.enabled"],

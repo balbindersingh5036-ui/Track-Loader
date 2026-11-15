@@ -186,6 +186,7 @@ export const uploadDriverDocument = async (req, res) => {
     const existingDocument = driver.documents?.[docType];
     if (
       existingDocument?.status === "pending" &&
+      existingDocument?.uploadedBy &&
       (existingDocument.publicId || existingDocument.url)
     ) {
       return errorResponse(res, "This document is already pending Super Admin review", 409);

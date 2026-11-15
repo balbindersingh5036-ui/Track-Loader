@@ -138,6 +138,14 @@ test("trip completion copies estimated fare without an invalid update expression
   };
 
   t.mock.method(Driver, "findOne", async () => ({ _id: driverId }));
+  t.mock.method(Booking, "findOne", async () => ({
+    _id: bookingId,
+    bookingStatus: "in-progress",
+    serviceCategory: "TRUCK",
+    driver: driverId,
+    distanceKm: 0,
+    estimatedFare: 125
+  }));
   t.mock.method(Booking, "findOneAndUpdate", async (_filter, receivedUpdate) => {
     update = receivedUpdate;
     return booking;
@@ -148,10 +156,36 @@ test("trip completion copies estimated fare without an invalid update expression
   t.mock.method(User, "find", async () => []);
 
   const res = response();
-  await completeTrip({ params: { id: bookingId }, user: { _id: userId } }, res);
+  await completeTrip({
+    params: { id: bookingId },
+    user: { _id: userId },
+    body: { actualDistanceKm: 0 }
+  }, res);
 
   assert.equal(res.statusCode, 200);
   assert.equal(res.body.data.booking.finalFare, 125);
   assert.equal(savedFare, 125);
   assert.equal(update.$set.finalFare, undefined);
+});
+
+test("trip completion requires the driver to report actual trip distance", async (t) => {
+  t.mock.method(Driver, "findOne", async () => ({ _id: driverId }));
+  t.mock.method(Booking, "findOne", async () => ({
+    _id: bookingId,
+    bookingStatus: "in-progress",
+    serviceCategory: "TRUCK",
+    driver: driverId,
+    distanceKm: 10,
+    estimatedFare: 125
+  }));
+  const updateBooking = t.mock.method(Booking, "findOneAndUpdate", async () => {
+    throw new Error("A booking must not complete without actual distance");
+  });
+
+  const res = response();
+  await completeTrip({ params: { id: bookingId }, user: { _id: userId }, body: {} }, res);
+
+  assert.equal(res.statusCode, 400);
+  assert.match(res.body.message, /actual trip distance is required/i);
+  assert.equal(updateBooking.mock.callCount(), 0);
 });

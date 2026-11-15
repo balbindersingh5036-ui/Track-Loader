@@ -37,6 +37,140 @@ const getVehiclePhotos = (vehicle) => {
   return vehicle?.vehicleImage ? [vehicle.vehicleImage] : [];
 };
 
+const VEHICLE_TYPES_BY_CATEGORY = {
+  TRUCK: ['mini-truck', 'pickup', 'small-truck', 'medium-truck', 'large-truck'],
+  EV_GOODS: ['electric-cargo-loader', 'electric-goods-e-rickshaw', 'electric-mini-cargo-carrier', 'other-electric-goods'],
+  GOODS_TAXI: ['mini-pickup', 'tata-ace', 'cargo-pickup', 'goods-loading-taxi', 'other-goods-carrier']
+};
+
+function GoodsVehicleFields({ value, onChange }) {
+  const categories = [
+    { key: 'TRUCK', label: 'Truck' },
+    { key: 'EV_GOODS', label: 'EV Goods' },
+    { key: 'GOODS_TAXI', label: 'Goods Taxi' }
+  ];
+  const updateCategory = (serviceCategory) => onChange({
+    ...value,
+    serviceCategory,
+    vehicleType: VEHICLE_TYPES_BY_CATEGORY[serviceCategory][0],
+    ...(serviceCategory === 'EV_GOODS' ? { fuelType: 'electric' } : {})
+  });
+
+  return (
+    <>
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Service Category *</Text>
+        <View style={styles.chipGrid}>
+          {categories.map((category) => (
+            <Pressable
+              key={category.key}
+              onPress={() => updateCategory(category.key)}
+              style={[styles.typeChip, value.serviceCategory === category.key && styles.typeChipActive]}
+            >
+              <Text style={[styles.typeChipText, value.serviceCategory === category.key && styles.typeChipTextActive]}>
+                {category.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Vehicle Type *</Text>
+        <View style={styles.chipGrid}>
+          {VEHICLE_TYPES_BY_CATEGORY[value.serviceCategory].map((type) => (
+            <Pressable
+              key={type}
+              onPress={() => onChange({ ...value, vehicleType: type })}
+              style={[styles.typeChip, value.vehicleType === type && styles.typeChipActive]}
+            >
+              <Text style={[styles.typeChipText, value.vehicleType === type && styles.typeChipTextActive]}>
+                {type.replace(/-/g, ' ')}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Fuel Type *</Text>
+        <View style={styles.chipGrid}>
+          {['diesel', 'petrol', 'cng', 'electric'].map((fuelType) => (
+            <Pressable
+              key={fuelType}
+              disabled={value.serviceCategory === 'EV_GOODS' && fuelType !== 'electric'}
+              onPress={() => onChange({ ...value, fuelType })}
+              style={[
+                styles.typeChip,
+                value.fuelType === fuelType && styles.typeChipActive,
+                value.serviceCategory === 'EV_GOODS' && fuelType !== 'electric' && { opacity: 0.4 }
+              ]}
+            >
+              <Text style={[styles.typeChipText, value.fuelType === fuelType && styles.typeChipTextActive]}>
+                {fuelType.toUpperCase()}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      {value.serviceCategory === 'EV_GOODS' ? (
+        <>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Battery Range (km) *</Text>
+            <TextInput
+              value={value.batteryRangeKm}
+              onChangeText={(batteryRangeKm) => onChange({ ...value, batteryRangeKm })}
+              placeholder="e.g. 120"
+              keyboardType="decimal-pad"
+              style={styles.modalInput}
+            />
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Charging Information *</Text>
+            <TextInput
+              value={value.chargingInformation}
+              onChangeText={(chargingInformation) => onChange({ ...value, chargingInformation })}
+              placeholder="Charging connector, location, and typical charging time"
+              style={styles.modalInput}
+            />
+          </View>
+        </>
+      ) : null}
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Dimensions (cm, optional)</Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {[
+            ['lengthCm', 'Length'],
+            ['widthCm', 'Width'],
+            ['heightCm', 'Height']
+          ].map(([field, label]) => (
+            <TextInput
+              key={field}
+              value={value[field]}
+              onChangeText={(dimension) => onChange({ ...value, [field]: dimension })}
+              placeholder={label}
+              keyboardType="decimal-pad"
+              style={[styles.modalInput, { flex: 1 }]}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Operating Areas (comma-separated) *</Text>
+        <TextInput
+          value={value.serviceAreas}
+          onChangeText={(serviceAreas) => onChange({ ...value, serviceAreas })}
+          placeholder="e.g. Pune, Pimpri-Chinchwad"
+          style={styles.modalInput}
+        />
+      </View>
+    </>
+  );
+}
+
 function VehiclePhotoGrid({ photos, onAdd, onRemove, onReplace, progress = 0, disabled = false }) {
   const [loadingPhotos, setLoadingPhotos] = useState({});
   const [failedPhotos, setFailedPhotos] = useState({});
@@ -244,11 +378,19 @@ export default function FleetTab({
     vehicleNumber: '',
     vehicleMake: '',
     vehicleModel: '',
+    serviceCategory: 'TRUCK',
     vehicleType: 'mini-truck',
+    fuelType: 'diesel',
     capacity: '',
     capacityUnit: 'kg',
     bodyType: 'open',
-    driverId: ''
+    driverId: '',
+    batteryRangeKm: '',
+    chargingInformation: '',
+    lengthCm: '',
+    widthCm: '',
+    heightCm: '',
+    serviceAreas: ''
   });
   const [formError, setFormError] = useState('');
   const [vehiclePhotos, setVehiclePhotos] = useState([]);
@@ -411,7 +553,17 @@ export default function FleetTab({
         vehicleNumber: vehicleForm.vehicleNumber.trim(),
         vehicleMake: make,
         vehicleModel: fullModel,
+        serviceCategory: vehicleForm.serviceCategory,
         vehicleType: vehicleForm.vehicleType,
+        fuelType: vehicleForm.fuelType,
+        batteryRangeKm: vehicleForm.batteryRangeKm ? Number(vehicleForm.batteryRangeKm) : null,
+        chargingInformation: vehicleForm.chargingInformation.trim(),
+        dimensions: {
+          lengthCm: vehicleForm.lengthCm ? Number(vehicleForm.lengthCm) : null,
+          widthCm: vehicleForm.widthCm ? Number(vehicleForm.widthCm) : null,
+          heightCm: vehicleForm.heightCm ? Number(vehicleForm.heightCm) : null
+        },
+        serviceAreas: vehicleForm.serviceAreas.split(',').map((area) => area.trim()).filter(Boolean),
         loadCapacity: { value: capacity, unit: vehicleForm.capacityUnit },
         bodyType: vehicleForm.bodyType,
         driverId: vehicleForm.driverId
@@ -420,11 +572,19 @@ export default function FleetTab({
         vehicleNumber: '',
         vehicleMake: '',
         vehicleModel: '',
+        serviceCategory: 'TRUCK',
         vehicleType: 'mini-truck',
+        fuelType: 'diesel',
         capacity: '',
         capacityUnit: 'kg',
         bodyType: 'open',
-        driverId: ''
+        driverId: '',
+        batteryRangeKm: '',
+        chargingInformation: '',
+        lengthCm: '',
+        widthCm: '',
+        heightCm: '',
+        serviceAreas: ''
       });
       setVehiclePhotos([]);
       setPhotoProgress(0);
@@ -464,7 +624,17 @@ export default function FleetTab({
       await onUpdateVehicle(editingVehicle.id, {
         vehicleMake: make,
         vehicleModel: fullModel,
+        serviceCategory: editingVehicle.serviceCategory,
         vehicleType: editingVehicle.vehicleType,
+        fuelType: editingVehicle.fuelType,
+        batteryRangeKm: editingVehicle.batteryRangeKm ? Number(editingVehicle.batteryRangeKm) : null,
+        chargingInformation: (editingVehicle.chargingInformation || '').trim(),
+        dimensions: {
+          lengthCm: editingVehicle.lengthCm ? Number(editingVehicle.lengthCm) : null,
+          widthCm: editingVehicle.widthCm ? Number(editingVehicle.widthCm) : null,
+          heightCm: editingVehicle.heightCm ? Number(editingVehicle.heightCm) : null
+        },
+        serviceAreas: (editingVehicle.serviceAreas || '').split(',').map((area) => area.trim()).filter(Boolean),
         loadCapacity: { value: capacity, unit: editingVehicle.capacityUnit },
         bodyType: editingVehicle.bodyType,
         driverId: editingVehicle.driverId
@@ -743,11 +913,19 @@ export default function FleetTab({
                     vehicleNumber: vehicle.vehicleNumber || '',
                     vehicleMake: vehicle.vehicleMake || '',
                     vehicleModel: vehicle.vehicleModel || '',
+                    serviceCategory: vehicle.serviceCategory || 'TRUCK',
                     vehicleType: vehicle.vehicleType || 'mini-truck',
+                    fuelType: vehicle.fuelType || 'diesel',
                     capacity: String(vehicle.loadCapacity?.value || ''),
                     capacityUnit: vehicle.loadCapacity?.unit || 'kg',
                     bodyType: vehicle.bodyType || 'open',
                     driverId: String(vehicle.driver?._id || vehicle.driver || ''),
+                    batteryRangeKm: vehicle.batteryRangeKm ? String(vehicle.batteryRangeKm) : '',
+                    chargingInformation: vehicle.chargingInformation || '',
+                    lengthCm: vehicle.dimensions?.lengthCm ? String(vehicle.dimensions.lengthCm) : '',
+                    widthCm: vehicle.dimensions?.widthCm ? String(vehicle.dimensions.widthCm) : '',
+                    heightCm: vehicle.dimensions?.heightCm ? String(vehicle.dimensions.heightCm) : '',
+                    serviceAreas: (vehicle.serviceAreas || []).join(', '),
                     photos: getVehiclePhotos(vehicle)
                   })}
                   style={styles.actionBtnOutline}
@@ -843,25 +1021,10 @@ export default function FleetTab({
                 />
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Vehicle Category *</Text>
-                <View style={styles.chipGrid}>
-                  {['mini-truck', 'pickup', 'small-truck', 'medium-truck', 'large-truck'].map((type) => {
-                    const isSelected = vehicleForm.vehicleType === type;
-                    return (
-                      <Pressable
-                        key={type}
-                        onPress={() => setVehicleForm((p) => ({ ...p, vehicleType: type }))}
-                        style={[styles.typeChip, isSelected && styles.typeChipActive]}
-                      >
-                        <Text style={[styles.typeChipText, isSelected && styles.typeChipTextActive]}>
-                          {type.replace('-', ' ')}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
+              <GoodsVehicleFields
+                value={vehicleForm}
+                onChange={(fields) => setVehicleForm((current) => ({ ...current, ...fields }))}
+              />
 
               <DriverAssignmentField
                 drivers={eligibleDrivers}
@@ -997,25 +1160,10 @@ export default function FleetTab({
                   />
                 </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Vehicle Category</Text>
-                  <View style={styles.chipGrid}>
-                    {['mini-truck', 'pickup', 'small-truck', 'medium-truck', 'large-truck'].map((type) => {
-                      const isSelected = editingVehicle.vehicleType === type;
-                      return (
-                        <Pressable
-                          key={type}
-                          onPress={() => setEditingVehicle((p) => ({ ...p, vehicleType: type }))}
-                          style={[styles.typeChip, isSelected && styles.typeChipActive]}
-                        >
-                          <Text style={[styles.typeChipText, isSelected && styles.typeChipTextActive]}>
-                            {type.replace('-', ' ')}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
+                <GoodsVehicleFields
+                  value={editingVehicle}
+                  onChange={(fields) => setEditingVehicle((current) => ({ ...current, ...fields }))}
+                />
 
                 <DriverAssignmentField
                   drivers={eligibleDrivers}

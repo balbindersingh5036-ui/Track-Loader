@@ -1,13 +1,28 @@
 import { successResponse, errorResponse } from "../utils/response.js";
 import * as fareService from "../services/fareService.js";
 import mongoose from "mongoose";
+import {
+  getCategoryEnabledSettingKey,
+  getServiceCategoryForVehicleType,
+  VEHICLE_TYPES_BY_CATEGORY
+} from "../utils/vehicleCategories.js";
+import { isSettingEnabled } from "../services/systemSettingService.js";
 
 const CATEGORY_METADATA = {
   "mini-truck": { label: "Mini Truck", desc: "e.g. Tata Ace, Mahindra Jeeto (Up to 1.5 Tons)" },
   "pickup": { label: "Pickup Truck", desc: "e.g. Bolero Pik-Up, Dost (Up to 2.5 Tons)" },
   "small-truck": { label: "Small Truck", desc: "e.g. Tata 407, Eicher Pro 2049 (Up to 5 Tons)" },
   "medium-truck": { label: "Medium Truck", desc: "e.g. Eicher 17ft/19ft, BharatBenz 1217C (Up to 10 Tons)" },
-  "large-truck": { label: "Large Heavy Truck", desc: "e.g. 10/12/14 Wheeler Multi-Axle (10+ Tons)" }
+  "large-truck": { label: "Large Heavy Truck", desc: "e.g. 10/12/14 Wheeler Multi-Axle (10+ Tons)" },
+  "electric-cargo-loader": { label: "Electric Cargo Loader", desc: "Battery-powered goods loader" },
+  "electric-goods-e-rickshaw": { label: "Electric Goods E-Rickshaw", desc: "Electric three-wheeler for goods" },
+  "electric-mini-cargo-carrier": { label: "Electric Mini Cargo Carrier", desc: "Electric compact goods carrier" },
+  "other-electric-goods": { label: "Other Electric Goods Vehicle", desc: "Admin-approved electric goods vehicle" },
+  "mini-pickup": { label: "Mini Pickup", desc: "Small goods pickup" },
+  "tata-ace": { label: "Tata Ace / Small Goods Carrier", desc: "Compact commercial goods carrier" },
+  "cargo-pickup": { label: "Cargo Pickup", desc: "Goods pickup vehicle" },
+  "goods-loading-taxi": { label: "Goods Loading Taxi", desc: "Goods-only loading taxi" },
+  "other-goods-carrier": { label: "Other Goods Carrier", desc: "Admin-approved goods vehicle" }
 };
 
 export const getFares = async (req, res) => {
@@ -17,16 +32,54 @@ export const getFares = async (req, res) => {
       return errorResponse(res, "Fare system is currently disabled", 403);
     }
 
-    const { vehicleType, vehicleId, vehicle } = req.query;
+    const { vehicleType, vehicleId, vehicle, serviceCategory } = req.query;
     const filter = { isActive: true };
+    if (serviceCategory) {
+      const categoryTypes = VEHICLE_TYPES_BY_CATEGORY[serviceCategory];
+      if (!categoryTypes) return errorResponse(res, "Invalid service category", 400);
+      const settingKey = getCategoryEnabledSettingKey(serviceCategory);
+      if (settingKey && !(await isSettingEnabled(settingKey))) {
+        return errorResponse(res, "Service category is currently unavailable", 403);
+      }
+      filter.vehicleType = vehicleType && categoryTypes.includes(vehicleType)
+        ? vehicleType
+        : { $in: categoryTypes };
+      if (vehicleType && !categoryTypes.includes(vehicleType)) {
+        return errorResponse(res, "Vehicle type does not belong to the selected service category", 400);
+      }
+    }
+    if (!serviceCategory && vehicleType) {
+      const category = getServiceCategoryForVehicleType(vehicleType);
+      const settingKey = getCategoryEnabledSettingKey(category);
+      if (settingKey && !(await isSettingEnabled(settingKey))) {
+        return errorResponse(res, "Service category is currently unavailable", 403);
+      }
+    }
     const typeOrId = vehicleType || vehicleId || vehicle;
     if (typeOrId) {
       const fare = await fareService.getFareByVehicleType(typeOrId);
       if (fare) {
+        const category = getServiceCategoryForVehicleType(fare.vehicleType);
+        const settingKey = getCategoryEnabledSettingKey(category);
+        if (settingKey && !(await isSettingEnabled(settingKey))) {
+          return errorResponse(res, "Service category is currently unavailable", 403);
+        }
+        if (serviceCategory && !VEHICLE_TYPES_BY_CATEGORY[serviceCategory].includes(fare.vehicleType)) {
+          return errorResponse(res, "Vehicle type does not belong to the selected service category", 400);
+        }
         filter.vehicleType = fare.vehicleType;
       } else {
         filter.vehicleType = typeOrId;
       }
+    } else if (!serviceCategory) {
+      const enabledTypes = [];
+      for (const [category, categoryTypes] of Object.entries(VEHICLE_TYPES_BY_CATEGORY)) {
+        const settingKey = getCategoryEnabledSettingKey(category);
+        if (!settingKey || await isSettingEnabled(settingKey)) {
+          enabledTypes.push(...categoryTypes);
+        }
+      }
+      filter.vehicleType = { $in: enabledTypes };
     }
 
     const fares = await fareService.getAllFares(filter);
@@ -39,7 +92,9 @@ export const getFares = async (req, res) => {
       minimumFare: f.minimumFare,
       baseFare: f.baseFare || 0,
       loadingCharge: f.loadingCharge || 0,
-      unloadingCharge: f.unloadingCharge || 0
+      unloadingCharge: f.unloadingCharge || 0,
+      waitingCharge: f.waitingCharge || 0,
+      extraDistanceCharge: f.extraDistanceCharge || 0
     }));
 
     return successResponse(res, { fares: publicFares }, "Active fares fetched");
@@ -57,6 +112,11 @@ export const getFareByVehicleType = async (req, res) => {
 
     const { vehicleType } = req.params;
 
+    const category = getServiceCategoryForVehicleType(vehicleType);
+    const settingKey = getCategoryEnabledSettingKey(category);
+    if (settingKey && !(await isSettingEnabled(settingKey))) {
+      return errorResponse(res, "Service category is currently unavailable", 403);
+    }
     const fare = await fareService.getFareByVehicleType(vehicleType);
     
     if (!fare) {
@@ -70,7 +130,9 @@ export const getFareByVehicleType = async (req, res) => {
       minimumFare: fare.minimumFare,
       baseFare: fare.baseFare || 0,
       loadingCharge: fare.loadingCharge || 0,
-      unloadingCharge: fare.unloadingCharge || 0
+      unloadingCharge: fare.unloadingCharge || 0,
+      waitingCharge: fare.waitingCharge || 0,
+      extraDistanceCharge: fare.extraDistanceCharge || 0
     };
 
     return successResponse(res, { fare: publicFare }, "Fare fetched");
@@ -90,6 +152,9 @@ export const getFareQuotes = async (req, res) => {
     const weightValue = req.body?.weight?.value ?? req.body?.weightValue ?? req.query?.weightValue ?? req.query?.["weight[value]"];
     const weightUnit = req.body?.weight?.unit ?? req.body?.weightUnit ?? req.query?.weightUnit ?? req.query?.["weight[unit]"] ?? "kg";
     const vehicleType = req.body?.vehicleType ?? req.query?.vehicleType;
+    const serviceCategory = req.body?.serviceCategory ?? req.query?.serviceCategory;
+    const loadingRequired = req.body?.loadingRequired === true;
+    const unloadingRequired = req.body?.unloadingRequired === true;
 
     if (distanceKm === undefined || distanceKm === null || distanceKm === "") {
       return errorResponse(res, "Distance in KM is required for fare quotation", 400);
@@ -103,7 +168,10 @@ export const getFareQuotes = async (req, res) => {
       distanceKm,
       weightValue,
       weightUnit,
-      vehicleType
+      vehicleType,
+      serviceCategory,
+      loadingRequired,
+      unloadingRequired
     });
 
     return successResponse(res, {
@@ -153,6 +221,10 @@ export const getFareVehicleCategories = async (req, res) => {
         perKmRate: existing?.perKmRate ?? null,
         perTonRate: existing?.perTonRate ?? null,
         minimumFare: existing?.minimumFare ?? null,
+        loadingCharge: existing?.loadingCharge ?? 0,
+        unloadingCharge: existing?.unloadingCharge ?? 0,
+        waitingCharge: existing?.waitingCharge ?? 0,
+        extraDistanceCharge: existing?.extraDistanceCharge ?? 0,
         isActive: existing?.isActive ?? false,
         updatedAt: existing?.updatedAt || null,
         updatedBy: existing?.updatedBy || null
@@ -197,7 +269,9 @@ export const adminCreateFare = async (req, res) => {
       minimumFare,
       baseFare = 0,
       loadingCharge = 0,
-      unloadingCharge = 0
+      unloadingCharge = 0,
+      waitingCharge = 0,
+      extraDistanceCharge = 0
     } = req.body;
 
     const availableCategories = await fareService.getAvailableVehicleCategories();
@@ -209,7 +283,13 @@ export const adminCreateFare = async (req, res) => {
       return errorResponse(res, "Invalid numeric values. Must be >= 0 and finite.", 400);
     }
 
-    if (!validateNumeric(baseFare) || !validateNumeric(loadingCharge) || !validateNumeric(unloadingCharge)) {
+    if (
+      !validateNumeric(baseFare) ||
+      !validateNumeric(loadingCharge) ||
+      !validateNumeric(unloadingCharge) ||
+      !validateNumeric(waitingCharge) ||
+      !validateNumeric(extraDistanceCharge)
+    ) {
       return errorResponse(res, "Invalid numeric values. Must be >= 0 and finite.", 400);
     }
 
@@ -226,7 +306,9 @@ export const adminCreateFare = async (req, res) => {
         perTonRate: Number(perTonRate),
         minimumFare: Number(minimumFare),
         loadingCharge: Number(loadingCharge),
-        unloadingCharge: Number(unloadingCharge)
+        unloadingCharge: Number(unloadingCharge),
+        waitingCharge: Number(waitingCharge),
+        extraDistanceCharge: Number(extraDistanceCharge)
       },
       req.user?._id || null
     );
@@ -245,7 +327,17 @@ export const adminUpdateFare = async (req, res) => {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) return errorResponse(res, "Invalid ID", 400);
 
-    const { baseFare, perKmRate, perTonRate, minimumFare, loadingCharge, unloadingCharge, isActive } = req.body;
+    const {
+      baseFare,
+      perKmRate,
+      perTonRate,
+      minimumFare,
+      loadingCharge,
+      unloadingCharge,
+      waitingCharge,
+      extraDistanceCharge,
+      isActive
+    } = req.body;
     
     const updateData = {};
     
@@ -272,6 +364,14 @@ export const adminUpdateFare = async (req, res) => {
     if (unloadingCharge !== undefined) {
       if (!validateNumeric(unloadingCharge)) return errorResponse(res, "Invalid unloadingCharge", 400);
       updateData.unloadingCharge = Number(unloadingCharge);
+    }
+    if (waitingCharge !== undefined) {
+      if (!validateNumeric(waitingCharge)) return errorResponse(res, "Invalid waitingCharge", 400);
+      updateData.waitingCharge = Number(waitingCharge);
+    }
+    if (extraDistanceCharge !== undefined) {
+      if (!validateNumeric(extraDistanceCharge)) return errorResponse(res, "Invalid extraDistanceCharge", 400);
+      updateData.extraDistanceCharge = Number(extraDistanceCharge);
     }
     if (isActive !== undefined) {
       if (typeof isActive !== 'boolean') return errorResponse(res, "isActive must be boolean", 400);

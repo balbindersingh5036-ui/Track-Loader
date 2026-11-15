@@ -131,11 +131,12 @@ test("admin booking details populate authorized relations and the recorded payme
     populate(value, projection) { populateCalls.push(value); populateProjections.push(projection); return this; },
     then(resolve, reject) { return Promise.resolve(booking).then(resolve, reject); }
   }));
-  t.mock.method(Payment, "findOne", (filter) => {
+  t.mock.method(Payment, "find", (filter) => {
     paymentFilter = filter;
     return {
       select() { return this; },
-      lean() { return Promise.resolve(payment); }
+      sort() { return this; },
+      lean() { return Promise.resolve([payment]); }
     };
   });
 
