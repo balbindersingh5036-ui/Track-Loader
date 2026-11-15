@@ -239,11 +239,13 @@ export default function AgencyDashboard() {
     vehicleId: null,
     vehicleModel: '',
     vehicleType: 'mini-truck',
+    serviceCategory: 'TRUCK',
     loadCapacityValue: 1000,
     loadCapacityUnit: 'kg',
     bodyType: 'open',
     vehicleImage: '',
     isActive: true,
+    originalIsActive: true,
     saving: false
   });
   const [assignModal, setAssignModal] = useState({
@@ -833,24 +835,29 @@ export default function AgencyDashboard() {
     e.preventDefault();
     try {
       setEditVehicleModal(prev => ({ ...prev, saving: true }));
-      await agencyService.updateAgencyVehicle(editVehicleModal.vehicleId, {
+      const payload = {
         vehicleModel: editVehicleModal.vehicleModel,
         vehicleType: editVehicleModal.vehicleType,
         loadCapacity: { value: Number(editVehicleModal.loadCapacityValue), unit: editVehicleModal.loadCapacityUnit },
         bodyType: editVehicleModal.bodyType,
-        vehicleImage: editVehicleModal.vehicleImage,
-        isActive: editVehicleModal.isActive
-      });
+        vehicleImage: editVehicleModal.vehicleImage
+      };
+      if (editVehicleModal.originalIsActive || editVehicleModal.serviceCategory === 'TRUCK') {
+        payload.isActive = editVehicleModal.isActive;
+      }
+      await agencyService.updateAgencyVehicle(editVehicleModal.vehicleId, payload);
       setEditVehicleModal({
         open: false,
         vehicleId: null,
         vehicleModel: '',
         vehicleType: 'mini-truck',
+        serviceCategory: 'TRUCK',
         loadCapacityValue: 1000,
         loadCapacityUnit: 'kg',
         bodyType: 'open',
         vehicleImage: '',
         isActive: true,
+        originalIsActive: true,
         saving: false
       });
       await loadData();
@@ -1957,18 +1964,29 @@ export default function AgencyDashboard() {
                           <button
                             type="button"
                             className="btn btn-secondary btn-sm"
-                            onClick={() => setEditVehicleModal({
-                              open: true,
-                              vehicleId: v._id,
-                              vehicleModel: v.vehicleModel || '',
-                              vehicleType: v.vehicleType || 'mini-truck',
-                              loadCapacityValue: v.loadCapacity?.value || 1000,
-                              loadCapacityUnit: v.loadCapacity?.unit || 'kg',
-                              bodyType: v.bodyType || 'open',
-                              vehicleImage: v.vehicleImage || '',
-                              isActive: v.isActive !== false,
-                              saving: false
-                            })}
+                            onClick={() => {
+                              const resolvedCat = v.serviceCategory || (
+                                ['electric-cargo-loader', 'electric-goods-e-rickshaw', 'electric-mini-cargo-carrier', 'other-electric-goods'].includes(v.vehicleType)
+                                  ? 'EV_GOODS'
+                                  : ['mini-pickup', 'tata-ace', 'cargo-pickup', 'goods-loading-taxi', 'other-goods-carrier'].includes(v.vehicleType)
+                                    ? 'GOODS_TAXI'
+                                    : 'TRUCK'
+                              );
+                              setEditVehicleModal({
+                                open: true,
+                                vehicleId: v._id,
+                                vehicleModel: v.vehicleModel || '',
+                                vehicleType: v.vehicleType || 'mini-truck',
+                                serviceCategory: resolvedCat,
+                                loadCapacityValue: v.loadCapacity?.value || 1000,
+                                loadCapacityUnit: v.loadCapacity?.unit || 'kg',
+                                bodyType: v.bodyType || 'open',
+                                vehicleImage: v.vehicleImage || '',
+                                isActive: v.isActive !== false,
+                                originalIsActive: v.isActive !== false,
+                                saving: false
+                              });
+                            }}
                           >
                             Edit
                           </button>
@@ -2772,7 +2790,7 @@ export default function AgencyDashboard() {
           <div style={{ background: '#fff', padding: 24, borderRadius: 12, width: '100%', maxWidth: 460 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <h3 style={{ margin: 0, fontSize: 17 }}>Edit Fleet Vehicle</h3>
-              <button type="button" onClick={() => setEditVehicleModal({ open: false, vehicleId: null, vehicleModel: '', vehicleType: 'mini-truck', loadCapacityValue: 1000, loadCapacityUnit: 'kg', bodyType: 'open', vehicleImage: '', isActive: true, saving: false })} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6b7280' }}>&times;</button>
+              <button type="button" onClick={() => setEditVehicleModal({ open: false, vehicleId: null, vehicleModel: '', vehicleType: 'mini-truck', serviceCategory: 'TRUCK', loadCapacityValue: 1000, loadCapacityUnit: 'kg', bodyType: 'open', vehicleImage: '', isActive: true, originalIsActive: true, saving: false })} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#6b7280' }}>&times;</button>
             </div>
             <form onSubmit={handleUpdateVehicle} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div className="form-group">
@@ -2793,11 +2811,30 @@ export default function AgencyDashboard() {
                     onChange={(e) => setEditVehicleModal({ ...editVehicleModal, vehicleType: e.target.value })}
                     style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
                   >
-                    <option value="mini-truck">Mini Truck</option>
-                    <option value="pickup">Pickup</option>
-                    <option value="small-truck">Small Truck</option>
-                    <option value="medium-truck">Medium Truck</option>
-                    <option value="large-truck">Large Truck</option>
+                    {editVehicleModal.serviceCategory === 'EV_GOODS' ? (
+                      <>
+                        <option value="electric-cargo-loader">Electric Cargo Loader</option>
+                        <option value="electric-goods-e-rickshaw">Electric Goods E-Rickshaw</option>
+                        <option value="electric-mini-cargo-carrier">Electric Mini Cargo Carrier</option>
+                        <option value="other-electric-goods">Other Electric Goods</option>
+                      </>
+                    ) : editVehicleModal.serviceCategory === 'GOODS_TAXI' ? (
+                      <>
+                        <option value="mini-pickup">Mini Pickup</option>
+                        <option value="tata-ace">Tata Ace</option>
+                        <option value="cargo-pickup">Cargo Pickup</option>
+                        <option value="goods-loading-taxi">Goods Loading Taxi</option>
+                        <option value="other-goods-carrier">Other Goods Carrier</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="mini-truck">Mini Truck</option>
+                        <option value="pickup">Pickup</option>
+                        <option value="small-truck">Small Truck</option>
+                        <option value="medium-truck">Medium Truck</option>
+                        <option value="large-truck">Large Truck</option>
+                      </>
+                    )}
                   </select>
                 </div>
                 <div className="form-group">
@@ -2858,21 +2895,27 @@ export default function AgencyDashboard() {
               </div>
 
               <div className="form-group">
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input
-                    type="checkbox"
-                    checked={editVehicleModal.isActive}
-                    onChange={(e) => setEditVehicleModal({ ...editVehicleModal, isActive: e.target.checked })}
-                  />
-                  <span>Vehicle is Active for Dispatches</span>
-                </label>
+                {!editVehicleModal.originalIsActive && editVehicleModal.serviceCategory && editVehicleModal.serviceCategory !== 'TRUCK' ? (
+                  <div style={{ background: '#fef3c7', border: '1px solid #fde68a', color: '#92400e', padding: '8px 12px', borderRadius: 6, fontSize: 13 }}>
+                    <strong>Status: Inactive</strong> — Super Admin approval and activation required before this goods vehicle can be dispatched.
+                  </div>
+                ) : (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={editVehicleModal.isActive}
+                      onChange={(e) => setEditVehicleModal({ ...editVehicleModal, isActive: e.target.checked })}
+                    />
+                    <span>Vehicle is Active for Dispatches</span>
+                  </label>
+                )}
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 12 }}>
                 <button
                   type="button"
                   className="btn btn-secondary"
-                  onClick={() => setEditVehicleModal({ open: false, vehicleId: null, vehicleModel: '', vehicleType: 'mini-truck', loadCapacityValue: 1000, loadCapacityUnit: 'kg', bodyType: 'open', vehicleImage: '', isActive: true, saving: false })}
+                  onClick={() => setEditVehicleModal({ open: false, vehicleId: null, vehicleModel: '', vehicleType: 'mini-truck', serviceCategory: 'TRUCK', loadCapacityValue: 1000, loadCapacityUnit: 'kg', bodyType: 'open', vehicleImage: '', isActive: true, originalIsActive: true, saving: false })}
                 >
                   Cancel
                 </button>

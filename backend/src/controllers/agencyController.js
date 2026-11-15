@@ -833,7 +833,8 @@ export const updateAgencyVehicle = async (req, res) => {
     if (
       resolvedServiceCategory !== SERVICE_CATEGORIES.TRUCK &&
       typeof req.body.isActive === "boolean" &&
-      req.body.isActive
+      req.body.isActive &&
+      !vehicle.isActive
     ) {
       return errorResponse(res, "Only an administrator can approve and activate a goods vehicle", 403);
     }

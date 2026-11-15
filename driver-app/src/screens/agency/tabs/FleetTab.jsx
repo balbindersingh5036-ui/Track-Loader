@@ -44,6 +44,15 @@ const VEHICLE_TYPES_BY_CATEGORY = {
   GOODS_TAXI: ['mini-pickup', 'tata-ace', 'cargo-pickup', 'goods-loading-taxi', 'other-goods-carrier']
 };
 
+const isGoodsCategory = (v) => {
+  if (!v) return false;
+  if (v.serviceCategory === 'EV_GOODS' || v.serviceCategory === 'GOODS_TAXI') return true;
+  if (v.serviceCategory === 'TRUCK') return false;
+  if (VEHICLE_TYPES_BY_CATEGORY.EV_GOODS.includes(v.vehicleType)) return true;
+  if (VEHICLE_TYPES_BY_CATEGORY.GOODS_TAXI.includes(v.vehicleType)) return true;
+  return false;
+};
+
 function GoodsVehicleFields({ value, onChange, publicConfig }) {
   const isEvEnabled = publicConfig
     ? publicConfig['service.ev_goods.enabled'] === true
@@ -1010,25 +1019,34 @@ export default function FleetTab({
                   <Text style={styles.actionBtnOutlineText}>Edit Vehicle</Text>
                 </Pressable>
 
-                <Pressable
-                  onPress={() => onUpdateVehicle(vehicle._id, { isActive: vehicle.isActive === false })}
-                  disabled={Boolean(saving)}
-                  style={[styles.actionBtnOutline, vehicle.isActive === false ? styles.activateBtn : styles.deactivateBtn]}
-                >
-                  <Ionicons
-                    name={vehicle.isActive === false ? 'play-outline' : 'pause-outline'}
-                    size={15}
-                    color={vehicle.isActive === false ? theme.colors.green : theme.colors.danger}
-                  />
-                  <Text
-                    style={[
-                      styles.actionBtnOutlineText,
-                      { color: vehicle.isActive === false ? theme.colors.green : theme.colors.danger }
-                    ]}
+                {vehicle.isActive === false && isGoodsCategory(vehicle) ? (
+                  <View style={[styles.actionBtnOutline, { borderColor: '#d97706', opacity: 0.85 }]}>
+                    <Ionicons name="time-outline" size={15} color="#d97706" />
+                    <Text style={[styles.actionBtnOutlineText, { color: '#d97706' }]}>
+                      Awaiting Admin Activation
+                    </Text>
+                  </View>
+                ) : (
+                  <Pressable
+                    onPress={() => onUpdateVehicle(vehicle._id, { isActive: vehicle.isActive === false })}
+                    disabled={Boolean(saving)}
+                    style={[styles.actionBtnOutline, vehicle.isActive === false ? styles.activateBtn : styles.deactivateBtn]}
                   >
-                    {vehicle.isActive === false ? 'Activate' : 'Deactivate'}
-                  </Text>
-                </Pressable>
+                    <Ionicons
+                      name={vehicle.isActive === false ? 'play-outline' : 'pause-outline'}
+                      size={15}
+                      color={vehicle.isActive === false ? theme.colors.green : theme.colors.danger}
+                    />
+                    <Text
+                      style={[
+                        styles.actionBtnOutlineText,
+                        { color: vehicle.isActive === false ? theme.colors.green : theme.colors.danger }
+                      ]}
+                    >
+                      {vehicle.isActive === false ? 'Activate' : 'Deactivate'}
+                    </Text>
+                  </Pressable>
+                )}
               </View>
             </View>
           );

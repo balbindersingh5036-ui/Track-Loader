@@ -272,6 +272,14 @@ export default function VehicleDetails() {
 
   const toggleVehicleStatus = async () => {
     const nextActive = !vehicle.isActive;
+    if (nextActive) {
+      const rcApproved = vehicle.documents?.registration?.status === 'approved';
+      const insuranceApproved = vehicle.documents?.insurance?.status === 'approved';
+      if (!rcApproved || !insuranceApproved) {
+        setError('RC and Insurance must both be approved before vehicle activation.');
+        return;
+      }
+    }
     if (!window.confirm(`Are you sure you want to ${nextActive ? 'activate' : 'deactivate'} ${vehicle.vehicleNumber}?`)) return;
     setStatusUpdating(true);
     setError('');
@@ -338,7 +346,17 @@ export default function VehicleDetails() {
               </div>
               <div className="vehicle-hero-actions">
                 {photos.length ? <button type="button" className="vehicle-secondary-button" onClick={() => { setGalleryIndex(0); setGalleryError(false); }}>View photo gallery ({photos.length})</button> : null}
-                <button type="button" className="vehicle-secondary-button" disabled={statusUpdating} onClick={toggleVehicleStatus}>
+                <button
+                  type="button"
+                  className="vehicle-secondary-button"
+                  disabled={statusUpdating}
+                  title={
+                    !vehicle.isActive && (vehicle.documents?.registration?.status !== 'approved' || vehicle.documents?.insurance?.status !== 'approved')
+                      ? 'RC and Insurance must both be approved before vehicle activation'
+                      : ''
+                  }
+                  onClick={toggleVehicleStatus}
+                >
                   {statusUpdating ? 'Updating…' : vehicle.isActive ? 'Deactivate vehicle' : 'Activate vehicle'}
                 </button>
               </div>

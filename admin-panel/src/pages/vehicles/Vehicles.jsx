@@ -157,6 +157,14 @@ export default function Vehicles() {
 
   const toggleActive = async (vehicle) => {
     const nextActive = !vehicle.isActive;
+    if (nextActive) {
+      const rcApproved = vehicle.documents?.registration?.status === 'approved';
+      const insuranceApproved = vehicle.documents?.insurance?.status === 'approved';
+      if (!rcApproved || !insuranceApproved) {
+        setError(`Cannot activate ${vehicle.vehicleNumber}: RC and Insurance must both be approved first.`);
+        return;
+      }
+    }
     const action = nextActive ? 'activate' : 'deactivate';
     if (!window.confirm(`Are you sure you want to ${action} ${vehicle.vehicleNumber}?`)) return;
     setError('');
@@ -391,7 +399,18 @@ export default function Vehicles() {
                     <td>
                       <div className="vehicle-row-actions">
                         <button type="button" className="vehicle-text-button" onClick={() => navigate(`/vehicles/${vehicle._id}`)}>Details</button>
-                        <button type="button" className="vehicle-text-button" onClick={() => toggleActive(vehicle)}>{vehicle.isActive ? 'Deactivate' : 'Activate'}</button>
+                        <button
+                          type="button"
+                          className="vehicle-text-button"
+                          title={
+                            !vehicle.isActive && (vehicle.documents?.registration?.status !== 'approved' || vehicle.documents?.insurance?.status !== 'approved')
+                              ? 'RC and Insurance must both be approved before vehicle activation'
+                              : ''
+                          }
+                          onClick={() => toggleActive(vehicle)}
+                        >
+                          {vehicle.isActive ? 'Deactivate' : 'Activate'}
+                        </button>
                       </div>
                     </td>
                   </tr>
