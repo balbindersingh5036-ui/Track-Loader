@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import api from "../services/api";
 import colors from "../constants/colors";
+import { resolveBannerResizeMode, calculateBannerHeight } from "../utils/bannerHelper.mjs";
 
 export default function BannerCarousel({ audience = "driver", fallback = null }) {
   const [banners, setBanners] = useState([]);
@@ -26,6 +27,8 @@ export default function BannerCarousel({ audience = "driver", fallback = null })
   
   // Ref for web tracking
   const webTimeoutRef = useRef(null);
+
+  const bannerHeight = useMemo(() => calculateBannerHeight(layoutWidth), [layoutWidth]);
 
   useEffect(() => {
     fetchBanners();
@@ -138,7 +141,7 @@ export default function BannerCarousel({ audience = "driver", fallback = null })
           setRealIndex(nextIndex - 1);
         }
       }
-    }, 3000);
+    }, 3500);
   }, [banners.length, layoutWidth, scrollToIndexNative]);
 
   useEffect(() => {
@@ -231,11 +234,13 @@ export default function BannerCarousel({ audience = "driver", fallback = null })
                 style={[styles.bannerWrapper, { width: layoutWidth }]} 
                 onPress={() => handlePress(item.ctaAction)}
               >
-                <Image
-                  source={{ uri: item.imageUrl }}
-                  style={styles.bannerImage}
-                  resizeMode="contain"
-                />
+                <View style={[styles.bannerCard, { height: bannerHeight }]}>
+                  <Image
+                    source={{ uri: item.imageUrl }}
+                    style={styles.bannerImage}
+                    resizeMode={resolveBannerResizeMode(item)}
+                  />
+                </View>
               </Pressable>
             ))}
           </View>
@@ -262,11 +267,13 @@ export default function BannerCarousel({ audience = "driver", fallback = null })
               style={[styles.bannerWrapper, { width: layoutWidth }]} 
               onPress={() => handlePress(item.ctaAction)}
             >
-              <Image
-                source={{ uri: item.imageUrl }}
-                style={styles.bannerImage}
-                resizeMode="contain"
-              />
+              <View style={[styles.bannerCard, { height: bannerHeight }]}>
+                <Image
+                  source={{ uri: item.imageUrl }}
+                  style={styles.bannerImage}
+                  resizeMode={resolveBannerResizeMode(item)}
+                />
+              </View>
             </Pressable>
           )}
         />
@@ -279,6 +286,7 @@ export default function BannerCarousel({ audience = "driver", fallback = null })
               key={index}
               onPress={() => handleDotPress(index)}
               style={styles.dotContainer}
+              accessibilityLabel={`Go to banner slide ${index + 1}`}
             >
               <View
                 style={[
@@ -295,16 +303,64 @@ export default function BannerCarousel({ audience = "driver", fallback = null })
 }
 
 const styles = StyleSheet.create({
-  container: { marginVertical: 10, width: '100%', alignSelf: 'center' },
-  skeletonContainer: {
-    height: 160, backgroundColor: colors.surface, borderRadius: 16,
-    marginHorizontal: 16, marginVertical: 10, alignItems: "center",
-    justifyContent: "center", borderColor: colors.line, borderWidth: 1,
+  container: {
+    marginTop: 0,
+    marginBottom: 2,
+    width: "100%",
+    alignSelf: "center"
   },
-  bannerWrapper: { paddingHorizontal: 16 },
-  bannerImage: { width: "100%", height: 160, borderRadius: 16, overflow: "hidden" },
-  pagination: { flexDirection: "row", justifyContent: "center", alignItems: "center", marginTop: 10 },
-  dotContainer: { padding: 4 },
-  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.textMuted || '#8A98A8', marginHorizontal: 2, opacity: 0.5 },
-  activeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary || '#08A9F5', opacity: 1 },
+  skeletonContainer: {
+    height: 160,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    marginVertical: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    borderColor: colors.line,
+    borderWidth: 1
+  },
+  bannerWrapper: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  bannerCard: {
+    width: "100%",
+    borderRadius: 14,
+    overflow: "hidden",
+    backgroundColor: colors.surface || "#0F1B29",
+    borderWidth: 1,
+    borderColor: colors.line || colors.border || "#1E293B",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  bannerImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 14
+  },
+  pagination: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 6,
+    marginBottom: 0
+  },
+  dotContainer: {
+    paddingVertical: 2,
+    paddingHorizontal: 3
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(255, 255, 255, 0.35)"
+  },
+  activeDot: {
+    width: 16,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary || "#08A9F5",
+    opacity: 1
+  }
 });

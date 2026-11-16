@@ -8,6 +8,13 @@ import { Button, Card, Empty, Heading, Loading, Notice, Screen } from "../../com
 import { colors, shadows } from "../../theme/theme";
 import { getErrorMessage } from "../../utils/errorMessage";
 import { getOptimizedImageUrl } from "../../utils/imageOptimizer";
+import EVBadge from "../../components/EVBadge";
+import VehiclePhotoCarousel from "../../components/VehiclePhotoCarousel";
+import {
+  isEVVehicle,
+  getVehicleCategoryLabel,
+  formatVehicleCategory
+} from "../../utils/vehicleDisplay";
 
 export default function VehicleDetailsScreen({ route, navigation }) {
   const vehicleId = route.params?.vehicleId;
@@ -48,6 +55,8 @@ export default function VehicleDetailsScreen({ route, navigation }) {
   }
 
   const resolvedCategory = vehicle?.serviceCategory || "TRUCK";
+  const isEV = isEVVehicle(vehicle);
+  const isTaxi = resolvedCategory === "GOODS_TAXI";
   const isCategoryDisabled =
     (resolvedCategory === "EV_GOODS" && config["service.ev_goods.enabled"] === false) ||
     (resolvedCategory === "GOODS_TAXI" && config["service.goods_taxi.enabled"] === false);
@@ -59,45 +68,76 @@ export default function VehicleDetailsScreen({ route, navigation }) {
       {vehicle ? (
         <>
           {/* VEHICLE HEADER */}
-          <Heading
-            title={vehicle.vehicleModel}
-            subtitle={vehicle.vehicleType?.replace(/-/g, " ")}
-          />
-
-          {/* MAIN HERO IMAGE */}
-          {vehicle.vehicleImage ? (
-            <Image
-              source={{ uri: getOptimizedImageUrl(vehicle.vehicleImage, { width: 800 }) }}
-              style={styles.heroImage}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <MaterialCommunityIcons
-                name="truck-outline"
-                size={54}
-                color={colors.textLight}
-              />
+          <View style={styles.headerContainer}>
+            <View style={styles.headerTitleRow}>
+              <Text style={styles.headerTitleText}>{vehicle.vehicleModel}</Text>
+              <EVBadge vehicle={vehicle} />
             </View>
-          )}
+            <View style={styles.headerCategoryRow}>
+              <View
+                style={[
+                  styles.catBadge,
+                  isEV && styles.catBadgeEV,
+                  isTaxi && styles.catBadgeTaxi
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.catBadgeText,
+                    isEV && styles.catBadgeTextEV,
+                    isTaxi && styles.catBadgeTextTaxi
+                  ]}
+                >
+                  {getVehicleCategoryLabel(vehicle)}
+                </Text>
+              </View>
+              <Text style={styles.headerSubText}>
+                {formatVehicleCategory(vehicle.vehicleType)}
+              </Text>
+            </View>
+          </View>
 
-          {/* GALLERY IMAGES IF ANY */}
-          {vehicle.vehicleImages && vehicle.vehicleImages.length > 0 ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.gallery}>
-              {vehicle.vehicleImages.map((uri, index) => (
-                <Image
-                  key={`${uri}-${index}`}
-                  source={{ uri: getOptimizedImageUrl(uri, { width: 400 }) }}
-                  style={styles.galleryThumb}
-                  resizeMode="cover"
-                />
-              ))}
-            </ScrollView>
-          ) : null}
+          {/* VEHICLE PHOTO CAROUSEL */}
+          <VehiclePhotoCarousel
+            vehicle={vehicle}
+            height={220}
+            autoPlayInterval={3500}
+            overlayBadge={
+              <EVBadge vehicle={vehicle} style={styles.imgBadgeOverlay} />
+            }
+          />
 
           {/* SPECIFICATIONS CARD */}
           <Card>
             <Text style={styles.cardHeaderTitle}>Vehicle Specifications</Text>
+
+            <View style={styles.specRow}>
+              <View style={styles.specLabelCol}>
+                <Ionicons name="apps-outline" size={16} color={colors.primary} />
+                <Text style={styles.specLabel}>Service Category</Text>
+              </View>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={styles.specValue}>{getVehicleCategoryLabel(vehicle)}</Text>
+                <EVBadge vehicle={vehicle} size="small" />
+              </View>
+            </View>
+
+            <View style={styles.specDivider} />
+
+            {isEV || vehicle.fuelType ? (
+              <>
+                <View style={styles.specRow}>
+                  <View style={styles.specLabelCol}>
+                    <Ionicons name="flash-outline" size={16} color={isEV ? "#10B981" : colors.primary} />
+                    <Text style={styles.specLabel}>Fuel Type</Text>
+                  </View>
+                  <Text style={[styles.specValue, isEV && { color: "#10B981", fontWeight: "700" }]}>
+                    {isEV ? "Electric (Zero Emission)" : vehicle.fuelType}
+                  </Text>
+                </View>
+                <View style={styles.specDivider} />
+              </>
+            ) : null}
 
             <View style={styles.specRow}>
               <View style={styles.specLabelCol}>
@@ -222,6 +262,66 @@ export default function VehicleDetailsScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+  headerContainer: {
+    marginBottom: 12
+  },
+  headerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flexWrap: "wrap"
+  },
+  headerTitleText: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: "800"
+  },
+  headerCategoryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 4
+  },
+  headerSubText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    fontWeight: "500",
+    textTransform: "capitalize"
+  },
+  catBadge: {
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6
+  },
+  catBadgeEV: {
+    backgroundColor: "rgba(16, 185, 129, 0.15)"
+  },
+  catBadgeTaxi: {
+    backgroundColor: "rgba(245, 158, 11, 0.15)"
+  },
+  catBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.textMuted
+  },
+  catBadgeTextEV: {
+    color: "#059669"
+  },
+  catBadgeTextTaxi: {
+    color: "#D97706"
+  },
+  imageWrap: {
+    position: "relative",
+    width: "100%",
+    marginBottom: 12
+  },
+  imgBadgeOverlay: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    zIndex: 10
+  },
   heroImage: {
     width: "100%",
     height: 200,
@@ -235,6 +335,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center"
+  },
+  imagePlaceholderEV: {
+    backgroundColor: "rgba(16, 185, 129, 0.08)"
+  },
+  imagePlaceholderTaxi: {
+    backgroundColor: "rgba(245, 158, 11, 0.08)"
   },
   gallery: {
     gap: 8,

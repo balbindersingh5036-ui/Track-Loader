@@ -11,8 +11,11 @@ import {
   getCleanVehicleDisplayName,
   formatVehicleCategory,
   SERVICE_CATEGORIES,
-  SERVICE_CATEGORY_LABELS
+  SERVICE_CATEGORY_LABELS,
+  isEVVehicle,
+  getVehicleCategoryLabel
 } from "../../utils/vehicleDisplay";
+import EVBadge from "../../components/EVBadge";
 
 const formatCategory = (category) => formatVehicleCategory(category);
 
@@ -324,7 +327,7 @@ export default function VehicleSelectionScreen({ route, navigation }) {
               const estimatedFare = fareQuotes[vehicle.vehicleType];
               const displayName = getVehicleDisplayName(vehicle);
               const validPlate = getValidRegistrationPlate(vehicle.vehicleNumber);
-              const isEV = vehicle.serviceCategory === SERVICE_CATEGORIES.EV_GOODS;
+              const isEV = isEVVehicle(vehicle);
               const isTaxi = vehicle.serviceCategory === SERVICE_CATEGORIES.GOODS_TAXI;
 
               return (
@@ -340,32 +343,38 @@ export default function VehicleSelectionScreen({ route, navigation }) {
                   accessibilityState={{ selected: isSelected }}
                 >
                   <View style={styles.cardHeader}>
-                    {vehicle.vehicleImage ? (
-                      <Image
-                        source={{ uri: vehicle.vehicleImage }}
-                        style={styles.vehicleThumb}
-                        resizeMode="cover"
-                      />
-                    ) : (
-                      <View
-                        style={[
-                          styles.iconContainer,
-                          isEV && styles.iconContainerEV,
-                          isTaxi && styles.iconContainerTaxi
-                        ]}
-                      >
-                        <MaterialCommunityIcons
-                          name={isEV ? "lightning-bolt-outline" : isTaxi ? "truck-delivery-outline" : "truck-fast-outline"}
-                          size={28}
-                          color={isEV ? "#10B981" : isTaxi ? "#F59E0B" : colors.primary}
+                    <View style={styles.thumbWrapper}>
+                      {vehicle.vehicleImage ? (
+                        <Image
+                          source={{ uri: vehicle.vehicleImage }}
+                          style={styles.vehicleThumb}
+                          resizeMode="cover"
                         />
-                      </View>
-                    )}
+                      ) : (
+                        <View
+                          style={[
+                            styles.iconContainer,
+                            isEV && styles.iconContainerEV,
+                            isTaxi && styles.iconContainerTaxi
+                          ]}
+                        >
+                          <MaterialCommunityIcons
+                            name={isEV ? "lightning-bolt-outline" : isTaxi ? "truck-delivery-outline" : "truck-fast-outline"}
+                            size={28}
+                            color={isEV ? "#10B981" : isTaxi ? "#F59E0B" : colors.primary}
+                          />
+                        </View>
+                      )}
+                      <EVBadge vehicle={vehicle} size="small" style={styles.thumbEvOverlay} />
+                    </View>
 
                     <View style={styles.metaContainer}>
-                      <Text style={styles.vehicleModelText} numberOfLines={1}>
-                        {displayName}
-                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <Text style={styles.vehicleModelText} numberOfLines={1}>
+                          {displayName}
+                        </Text>
+                        <EVBadge vehicle={vehicle} size="small" />
+                      </View>
                       <View style={styles.categoryBadgeRow}>
                         <View
                           style={[
@@ -381,7 +390,7 @@ export default function VehicleSelectionScreen({ route, navigation }) {
                               isTaxi && styles.catBadgeTextTaxi
                             ]}
                           >
-                            {SERVICE_CATEGORY_LABELS[vehicle.serviceCategory] || "Truck"}
+                            {getVehicleCategoryLabel(vehicle)}
                           </Text>
                         </View>
                         <Text style={styles.categoryText}>
@@ -575,6 +584,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12
+  },
+  thumbWrapper: {
+    position: "relative",
+    width: 60,
+    height: 60
+  },
+  thumbEvOverlay: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    zIndex: 2
   },
   vehicleThumb: {
     width: 60,

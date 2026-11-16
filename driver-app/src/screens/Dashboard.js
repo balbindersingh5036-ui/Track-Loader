@@ -7,7 +7,7 @@ const Dashboard = () => {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <LoadBalbinLogo width={140} height={90} />
+        <LoadBalbinLogo width={95} height={90} />
       </View>
       <ScrollView contentContainerStyle={styles.scroll}>
         <BannerCarousel audience="driver" />
@@ -24,15 +24,16 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingLeft: 0,
+    paddingLeft: 14,
     paddingRight: 16,
-    minHeight: 64,
+    paddingVertical: 6,
+    minHeight: 58,
     borderBottomWidth: 1,
     borderBottomColor: '#25364A',
     backgroundColor: '#0F1B29'
   },
-  scroll: { paddingBottom: 40 },
-  content: { padding: 16, alignItems: 'center', marginTop: 20 },
+  scroll: { paddingBottom: 40, paddingHorizontal: 16, gap: 12 },
+  content: { padding: 16, alignItems: 'center', marginTop: 12 },
   text: { color: '#B8C4D1', fontSize: 16 }
 });
 

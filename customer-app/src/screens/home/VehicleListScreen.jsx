@@ -27,8 +27,11 @@ import {
   SERVICE_CATEGORIES,
   SERVICE_CATEGORY_LABELS,
   VEHICLE_TYPES_BY_CATEGORY,
-  formatVehicleCategory
+  formatVehicleCategory,
+  isEVVehicle,
+  getVehicleCategoryLabel
 } from "../../utils/vehicleDisplay";
+import EVBadge from "../../components/EVBadge";
 
 export default function VehicleListScreen({ navigation, route }) {
   const [serviceCategory, setServiceCategory] = useState(
@@ -277,7 +280,7 @@ export default function VehicleListScreen({ navigation, route }) {
       ) : (
         <View style={styles.list}>
           {vehicles.map((vehicle) => {
-            const isEV = vehicle.serviceCategory === SERVICE_CATEGORIES.EV_GOODS;
+            const isEV = isEVVehicle(vehicle);
             const isTaxi = vehicle.serviceCategory === SERVICE_CATEGORIES.GOODS_TAXI;
 
             return (
@@ -288,35 +291,41 @@ export default function VehicleListScreen({ navigation, route }) {
                   navigation.navigate("VehicleDetails", { vehicleId: vehicle._id })
                 }
               >
-                {vehicle.vehicleImage ? (
-                  <Image
-                    source={{ uri: getOptimizedImageUrl(vehicle.vehicleImage, { width: 600 }) }}
-                    style={styles.cardImg}
-                    resizeMode="cover"
-                  />
-                ) : (
-                  <View
-                    style={[
-                      styles.cardImgPlaceholder,
-                      isEV && styles.cardImgPlaceholderEV,
-                      isTaxi && styles.cardImgPlaceholderTaxi
-                    ]}
-                  >
-                    <MaterialCommunityIcons
-                      name={isEV ? "lightning-bolt-outline" : isTaxi ? "truck-delivery-outline" : "truck-outline"}
-                      size={36}
-                      color={isEV ? "#10B981" : isTaxi ? "#F59E0B" : colors.textLight}
+                <View style={styles.imageWrap}>
+                  {vehicle.vehicleImage ? (
+                    <Image
+                      source={{ uri: getOptimizedImageUrl(vehicle.vehicleImage, { width: 600 }) }}
+                      style={styles.cardImg}
+                      resizeMode="cover"
                     />
-                  </View>
-                )}
+                  ) : (
+                    <View
+                      style={[
+                        styles.cardImgPlaceholder,
+                        isEV && styles.cardImgPlaceholderEV,
+                        isTaxi && styles.cardImgPlaceholderTaxi
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name={isEV ? "lightning-bolt-outline" : isTaxi ? "truck-delivery-outline" : "truck-outline"}
+                        size={36}
+                        color={isEV ? "#10B981" : isTaxi ? "#F59E0B" : colors.textLight}
+                      />
+                    </View>
+                  )}
+                  <EVBadge vehicle={vehicle} style={styles.imgBadgeOverlay} />
+                </View>
 
                 <View style={styles.cardContent}>
                   <View style={styles.cardTitleRow}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.modelName} numberOfLines={1}>
-                        {vehicle.vehicleModel}
-                      </Text>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                        <Text style={styles.modelName} numberOfLines={1}>
+                          {vehicle.vehicleModel}
+                        </Text>
+                        <EVBadge vehicle={vehicle} size="small" />
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
                         <View
                           style={[
                             styles.catBadge,
@@ -331,7 +340,7 @@ export default function VehicleListScreen({ navigation, route }) {
                               isTaxi && styles.catBadgeTextTaxi
                             ]}
                           >
-                            {SERVICE_CATEGORY_LABELS[vehicle.serviceCategory] || "Truck"}
+                            {getVehicleCategoryLabel(vehicle)}
                           </Text>
                         </View>
                         <Text style={styles.typeLabel}>
@@ -488,6 +497,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.line,
     overflow: "hidden"
+  },
+  imageWrap: {
+    position: "relative",
+    width: "100%"
+  },
+  imgBadgeOverlay: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    zIndex: 2
   },
   cardImg: {
     width: "100%",

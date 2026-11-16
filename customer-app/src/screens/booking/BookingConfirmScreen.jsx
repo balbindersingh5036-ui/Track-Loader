@@ -6,7 +6,13 @@ import bookingService from "../../services/bookingService";
 import { Button, Card, Heading, Notice, Screen } from "../../components/Phase12UI";
 import { colors } from "../../theme/theme";
 import { getErrorMessage } from "../../utils/errorMessage";
-import { getCleanVehicleDisplayName, formatVehicleCategory } from "../../utils/vehicleDisplay";
+import {
+  getCleanVehicleDisplayName,
+  formatVehicleCategory,
+  isEVVehicle,
+  getVehicleCategoryLabel
+} from "../../utils/vehicleDisplay";
+import EVBadge from "../../components/EVBadge";
 
 export default function BookingConfirmScreen({ route, navigation }) {
   const details = route.params || {};
@@ -38,13 +44,17 @@ export default function BookingConfirmScreen({ route, navigation }) {
     ? Number(details.estimatedFare ?? Math.max(calculatedFare, fareEstimate.minimumFare || 0))
     : null;
 
-  const resolvedVehicleModel = getCleanVehicleDisplayName(
-    details.vehicle || {
-      displayName: details.vehicle?.displayName,
-      vehicleModel: details.vehicle?.vehicleModel || details.vehicleModel,
-      vehicleType: details.vehicleType
-    }
-  );
+  const vehicleEntity = details.vehicle || {
+    displayName: details.vehicle?.displayName,
+    vehicleModel: details.vehicle?.vehicleModel || details.vehicleModel,
+    serviceCategory: details.serviceCategory,
+    vehicleType: details.vehicleType
+  };
+
+  const isEV = isEVVehicle(vehicleEntity);
+  const vehicleCategoryLabel = getVehicleCategoryLabel(vehicleEntity);
+
+  const resolvedVehicleModel = getCleanVehicleDisplayName(vehicleEntity);
 
   const submit = async () => {
     if (busy) return;
@@ -194,13 +204,10 @@ export default function BookingConfirmScreen({ route, navigation }) {
             </View>
             <View style={styles.gridItem}>
               <Text style={styles.gridLabel}>Service Category</Text>
-              <Text style={styles.gridValue}>
-                {details.serviceCategory === "EV_GOODS"
-                  ? "EV Goods Transport"
-                  : details.serviceCategory === "GOODS_TAXI"
-                    ? "Goods Taxi Transport"
-                    : "Truck"}
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={styles.gridValue}>{vehicleCategoryLabel}</Text>
+                <EVBadge vehicle={vehicleEntity} size="small" />
+              </View>
             </View>
           </View>
           <View style={styles.gridItem}>
@@ -258,19 +265,30 @@ export default function BookingConfirmScreen({ route, navigation }) {
       <Card>
         <View style={styles.cardHeaderRow}>
           <Text style={styles.cardHeaderTitle}>Vehicle Assignment</Text>
-          <MaterialCommunityIcons name="truck-outline" size={18} color={colors.primary} />
+          <MaterialCommunityIcons
+            name={isEV ? "lightning-bolt-outline" : "truck-outline"}
+            size={18}
+            color={isEV ? "#10B981" : colors.primary}
+          />
         </View>
 
         <View style={styles.vehicleRow}>
-          <View style={styles.vehicleIconBadge}>
-            <MaterialCommunityIcons name="truck-fast" size={24} color={colors.primary} />
+          <View style={[styles.vehicleIconBadge, isEV && styles.vehicleIconBadgeEV]}>
+            <MaterialCommunityIcons
+              name={isEV ? "lightning-bolt" : "truck-fast"}
+              size={24}
+              color={isEV ? "#10B981" : colors.primary}
+            />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.vehicleTitle}>
-              {resolvedVehicleModel}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <Text style={styles.vehicleTitle}>
+                {resolvedVehicleModel}
+              </Text>
+              <EVBadge vehicle={vehicleEntity} size="small" />
+            </View>
             <Text style={styles.vehicleSubtitle}>
-              Category: {formatVehicleCategory(details.vehicleType)}
+              Category: {vehicleCategoryLabel} · {formatVehicleCategory(details.vehicleType)}
             </Text>
           </View>
         </View>
@@ -509,6 +527,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center"
+  },
+  vehicleIconBadgeEV: {
+    backgroundColor: "rgba(16, 185, 129, 0.15)"
   },
   vehicleTitle: {
     color: colors.text,

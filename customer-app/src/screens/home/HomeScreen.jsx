@@ -21,7 +21,13 @@ import { getErrorMessage } from "../../utils/errorMessage";
 import { Card, Loading, Notice, Status } from "../../components/Phase12UI";
 import LoadBalbinLogo from "../../components/LoadBalbinLogo";
 import BannerCarousel from "../../components/BannerCarousel";
+import EVBadge from "../../components/EVBadge";
 import { colors, shadows } from "../../theme/theme";
+import {
+  isEVVehicle,
+  getVehicleCategoryLabel,
+  formatVehicleCategory
+} from "../../utils/vehicleDisplay";
 
 const vehicleTypes = ["mini-truck", "pickup", "small-truck", "medium-truck", "large-truck"];
 const { width } = Dimensions.get("window");
@@ -127,7 +133,7 @@ export default function HomeScreen({ navigation }) {
       {/* HEADER BAR */}
       <View style={styles.header}>
         <View style={styles.brandRow}>
-          <LoadBalbinLogo />
+          <LoadBalbinLogo width={95} height={90} />
         </View>
 
         <View style={styles.headerActions}>
@@ -304,11 +310,28 @@ export default function HomeScreen({ navigation }) {
           >
             <View style={styles.activeBookingTop}>
               <View>
-                <Text style={styles.activeBookingId}>{activeBooking.bookingId}</Text>
-                <Text style={styles.activeBookingVehicle}>
-                  {activeBooking.vehicle?.vehicleModel ||
-                    activeBooking.vehicleType?.replaceAll("-", " ")}
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={styles.activeBookingId}>{activeBooking.bookingId}</Text>
+                  <EVBadge vehicle={activeBooking} size="small" />
+                </View>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  {isEVVehicle(activeBooking) ? (
+                    <View style={{
+                      backgroundColor: "rgba(16, 185, 129, 0.15)",
+                      paddingHorizontal: 5,
+                      paddingVertical: 1,
+                      borderRadius: 4
+                    }}>
+                      <Text style={{ color: "#10B981", fontSize: 10, fontWeight: "700" }}>
+                        EV Goods
+                      </Text>
+                    </View>
+                  ) : null}
+                  <Text style={styles.activeBookingVehicle}>
+                    {activeBooking.vehicle?.vehicleModel ||
+                      activeBooking.vehicleType?.replaceAll("-", " ")}
+                  </Text>
+                </View>
               </View>
               <Status value={activeBooking.bookingStatus} assignmentStatus={activeBooking.assignmentStatus} assigned={Boolean(activeBooking.driver)} />
             </View>
@@ -389,7 +412,7 @@ export default function HomeScreen({ navigation }) {
 
         {/* AVAILABLE VEHICLES SECTION */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Available Trucks</Text>
+          <Text style={styles.sectionTitle}>Available Vehicles</Text>
           <Pressable onPress={() => navigation.navigate("VehicleList")}>
             <Text style={styles.sectionLink}>View all ({vehicles.length})</Text>
           </Pressable>
@@ -405,45 +428,76 @@ export default function HomeScreen({ navigation }) {
           </View>
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 16, paddingRight: 16 }}>
-            {vehicles.slice(0, 5).map((vehicle) => (
-              <Pressable
-                key={vehicle._id}
-                style={[{ width: 260, backgroundColor: colors.surface, borderRadius: 16, overflow: "hidden", borderWidth: 1, borderColor: colors.line }, shadows.soft]}
-                onPress={() => navigation.navigate("VehicleDetails", { vehicleId: vehicle._id })}
-              >
-                {vehicle.vehicleImage ? (
-                  <Image source={{ uri: vehicle.vehicleImage }} style={{ width: "100%", height: 160 }} resizeMode="cover" />
-                ) : (
-                  <View style={{ width: "100%", height: 160, backgroundColor: colors.surfaceAlt, alignItems: "center", justifyContent: "center" }}>
-                    <MaterialCommunityIcons name={getVehicleIcon(vehicle.vehicleType)} size={48} color={colors.textMuted} />
+            {vehicles.slice(0, 5).map((vehicle) => {
+              const isEV = isEVVehicle(vehicle);
+              return (
+                <Pressable
+                  key={vehicle._id}
+                  style={[{ width: 260, backgroundColor: colors.surface, borderRadius: 16, overflow: "hidden", borderWidth: 1, borderColor: colors.line }, shadows.soft]}
+                  onPress={() => navigation.navigate("VehicleDetails", { vehicleId: vehicle._id })}
+                >
+                  <View style={{ position: "relative" }}>
+                    {vehicle.vehicleImage ? (
+                      <Image source={{ uri: vehicle.vehicleImage }} style={{ width: "100%", height: 160 }} resizeMode="cover" />
+                    ) : (
+                      <View style={{ width: "100%", height: 160, backgroundColor: colors.surfaceAlt, alignItems: "center", justifyContent: "center" }}>
+                        <MaterialCommunityIcons name={isEV ? "lightning-bolt-outline" : getVehicleIcon(vehicle.vehicleType)} size={48} color={isEV ? "#10B981" : colors.textMuted} />
+                      </View>
+                    )}
+                    {isEV ? (
+                      <View style={{ position: "absolute", top: 10, left: 10, zIndex: 2 }}>
+                        <EVBadge vehicle={vehicle} size="small" />
+                      </View>
+                    ) : null}
                   </View>
-                )}
-                <View style={{ padding: 16, gap: 8 }}>
-                  <Text style={{ color: colors.text, fontSize: 18, fontWeight: "700" }} numberOfLines={1}>{vehicle.vehicleModel}</Text>
-                  <Text style={{ color: colors.textMuted, fontSize: 13, textTransform: "capitalize" }}>{vehicle.vehicleType?.replace(/-/g, " ")}</Text>
-
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                      <Ionicons name="speedometer-outline" size={14} color={colors.textMuted} />
-                      <Text style={{ color: colors.textMuted, fontSize: 13 }}>{vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit}</Text>
+                  <View style={{ padding: 16, gap: 8 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <Text style={{ color: colors.text, fontSize: 18, fontWeight: "700", flex: 1 }} numberOfLines={1}>{vehicle.vehicleModel}</Text>
+                      <EVBadge vehicle={vehicle} size="small" />
                     </View>
-                    <Text style={{ color: colors.textHighlight, fontSize: 14, fontWeight: "700" }}>₹{vehicle.baseFare || "Est."}</Text>
-                  </View>
-
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
-                    <View style={{ backgroundColor: vehicle.isAvailable ? colors.secondary : colors.surfaceAlt, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
-                      <Text style={{ color: vehicle.isAvailable ? colors.background : colors.textMuted, fontSize: 11, fontWeight: "800", textTransform: "uppercase" }}>
-                        {vehicle.isAvailable ? "Available" : "Busy"}
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <View style={{
+                        backgroundColor: isEV ? "rgba(16, 185, 129, 0.15)" : "rgba(8, 169, 245, 0.12)",
+                        paddingHorizontal: 6,
+                        paddingVertical: 1.5,
+                        borderRadius: 4
+                      }}>
+                        <Text style={{
+                          color: isEV ? "#10B981" : colors.primaryDark,
+                          fontSize: 10,
+                          fontWeight: "700"
+                        }}>
+                          {getVehicleCategoryLabel(vehicle)}
+                        </Text>
+                      </View>
+                      <Text style={{ color: colors.textMuted, fontSize: 13, textTransform: "capitalize" }}>
+                        {formatVehicleCategory(vehicle.vehicleType)}
                       </Text>
                     </View>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                      <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "700" }}>View Details</Text>
-                      <Ionicons name="arrow-forward" size={14} color={colors.primary} />
+
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <Ionicons name="speedometer-outline" size={14} color={colors.textMuted} />
+                        <Text style={{ color: colors.textMuted, fontSize: 13 }}>{vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit}</Text>
+                      </View>
+                      <Text style={{ color: colors.textHighlight, fontSize: 14, fontWeight: "700" }}>₹{vehicle.baseFare || "Est."}</Text>
+                    </View>
+
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
+                      <View style={{ backgroundColor: vehicle.isAvailable ? colors.secondary : colors.surfaceAlt, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
+                        <Text style={{ color: vehicle.isAvailable ? colors.background : colors.textMuted, fontSize: 11, fontWeight: "800", textTransform: "uppercase" }}>
+                          {vehicle.isAvailable ? "Available" : "Busy"}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "700" }}>View Details</Text>
+                        <Ionicons name="arrow-forward" size={14} color={colors.primary} />
+                      </View>
                     </View>
                   </View>
-                </View>
-              </Pressable>
-            ))}
+                </Pressable>
+              );
+            })}
           </ScrollView>
         )}
 
@@ -480,7 +534,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 6,
     minHeight: 64,
     backgroundColor: colors.surface,
     borderBottomWidth: 1,
@@ -490,9 +544,9 @@ const styles = StyleSheet.create({
     flexGrow: 0,
     flexShrink: 0,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "flex-start",
-    marginLeft: -30,
+    marginLeft: 0,
   },
   logoBadge: {
     width: 38,

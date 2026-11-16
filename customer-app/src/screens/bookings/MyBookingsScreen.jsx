@@ -12,7 +12,12 @@ import { joinBookingRoom, subscribeToBookingEvents } from "../../services/socket
 import { getErrorMessage } from "../../utils/errorMessage";
 import { Button, Card, Empty, Heading, Loading, Notice, Screen, Status } from "../../components/Phase12UI";
 import { colors, shadows } from "../../theme/theme";
-import { getCleanVehicleDisplayName } from "../../utils/vehicleDisplay";
+import {
+  getCleanVehicleDisplayName,
+  isEVVehicle,
+  getVehicleCategoryLabel
+} from "../../utils/vehicleDisplay";
+import EVBadge from "../../components/EVBadge";
 
 const filterTabs = [
   { label: "All", value: "" },
@@ -136,39 +141,49 @@ export default function MyBookingsScreen({ navigation }) {
         />
       ) : (
         <View style={styles.list}>
-          {shown.map((booking) => (
-            <Pressable
-              key={booking._id}
-              style={[styles.bookingCard, shadows.soft]}
-              onPress={() =>
-                navigation.navigate("BookingDetails", { bookingId: booking._id })
-              }
-            >
-              <View style={styles.bookingTopRow}>
-                <View>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                    <Text style={styles.bookingId}>{booking.bookingId}</Text>
-                    {booking.bookingMode ? (
-                      <View style={{ backgroundColor: colors.surfaceAlt, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                        <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "700", textTransform: "uppercase" }}>
-                          {booking.bookingMode}
+          {shown.map((booking) => {
+            const isEV = isEVVehicle(booking);
+            return (
+              <Pressable
+                key={booking._id}
+                style={[styles.bookingCard, shadows.soft]}
+                onPress={() =>
+                  navigation.navigate("BookingDetails", { bookingId: booking._id })
+                }
+              >
+                <View style={styles.bookingTopRow}>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <Text style={styles.bookingId}>{booking.bookingId}</Text>
+                      <EVBadge vehicle={booking} size="small" />
+                      {booking.bookingMode ? (
+                        <View style={{ backgroundColor: colors.surfaceAlt, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "700", textTransform: "uppercase" }}>
+                            {booking.bookingMode}
+                          </Text>
+                        </View>
+                      ) : null}
+                      {booking.alternativeVehicleAssigned ? (
+                        <View style={{ backgroundColor: colors.warningBg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          <Text style={{ color: colors.warningText, fontSize: 9, fontWeight: "800", textTransform: "uppercase" }}>
+                            Alt Assigned
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                      <View style={[styles.catPill, isEV && styles.catPillEV]}>
+                        <Text style={[styles.catPillText, isEV && styles.catPillTextEV]}>
+                          {getVehicleCategoryLabel(booking)}
                         </Text>
                       </View>
-                    ) : null}
-                    {booking.alternativeVehicleAssigned ? (
-                      <View style={{ backgroundColor: colors.warningBg, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                        <Text style={{ color: colors.warningText, fontSize: 9, fontWeight: "800", textTransform: "uppercase" }}>
-                          Alt Assigned
-                        </Text>
-                      </View>
-                    ) : null}
+                      <Text style={styles.vehicleType}>
+                        {getCleanVehicleDisplayName(booking, booking.vehicleType)}
+                      </Text>
+                    </View>
                   </View>
-                  <Text style={styles.vehicleType}>
-                    {getCleanVehicleDisplayName(booking, booking.vehicleType)}
-                  </Text>
+                  <Status value={booking.bookingStatus} assignmentStatus={booking.assignmentStatus} assigned={Boolean(booking.driver)} />
                 </View>
-                <Status value={booking.bookingStatus} assignmentStatus={booking.assignmentStatus} assigned={Boolean(booking.driver)} />
-              </View>
 
               <View style={styles.routeBox}>
                 <View style={styles.routeRow}>
@@ -198,7 +213,8 @@ export default function MyBookingsScreen({ navigation }) {
                 </View>
               </View>
             </Pressable>
-          ))}
+          );
+        })}
         </View>
       )}
     </Screen>
@@ -286,11 +302,27 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "800"
   },
+  catPill: {
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4
+  },
+  catPillEV: {
+    backgroundColor: "rgba(16, 185, 129, 0.15)"
+  },
+  catPillText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: colors.textMuted
+  },
+  catPillTextEV: {
+    color: "#059669"
+  },
   vehicleType: {
     color: colors.textMuted,
     fontSize: 12,
-    textTransform: "capitalize",
-    marginTop: 1
+    textTransform: "capitalize"
   },
   routeBox: {
     backgroundColor: colors.surfaceAlt,

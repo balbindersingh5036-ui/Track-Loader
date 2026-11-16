@@ -10,6 +10,7 @@ import {
   SERVICE_CATEGORIES,
   SERVICE_CATEGORY_LABELS
 } from "../../utils/vehicleDisplay";
+import EVBadge from "../../components/EVBadge";
 
 const ALL_VEHICLE_TYPES = [
   // Trucks Category
@@ -257,7 +258,10 @@ export default function VehicleTypeScreen({ navigation, route }) {
                   </View>
                   <View style={{ flex: 1 }}>
                     <View style={styles.titleRow}>
-                      <Text style={styles.cardTitle}>{item.title}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap", flex: 1 }}>
+                        <Text style={styles.cardTitle}>{item.title}</Text>
+                        {isEV ? <EVBadge vehicle={{ serviceCategory: item.category }} size="small" /> : null}
+                      </View>
                       <View style={styles.availPill}>
                         <Text style={styles.availText}>
                           {count} available

@@ -965,9 +965,20 @@ export default function App() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
       {/* HEADER (MATCHING FIGMA) */}
-      <View style={{ backgroundColor: colors.bg, paddingLeft: 0, paddingRight: 16, paddingTop: 16, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-        <LoadBalbinLogo style={{ flex: 1 }} />
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+      <View style={{
+        backgroundColor: colors.bg,
+        paddingLeft: 14,
+        paddingRight: 16,
+        paddingTop: 4,
+        paddingBottom: 4,
+        minHeight: 64,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        width: '100%'
+      }}>
+        <LoadBalbinLogo width={95} height={90} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'transparent', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 16, borderWidth: 1, borderColor: colors.border }}>
             <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: driver?.isOnline ? colors.green : colors.muted }} />
             <Text style={{ color: driver?.isOnline ? colors.green : colors.muted, fontWeight: '700', fontSize: 10 }}>{driver?.isOnline ? 'ONLINE' : 'OFFLINE'}</Text>
@@ -989,7 +1000,7 @@ export default function App() {
 
       {/* CONTENT */}
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100, gap: 16 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 80, gap: 12 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} />}
       >
         {error ? (

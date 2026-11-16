@@ -38,6 +38,49 @@ export const getServiceCategoryForVehicleType = (vehicleType) =>
     types.includes(vehicleType)
   )?.[0] || "TRUCK";
 
+/**
+ * Resolves the service category for a vehicle or booking record.
+ * Uses vehicle.serviceCategory as the primary category identifier.
+ * Does NOT classify based on vehicle names.
+ */
+export const resolveVehicleServiceCategory = (vehicleOrBooking) => {
+  if (!vehicleOrBooking) return SERVICE_CATEGORIES.TRUCK;
+  const directCategory =
+    vehicleOrBooking.serviceCategory ||
+    vehicleOrBooking.vehicle?.serviceCategory;
+  if (directCategory && SERVICE_CATEGORIES[directCategory]) {
+    return directCategory;
+  }
+  const type =
+    vehicleOrBooking.vehicleType ||
+    vehicleOrBooking.vehicle?.vehicleType;
+  if (type) {
+    return getServiceCategoryForVehicleType(type);
+  }
+  return SERVICE_CATEGORIES.TRUCK;
+};
+
+/**
+ * Returns true if the vehicle or booking belongs to the EV_GOODS category.
+ * Only returns true if serviceCategory === 'EV_GOODS' (or fallback vehicleType is an EV type).
+ * Strictly does NOT identify vehicles as EV by name alone.
+ */
+export const isEVVehicle = (vehicleOrBooking) => {
+  return resolveVehicleServiceCategory(vehicleOrBooking) === SERVICE_CATEGORIES.EV_GOODS;
+};
+
+/**
+ * Returns the customer-facing category label.
+ * Returns "EV Goods" for EV_GOODS, "Goods Taxi" for GOODS_TAXI, and "Truck" (or "Trucks") for TRUCK.
+ * Never outputs "Truck" or "Large Truck" for EV_GOODS.
+ */
+export const getVehicleCategoryLabel = (vehicleOrBooking, options = { plural: false }) => {
+  const category = resolveVehicleServiceCategory(vehicleOrBooking);
+  if (category === SERVICE_CATEGORIES.EV_GOODS) return "EV Goods";
+  if (category === SERVICE_CATEGORIES.GOODS_TAXI) return "Goods Taxi";
+  return options?.plural ? "Trucks" : "Truck";
+};
+
 const CATEGORY_LABELS = {
   // Standard Trucks
   "mini-truck": "Mini Truck",
@@ -143,10 +186,17 @@ export const getCleanVehicleDisplayName = (vehicleOrBooking, fallbackCategory = 
 };
 
 export default {
+  SERVICE_CATEGORIES,
+  SERVICE_CATEGORY_LABELS,
+  VEHICLE_TYPES_BY_CATEGORY,
   CATEGORY_LABELS,
   formatVehicleCategory,
   isValidVehicleModel,
   formatFullVehicleModel,
-  getCleanVehicleDisplayName
+  getCleanVehicleDisplayName,
+  getServiceCategoryForVehicleType,
+  resolveVehicleServiceCategory,
+  isEVVehicle,
+  getVehicleCategoryLabel
 };
 

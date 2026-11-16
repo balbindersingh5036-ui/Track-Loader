@@ -10,7 +10,12 @@ import { joinBookingRoom, subscribeToBookingEvents } from "../../services/socket
 import { getErrorMessage } from "../../utils/errorMessage";
 import { Button, Card, Field, Heading, Loading, Notice, Screen, Status } from "../../components/Phase12UI";
 import { colors, shadows } from "../../theme/theme";
-import { getCleanVehicleDisplayName } from "../../utils/vehicleDisplay";
+import {
+  getCleanVehicleDisplayName,
+  isEVVehicle,
+  getVehicleCategoryLabel
+} from "../../utils/vehicleDisplay";
+import EVBadge from "../../components/EVBadge";
 import RazorpayCheckoutModal from "../../components/RazorpayCheckoutModal";
 
 export default function BookingDetailsScreen({ route, navigation }) {
@@ -299,7 +304,10 @@ export default function BookingDetailsScreen({ route, navigation }) {
       <Card style={styles.headerCard}>
         <View style={styles.topRow}>
           <View>
-            <Text style={styles.bookingId}>{booking.bookingId}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <Text style={styles.bookingId}>{booking.bookingId}</Text>
+              <EVBadge vehicle={booking} size="small" />
+            </View>
             <Text style={styles.bookingDate}>
               {booking.createdAt ? new Date(booking.createdAt).toLocaleDateString() : ""}
             </Text>
@@ -356,7 +364,11 @@ export default function BookingDetailsScreen({ route, navigation }) {
       <Card>
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>Driver & Vehicle</Text>
-          <MaterialCommunityIcons name="truck-outline" size={18} color={colors.primary} />
+          <MaterialCommunityIcons
+            name={isEVVehicle(booking) ? "lightning-bolt-outline" : "truck-outline"}
+            size={18}
+            color={isEVVehicle(booking) ? "#10B981" : colors.primary}
+          />
         </View>
 
         {booking.driver ? (
@@ -383,10 +395,23 @@ export default function BookingDetailsScreen({ route, navigation }) {
         )}
 
         <View style={styles.vehicleInfoRow}>
+          <Text style={styles.infoLabel}>Service Category:</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text style={styles.infoValue}>
+              {getVehicleCategoryLabel(booking)}
+            </Text>
+            <EVBadge vehicle={booking} size="small" />
+          </View>
+        </View>
+
+        <View style={styles.vehicleInfoRow}>
           <Text style={styles.infoLabel}>Vehicle Model:</Text>
-          <Text style={styles.infoValue}>
-            {getCleanVehicleDisplayName(booking, booking.vehicleType)}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Text style={styles.infoValue}>
+              {getCleanVehicleDisplayName(booking, booking.vehicleType)}
+            </Text>
+            <EVBadge vehicle={booking} size="small" />
+          </View>
         </View>
 
         {booking.vehicle?.vehicleNumber ? (
