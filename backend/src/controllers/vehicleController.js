@@ -18,7 +18,8 @@ import {
   isPassengerCategory,
   isValidCategoryVehicleType,
   SERVICE_CATEGORIES,
-  VEHICLE_TYPES
+  VEHICLE_TYPES,
+  VEHICLE_TYPES_BY_CATEGORY
 } from "../utils/vehicleCategories.js";
 import { isSettingEnabled } from "../services/systemSettingService.js";
 import { vehicleServesRoute } from "../services/vehicleCategoryService.js";
