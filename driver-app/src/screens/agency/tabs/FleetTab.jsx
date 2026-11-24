@@ -39,62 +39,77 @@ const getVehiclePhotos = (vehicle) => {
 };
 
 const VEHICLE_TYPES_BY_CATEGORY = {
-  TRUCK: ['mini-truck', 'pickup', 'small-truck', 'medium-truck', 'large-truck'],
-  EV_GOODS: ['electric-cargo-loader', 'electric-goods-e-rickshaw', 'electric-mini-cargo-carrier', 'other-electric-goods'],
-  GOODS_TAXI: ['mini-pickup', 'tata-ace', 'cargo-pickup', 'goods-loading-taxi', 'other-goods-carrier']
+  GOODS_TRANSPORT: ['pickup', 'mini-truck', 'small-truck', 'medium-truck', 'large-truck'],
+  EV_PASSENGER: ['electric-rickshaw', 'electric-passenger-three-wheeler', 'other-electric-passenger'],
+  TAXI: ['sedan', 'hatchback', 'suv'],
+  TRUCK: ['pickup', 'mini-truck', 'small-truck', 'medium-truck', 'large-truck'],
+  EV_GOODS: ['electric-rickshaw', 'electric-passenger-three-wheeler', 'other-electric-passenger'],
+  GOODS_TAXI: ['sedan', 'hatchback', 'suv']
+};
+
+const isPassengerCategory = (categoryOrType) => {
+  if (!categoryOrType) return false;
+  const upper = String(categoryOrType).toUpperCase();
+  if (upper === 'EV_PASSENGER' || upper === 'TAXI') return true;
+  if (['electric-rickshaw', 'electric-passenger-three-wheeler', 'other-electric-passenger', 'sedan', 'hatchback', 'suv'].includes(String(categoryOrType).toLowerCase())) return true;
+  return false;
 };
 
 const isGoodsCategory = (v) => {
   if (!v) return false;
-  if (v.serviceCategory === 'EV_GOODS' || v.serviceCategory === 'GOODS_TAXI') return true;
-  if (v.serviceCategory === 'TRUCK') return false;
-  if (VEHICLE_TYPES_BY_CATEGORY.EV_GOODS.includes(v.vehicleType)) return true;
-  if (VEHICLE_TYPES_BY_CATEGORY.GOODS_TAXI.includes(v.vehicleType)) return true;
-  return false;
+  if (isPassengerCategory(v.serviceCategory || v.vehicleType)) return false;
+  return true;
 };
 
 function GoodsVehicleFields({ value, onChange, publicConfig }) {
   const isEvEnabled = publicConfig
-    ? publicConfig['service.ev_goods.enabled'] === true
-    : false;
+    ? (publicConfig['service.ev_passenger.enabled'] ?? publicConfig['service.ev_goods.enabled'] ?? true) === true
+    : true;
   const isTaxiEnabled = publicConfig
-    ? publicConfig['service.goods_taxi.enabled'] === true
-    : false;
+    ? (publicConfig['service.taxi.enabled'] ?? publicConfig['service.goods_taxi.enabled'] ?? true) === true
+    : true;
 
-  const evAllowedTypes = (publicConfig && Array.isArray(publicConfig['service.ev_goods.allowed_vehicle_types']))
-    ? publicConfig['service.ev_goods.allowed_vehicle_types']
-    : ['electric-cargo-loader', 'electric-goods-e-rickshaw', 'electric-mini-cargo-carrier'];
+  const evAllowedTypes = (publicConfig && Array.isArray(publicConfig['service.ev_passenger.allowed_vehicle_types']))
+    ? publicConfig['service.ev_passenger.allowed_vehicle_types']
+    : (publicConfig && Array.isArray(publicConfig['service.ev_goods.allowed_vehicle_types']))
+      ? publicConfig['service.ev_goods.allowed_vehicle_types']
+      : ['electric-rickshaw', 'electric-passenger-three-wheeler', 'other-electric-passenger'];
 
-  const taxiAllowedTypes = (publicConfig && Array.isArray(publicConfig['service.goods_taxi.allowed_vehicle_types']))
-    ? publicConfig['service.goods_taxi.allowed_vehicle_types']
-    : ['mini-pickup', 'tata-ace', 'cargo-pickup', 'goods-loading-taxi'];
+  const taxiAllowedTypes = (publicConfig && Array.isArray(publicConfig['service.taxi.allowed_vehicle_types']))
+    ? publicConfig['service.taxi.allowed_vehicle_types']
+    : (publicConfig && Array.isArray(publicConfig['service.goods_taxi.allowed_vehicle_types']))
+      ? publicConfig['service.goods_taxi.allowed_vehicle_types']
+      : ['sedan', 'hatchback', 'suv'];
 
   const allowedTypesByCategory = {
+    GOODS_TRANSPORT: VEHICLE_TYPES_BY_CATEGORY.GOODS_TRANSPORT,
+    EV_PASSENGER: evAllowedTypes,
+    TAXI: taxiAllowedTypes,
     TRUCK: VEHICLE_TYPES_BY_CATEGORY.TRUCK,
     EV_GOODS: evAllowedTypes,
     GOODS_TAXI: taxiAllowedTypes
   };
 
   const categories = [
-    { key: 'TRUCK', label: 'Truck', isEnabled: true },
-    { key: 'EV_GOODS', label: isEvEnabled ? 'EV Goods' : 'EV Goods (Disabled)', isEnabled: isEvEnabled },
-    { key: 'GOODS_TAXI', label: isTaxiEnabled ? 'Goods Taxi' : 'Goods Taxi (Disabled)', isEnabled: isTaxiEnabled }
+    { key: 'GOODS_TRANSPORT', label: 'Goods Transport', isEnabled: true },
+    { key: 'EV_PASSENGER', label: isEvEnabled ? 'EV Passenger' : 'EV Passenger (Disabled)', isEnabled: isEvEnabled },
+    { key: 'TAXI', label: isTaxiEnabled ? 'Taxi' : 'Taxi (Disabled)', isEnabled: isTaxiEnabled }
   ];
 
   const updateCategory = (serviceCategory) => {
     const allowed = allowedTypesByCategory[serviceCategory] || [];
-    const nextType = allowed[0] || (serviceCategory === 'EV_GOODS' ? 'electric-cargo-loader' : serviceCategory === 'GOODS_TAXI' ? 'mini-pickup' : 'mini-truck');
+    const nextType = allowed[0] || (serviceCategory === 'EV_PASSENGER' || serviceCategory === 'EV_GOODS' ? 'electric-rickshaw' : serviceCategory === 'TAXI' || serviceCategory === 'GOODS_TAXI' ? 'sedan' : 'mini-truck');
     onChange({
       ...value,
       serviceCategory,
       vehicleType: nextType,
-      ...(serviceCategory === 'EV_GOODS' ? { fuelType: 'electric' } : {})
+      ...(serviceCategory === 'EV_PASSENGER' || serviceCategory === 'EV_GOODS' ? { fuelType: 'electric' } : {})
     });
   };
 
   const isCurrentCategoryDisabled =
-    (value.serviceCategory === 'EV_GOODS' && !isEvEnabled) ||
-    (value.serviceCategory === 'GOODS_TAXI' && !isTaxiEnabled);
+    ((value.serviceCategory === 'EV_PASSENGER' || value.serviceCategory === 'EV_GOODS') && !isEvEnabled) ||
+    ((value.serviceCategory === 'TAXI' || value.serviceCategory === 'GOODS_TAXI') && !isTaxiEnabled);
 
   const currentAllowedTypes = allowedTypesByCategory[value.serviceCategory] || [];
 
@@ -159,12 +174,12 @@ function GoodsVehicleFields({ value, onChange, publicConfig }) {
           {['diesel', 'petrol', 'cng', 'electric'].map((fuelType) => (
             <Pressable
               key={fuelType}
-              disabled={value.serviceCategory === 'EV_GOODS' && fuelType !== 'electric'}
+              disabled={(value.serviceCategory === 'EV_PASSENGER' || value.serviceCategory === 'EV_GOODS') && fuelType !== 'electric'}
               onPress={() => onChange({ ...value, fuelType })}
               style={[
                 styles.typeChip,
                 value.fuelType === fuelType && styles.typeChipActive,
-                value.serviceCategory === 'EV_GOODS' && fuelType !== 'electric' && { opacity: 0.4 }
+                (value.serviceCategory === 'EV_PASSENGER' || value.serviceCategory === 'EV_GOODS') && fuelType !== 'electric' && { opacity: 0.4 }
               ]}
             >
               <Text style={[styles.typeChipText, value.fuelType === fuelType && styles.typeChipTextActive]}>
@@ -175,7 +190,27 @@ function GoodsVehicleFields({ value, onChange, publicConfig }) {
         </View>
       </View>
 
-      {value.serviceCategory === 'EV_GOODS' ? (
+      {(value.serviceCategory === 'TAXI' || value.serviceCategory === 'GOODS_TAXI') ? (
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Air Conditioning</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Pressable
+              onPress={() => onChange({ ...value, isAirConditioned: true })}
+              style={[styles.typeChip, value.isAirConditioned && styles.typeChipActive]}
+            >
+              <Text style={[styles.typeChipText, value.isAirConditioned && styles.typeChipTextActive]}>AC</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => onChange({ ...value, isAirConditioned: false })}
+              style={[styles.typeChip, !value.isAirConditioned && styles.typeChipActive]}
+            >
+              <Text style={[styles.typeChipText, !value.isAirConditioned && styles.typeChipTextActive]}>Non-AC</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+
+      {(value.serviceCategory === 'EV_PASSENGER' || value.serviceCategory === 'EV_GOODS') ? (
         <>
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Battery Range (km) *</Text>
@@ -458,6 +493,8 @@ export default function FleetTab({
     fuelType: 'diesel',
     capacity: '',
     capacityUnit: 'kg',
+    seatingCapacity: '4',
+    isAirConditioned: false,
     bodyType: 'open',
     driverId: '',
     batteryRangeKm: '',
@@ -604,16 +641,30 @@ export default function FleetTab({
 
   const handleSaveAddVehicle = async () => {
     if (isSubmitting || Boolean(saving)) return;
+    const isPassenger = isPassengerCategory(vehicleForm.serviceCategory);
     const capacity = Number(vehicleForm.capacity);
+    const seating = Number(vehicleForm.seatingCapacity);
     const make = vehicleForm.vehicleMake.trim();
     const model = vehicleForm.vehicleModel.trim();
     const fullModel = make && !model.toLowerCase().startsWith(make.toLowerCase())
       ? `${make} ${model}`
       : model;
 
-    if (!vehicleForm.vehicleNumber.trim() || !fullModel || !Number.isFinite(capacity) || capacity <= 0) {
-      setFormError('Please enter a vehicle registration number, model, and valid positive load capacity.');
+    if (!vehicleForm.vehicleNumber.trim() || !fullModel) {
+      setFormError('Please enter a vehicle registration number and model.');
       return;
+    }
+
+    if (isPassenger) {
+      if (!Number.isFinite(seating) || seating < 1) {
+        setFormError('Please enter a valid seating capacity (at least 1).');
+        return;
+      }
+    } else {
+      if (!Number.isFinite(capacity) || capacity <= 0) {
+        setFormError('Please enter a valid positive load capacity.');
+        return;
+      }
     }
 
     if (!isValidModelName(fullModel, vehicleForm.vehicleNumber)) {
@@ -621,13 +672,13 @@ export default function FleetTab({
       return;
     }
 
-    if (vehicleForm.serviceCategory === 'EV_GOODS' && !isEvEnabled) {
-      setFormError('EV Goods Transport is currently disabled by administrator. New vehicles in this category cannot be registered.');
+    if ((vehicleForm.serviceCategory === 'EV_PASSENGER' || vehicleForm.serviceCategory === 'EV_GOODS') && !isEvEnabled) {
+      setFormError('EV Passenger Transport is currently disabled by administrator. New vehicles in this category cannot be registered.');
       return;
     }
 
-    if (vehicleForm.serviceCategory === 'GOODS_TAXI' && !isTaxiEnabled) {
-      setFormError('Goods Taxi Transport is currently disabled by administrator. New vehicles in this category cannot be registered.');
+    if ((vehicleForm.serviceCategory === 'TAXI' || vehicleForm.serviceCategory === 'GOODS_TAXI') && !isTaxiEnabled) {
+      setFormError('Taxi Service is currently disabled by administrator. New vehicles in this category cannot be registered.');
       return;
     }
 
@@ -649,19 +700,23 @@ export default function FleetTab({
           heightCm: vehicleForm.heightCm ? Number(vehicleForm.heightCm) : null
         },
         serviceAreas: vehicleForm.serviceAreas.split(',').map((area) => area.trim()).filter(Boolean),
-        loadCapacity: { value: capacity, unit: vehicleForm.capacityUnit },
-        bodyType: vehicleForm.bodyType,
+        seatingCapacity: isPassenger ? seating : null,
+        isAirConditioned: Boolean(vehicleForm.isAirConditioned),
+        loadCapacity: isPassenger ? { value: 0, unit: 'kg' } : { value: capacity, unit: vehicleForm.capacityUnit },
+        bodyType: isPassenger ? undefined : vehicleForm.bodyType,
         driverId: vehicleForm.driverId
       }, vehiclePhotos, setPhotoProgress);
       setVehicleForm({
         vehicleNumber: '',
         vehicleMake: '',
         vehicleModel: '',
-        serviceCategory: 'TRUCK',
+        serviceCategory: 'GOODS_TRANSPORT',
         vehicleType: 'mini-truck',
         fuelType: 'diesel',
         capacity: '',
         capacityUnit: 'kg',
+        seatingCapacity: '4',
+        isAirConditioned: false,
         bodyType: 'open',
         driverId: '',
         batteryRangeKm: '',
@@ -683,16 +738,30 @@ export default function FleetTab({
 
   const handleSaveEditVehicle = async () => {
     if (!editingVehicle || isSubmitting || Boolean(saving)) return;
+    const isPassenger = isPassengerCategory(editingVehicle.serviceCategory);
     const capacity = Number(editingVehicle.capacity);
+    const seating = Number(editingVehicle.seatingCapacity);
     const make = (editingVehicle.vehicleMake || '').trim();
     const model = (editingVehicle.vehicleModel || '').trim();
     const fullModel = make && !model.toLowerCase().startsWith(make.toLowerCase())
       ? `${make} ${model}`
       : model;
 
-    if (!fullModel || !Number.isFinite(capacity) || capacity <= 0) {
-      setFormError('Please enter a valid vehicle model and positive load capacity.');
+    if (!fullModel) {
+      setFormError('Please enter a valid vehicle model.');
       return;
+    }
+
+    if (isPassenger) {
+      if (!Number.isFinite(seating) || seating < 1) {
+        setFormError('Please enter a valid seating capacity (at least 1).');
+        return;
+      }
+    } else {
+      if (!Number.isFinite(capacity) || capacity <= 0) {
+        setFormError('Please enter a valid positive load capacity.');
+        return;
+      }
     }
 
     if (!isValidModelName(fullModel, editingVehicle.vehicleNumber)) {
@@ -720,8 +789,10 @@ export default function FleetTab({
           heightCm: editingVehicle.heightCm ? Number(editingVehicle.heightCm) : null
         },
         serviceAreas: (editingVehicle.serviceAreas || '').split(',').map((area) => area.trim()).filter(Boolean),
-        loadCapacity: { value: capacity, unit: editingVehicle.capacityUnit },
-        bodyType: editingVehicle.bodyType,
+        seatingCapacity: isPassenger ? seating : null,
+        isAirConditioned: Boolean(editingVehicle.isAirConditioned),
+        loadCapacity: isPassenger ? { value: 0, unit: 'kg' } : { value: capacity, unit: editingVehicle.capacityUnit },
+        bodyType: isPassenger ? undefined : editingVehicle.bodyType,
         driverId: editingVehicle.driverId
       }, newPhotos, retainedPhotos, setPhotoProgress);
       setEditingVehicle(null);
@@ -900,18 +971,39 @@ export default function FleetTab({
               <View style={styles.specsRow}>
                 <View style={styles.specChip}>
                   <Ionicons name="car-outline" size={13} color={theme.colors.muted} />
-                  <Text style={styles.specText}>{vehicle.vehicleType || 'Truck'}</Text>
+                  <Text style={styles.specText}>{vehicle.vehicleType?.replace(/-/g, ' ') || 'Vehicle'}</Text>
                 </View>
-                <View style={styles.specChip}>
-                  <Ionicons name="cube-outline" size={13} color={theme.colors.muted} />
-                  <Text style={styles.specText}>
-                    {vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit || 'kg'}
-                  </Text>
-                </View>
-                <View style={styles.specChip}>
-                  <Ionicons name="layers-outline" size={13} color={theme.colors.muted} />
-                  <Text style={styles.specText}>{vehicle.bodyType || 'Open'}</Text>
-                </View>
+                {isPassengerCategory(vehicle.serviceCategory || vehicle.vehicleType) ? (
+                  <>
+                    <View style={styles.specChip}>
+                      <Ionicons name="people-outline" size={13} color={theme.colors.muted} />
+                      <Text style={styles.specText}>
+                        {vehicle.seatingCapacity || 4} Seats
+                      </Text>
+                    </View>
+                    {(vehicle.serviceCategory === 'TAXI' || vehicle.serviceCategory === 'GOODS_TAXI') && (
+                      <View style={[styles.specChip, { backgroundColor: vehicle.isAirConditioned ? '#e0f2fe' : '#f1f5f9' }]}>
+                        <Ionicons name="snow-outline" size={13} color={vehicle.isAirConditioned ? '#0284c7' : '#64748b'} />
+                        <Text style={[styles.specText, { color: vehicle.isAirConditioned ? '#0284c7' : '#64748b', fontWeight: '600' }]}>
+                          {vehicle.isAirConditioned ? 'AC' : 'Non-AC'}
+                        </Text>
+                      </View>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.specChip}>
+                      <Ionicons name="cube-outline" size={13} color={theme.colors.muted} />
+                      <Text style={styles.specText}>
+                        {vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit || 'kg'}
+                      </Text>
+                    </View>
+                    <View style={styles.specChip}>
+                      <Ionicons name="layers-outline" size={13} color={theme.colors.muted} />
+                      <Text style={styles.specText}>{vehicle.bodyType || 'Open'}</Text>
+                    </View>
+                  </>
+                )}
               </View>
 
               {/* Assigned Driver Box */}
@@ -1003,6 +1095,8 @@ export default function FleetTab({
                     fuelType: vehicle.fuelType || 'diesel',
                     capacity: String(vehicle.loadCapacity?.value || ''),
                     capacityUnit: vehicle.loadCapacity?.unit || 'kg',
+                    seatingCapacity: String(vehicle.seatingCapacity || 4),
+                    isAirConditioned: vehicle.isAirConditioned ?? false,
                     bodyType: vehicle.bodyType || 'open',
                     driverId: String(vehicle.driver?._id || vehicle.driver || ''),
                     batteryRangeKm: vehicle.batteryRangeKm ? String(vehicle.batteryRangeKm) : '',
@@ -1136,55 +1230,71 @@ export default function FleetTab({
                 disabled={Boolean(saving)}
               />
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Load Capacity *</Text>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
+              {isPassengerCategory(vehicleForm.serviceCategory) ? (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Passenger Seating Capacity *</Text>
                   <TextInput
-                    value={vehicleForm.capacity}
-                    onChangeText={(val) => setVehicleForm((p) => ({ ...p, capacity: val }))}
-                    placeholder="e.g. 1000"
+                    value={vehicleForm.seatingCapacity}
+                    onChangeText={(val) => setVehicleForm((p) => ({ ...p, seatingCapacity: val }))}
+                    placeholder="e.g. 4"
                     placeholderTextColor={theme.colors.muted}
-                    keyboardType="decimal-pad"
-                    style={[styles.modalInput, { flex: 2 }]}
+                    keyboardType="number-pad"
+                    style={styles.modalInput}
                   />
-                  <View style={{ flex: 1, flexDirection: 'row', gap: 6 }}>
-                    {['kg', 'ton'].map((unit) => {
-                      const isSelected = vehicleForm.capacityUnit === unit;
-                      return (
-                        <Pressable
-                          key={unit}
-                          onPress={() => setVehicleForm((p) => ({ ...p, capacityUnit: unit }))}
-                          style={[styles.unitBtn, isSelected && styles.unitBtnActive]}
-                        >
-                          <Text style={[styles.unitBtnText, isSelected && styles.unitBtnTextActive]}>
-                            {unit}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
+                </View>
+              ) : (
+                <>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Load Capacity *</Text>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TextInput
+                        value={vehicleForm.capacity}
+                        onChangeText={(val) => setVehicleForm((p) => ({ ...p, capacity: val }))}
+                        placeholder="e.g. 1000"
+                        placeholderTextColor={theme.colors.muted}
+                        keyboardType="decimal-pad"
+                        style={[styles.modalInput, { flex: 2 }]}
+                      />
+                      <View style={{ flex: 1, flexDirection: 'row', gap: 6 }}>
+                        {['kg', 'ton'].map((unit) => {
+                          const isSelected = vehicleForm.capacityUnit === unit;
+                          return (
+                            <Pressable
+                              key={unit}
+                              onPress={() => setVehicleForm((p) => ({ ...p, capacityUnit: unit }))}
+                              style={[styles.unitBtn, isSelected && styles.unitBtnActive]}
+                            >
+                              <Text style={[styles.unitBtnText, isSelected && styles.unitBtnTextActive]}>
+                                {unit}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
                   </View>
-                </View>
-              </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Body Type</Text>
-                <View style={styles.chipGrid}>
-                  {['open', 'closed', 'container', 'flatbed'].map((type) => {
-                    const isSelected = vehicleForm.bodyType === type;
-                    return (
-                      <Pressable
-                        key={type}
-                        onPress={() => setVehicleForm((p) => ({ ...p, bodyType: type }))}
-                        style={[styles.typeChip, isSelected && styles.typeChipActive]}
-                      >
-                        <Text style={[styles.typeChipText, isSelected && styles.typeChipTextActive]}>
-                          {type}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Body Type</Text>
+                    <View style={styles.chipGrid}>
+                      {['open', 'closed', 'container', 'flatbed'].map((type) => {
+                        const isSelected = vehicleForm.bodyType === type;
+                        return (
+                          <Pressable
+                            key={type}
+                            onPress={() => setVehicleForm((p) => ({ ...p, bodyType: type }))}
+                            style={[styles.typeChip, isSelected && styles.typeChipActive]}
+                          >
+                            <Text style={[styles.typeChipText, isSelected && styles.typeChipTextActive]}>
+                              {type}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                </>
+              )}
 
               <View style={styles.modalActions}>
                 <Pressable onPress={onCloseAddModal} style={styles.modalCancelBtn}>
@@ -1272,53 +1382,69 @@ export default function FleetTab({
                   onChange={(driverId) => setEditingVehicle((current) => ({ ...current, driverId }))}
                 />
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Load Capacity</Text>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                {isPassengerCategory(editingVehicle.serviceCategory) ? (
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Passenger Seating Capacity *</Text>
                     <TextInput
-                      value={editingVehicle.capacity}
-                      onChangeText={(val) => setEditingVehicle((p) => ({ ...p, capacity: val }))}
-                      keyboardType="decimal-pad"
-                      style={[styles.modalInput, { flex: 2 }]}
+                      value={editingVehicle.seatingCapacity}
+                      onChangeText={(val) => setEditingVehicle((p) => ({ ...p, seatingCapacity: val }))}
+                      placeholder="e.g. 4"
+                      placeholderTextColor={theme.colors.muted}
+                      keyboardType="number-pad"
+                      style={styles.modalInput}
                     />
-                    <View style={{ flex: 1, flexDirection: 'row', gap: 6 }}>
-                      {['kg', 'ton'].map((unit) => {
-                        const isSelected = editingVehicle.capacityUnit === unit;
-                        return (
-                          <Pressable
-                            key={unit}
-                            onPress={() => setEditingVehicle((p) => ({ ...p, capacityUnit: unit }))}
-                            style={[styles.unitBtn, isSelected && styles.unitBtnActive]}
-                          >
-                            <Text style={[styles.unitBtnText, isSelected && styles.unitBtnTextActive]}>
-                              {unit}
-                            </Text>
-                          </Pressable>
-                        );
-                      })}
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Load Capacity</Text>
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <TextInput
+                          value={editingVehicle.capacity}
+                          onChangeText={(val) => setEditingVehicle((p) => ({ ...p, capacity: val }))}
+                          keyboardType="decimal-pad"
+                          style={[styles.modalInput, { flex: 2 }]}
+                        />
+                        <View style={{ flex: 1, flexDirection: 'row', gap: 6 }}>
+                          {['kg', 'ton'].map((unit) => {
+                            const isSelected = editingVehicle.capacityUnit === unit;
+                            return (
+                              <Pressable
+                                key={unit}
+                                onPress={() => setEditingVehicle((p) => ({ ...p, capacityUnit: unit }))}
+                                style={[styles.unitBtn, isSelected && styles.unitBtnActive]}
+                              >
+                                <Text style={[styles.unitBtnText, isSelected && styles.unitBtnTextActive]}>
+                                  {unit}
+                                </Text>
+                              </Pressable>
+                            );
+                          })}
+                        </View>
+                      </View>
                     </View>
-                  </View>
-                </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Body Type</Text>
-                  <View style={styles.chipGrid}>
-                    {['open', 'closed', 'container', 'flatbed'].map((type) => {
-                      const isSelected = editingVehicle.bodyType === type;
-                      return (
-                        <Pressable
-                          key={type}
-                          onPress={() => setEditingVehicle((p) => ({ ...p, bodyType: type }))}
-                          style={[styles.typeChip, isSelected && styles.typeChipActive]}
-                        >
-                          <Text style={[styles.typeChipText, isSelected && styles.typeChipTextActive]}>
-                            {type}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>Body Type</Text>
+                      <View style={styles.chipGrid}>
+                        {['open', 'closed', 'container', 'flatbed'].map((type) => {
+                          const isSelected = editingVehicle.bodyType === type;
+                          return (
+                            <Pressable
+                              key={type}
+                              onPress={() => setEditingVehicle((p) => ({ ...p, bodyType: type }))}
+                              style={[styles.typeChip, isSelected && styles.typeChipActive]}
+                            >
+                              <Text style={[styles.typeChipText, isSelected && styles.typeChipTextActive]}>
+                                {type}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  </>
+                )}
 
                 <VehiclePhotoGrid
                   photos={editingVehicle.photos}

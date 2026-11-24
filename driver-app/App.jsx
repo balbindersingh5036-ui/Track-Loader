@@ -28,12 +28,14 @@ import { connectSocket, disconnectSocket, joinBookingRoom, leaveBookingRoom, sub
 import { getToken, removeToken, saveToken } from './src/utils/authStorage';
 import { getDriverBookingEligibility } from './src/utils/driverBookingEligibility.mjs';
 import LoadBalbinLogo from './src/components/LoadBalbinLogo';
+import SplashScreen from './src/screens/splash/SplashScreen';
 import BannerCarousel from './src/components/BannerCarousel';
 import RegisterScreen from './src/screens/auth/RegisterScreen';
 import AgencyRegistrationScreen from './src/screens/auth/AgencyRegistrationScreen';
 import AgencyOwnerDashboard from './src/screens/agency/AgencyOwnerDashboard';
 import DriverKycSection from './src/components/DriverKycSection';
 import DriverProfileAvatar from './src/components/DriverProfileAvatar';
+import { validateLoginIdentifier, buildLoginPayload } from './src/utils/authValidation';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');
@@ -120,9 +122,9 @@ function Login({ onLogin, onRetry, onRegister, onAgencyRegister, initialError, i
 
   const submit = async () => {
     if (loading) return;
-    const cleanId = identifier.trim();
-    if (!cleanId) {
-      setError('Please enter your registered phone number or email.');
+    const validation = validateLoginIdentifier(identifier);
+    if (!validation.valid) {
+      setError(validation.error);
       return;
     }
     if (!password) {
@@ -132,7 +134,8 @@ function Login({ onLogin, onRetry, onRegister, onAgencyRegister, initialError, i
     setLoading(true);
     setError('');
     try {
-      await onLogin({ identifier: cleanId, password, role: accountRole });
+      const payload = buildLoginPayload(identifier, password, { role: accountRole });
+      await onLogin(payload);
     } catch (loginError) {
       setError(messageFor(loginError));
     } finally {
@@ -163,36 +166,54 @@ function Login({ onLogin, onRetry, onRegister, onAgencyRegister, initialError, i
           ))}
         </View>
 
-        <TextInput
-          accessibilityLabel="Phone number or email"
-          value={identifier}
-          onChangeText={(val) => { setIdentifier(val); setError(''); }}
-          placeholder="Phone number or email"
-          placeholderTextColor={colors.muted}
-          keyboardType="default"
-          autoCapitalize="none"
-          autoCorrect={false}
-          style={inputStyle}
-        />
+        <View style={{ gap: 6 }}>
+          <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 13 }}>Mobile Number / Email Address</Text>
+          <View style={{ position: 'relative', justifyContent: 'center' }}>
+            <View style={{ position: 'absolute', left: 14, zIndex: 1 }}>
+              <Ionicons
+                name={identifier.includes('@') ? 'mail-outline' : 'call-outline'}
+                size={18}
+                color={colors.muted}
+              />
+            </View>
+            <TextInput
+              accessibilityLabel="Mobile Number / Email Address"
+              value={identifier}
+              onChangeText={(val) => { setIdentifier(val); setError(''); }}
+              placeholder="Enter mobile number or email address"
+              placeholderTextColor={colors.muted}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={[inputStyle, { paddingLeft: 42 }]}
+            />
+          </View>
+        </View>
 
-        <View style={{ position: 'relative', justifyContent: 'center' }}>
-          <TextInput
-            accessibilityLabel="Password"
-            value={password}
-            onChangeText={(val) => { setPassword(val); setError(''); }}
-            placeholder="Password"
-            placeholderTextColor={colors.muted}
-            secureTextEntry={!showPassword}
-            autoCapitalize="none"
-            style={[inputStyle, { paddingRight: 48 }]}
-          />
-          <Pressable
-            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-            onPress={() => setShowPassword(!showPassword)}
-            style={{ position: 'absolute', right: 14, height: 40, justifyContent: 'center' }}
-          >
-            <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={colors.muted} />
-          </Pressable>
+        <View style={{ gap: 6 }}>
+          <Text style={{ color: colors.ink, fontWeight: '700', fontSize: 13 }}>Password</Text>
+          <View style={{ position: 'relative', justifyContent: 'center' }}>
+            <View style={{ position: 'absolute', left: 14, zIndex: 1 }}>
+              <Ionicons name="lock-closed-outline" size={18} color={colors.muted} />
+            </View>
+            <TextInput
+              accessibilityLabel="Password"
+              value={password}
+              onChangeText={(val) => { setPassword(val); setError(''); }}
+              placeholder="Password"
+              placeholderTextColor={colors.muted}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              style={[inputStyle, { paddingLeft: 42, paddingRight: 48 }]}
+            />
+            <Pressable
+              accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+              onPress={() => setShowPassword(!showPassword)}
+              style={{ position: 'absolute', right: 14, height: 40, justifyContent: 'center' }}
+            >
+              <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={20} color={colors.muted} />
+            </Pressable>
+          </View>
         </View>
 
         {error ? <Text accessibilityRole="alert" style={{ color: colors.danger, fontSize: 13 }}>{error}</Text> : null}
@@ -860,11 +881,7 @@ export default function App() {
   };
 
   if (!ready) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color={colors.primary} />
-      </SafeAreaView>
-    );
+    return <SplashScreen error={error} onRetry={restoreSession} />;
   }
 
   if (!user) {
@@ -1137,7 +1154,9 @@ export default function App() {
               const activeTrip = trips.find((t) => ['accepted', 'in-progress'].includes(t.bookingStatus));
               if (!activeTrip) return null;
               const isInProgress = activeTrip.bookingStatus === 'in-progress';
-              const hasGoodsStages = ['EV_GOODS', 'GOODS_TAXI'].includes(activeTrip.serviceCategory);
+              const isPassenger = ['EV_PASSENGER', 'TAXI'].includes(activeTrip.serviceCategory) ||
+                ['sedan', 'hatchback', 'suv', 'electric-rickshaw', 'electric-passenger-three-wheeler', 'other-electric-passenger'].includes(activeTrip.vehicleType);
+              const hasGoodsStages = !isPassenger && ['GOODS_TRANSPORT', 'TRUCK', 'EV_GOODS', 'GOODS_TAXI'].includes(activeTrip.serviceCategory);
               const nextGoodsStage = hasGoodsStages
                 ? (!activeTrip.pickupArrivedAt
                   ? 'pickup_arrived'
@@ -1275,7 +1294,15 @@ export default function App() {
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                       <View style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: 'rgba(8, 169, 245, 0.12)', alignItems: 'center', justifyContent: 'center' }}>
-                        <MaterialCommunityIcons name="truck" size={22} color={colors.primary} />
+                        <MaterialCommunityIcons
+                          name={driver.vehicles[0].serviceCategory === 'EV_PASSENGER' || ['electric-rickshaw', 'electric-passenger-three-wheeler', 'other-electric-passenger'].includes(driver.vehicles[0].vehicleType)
+                            ? 'rickshaw'
+                            : driver.vehicles[0].serviceCategory === 'TAXI' || ['sedan', 'hatchback', 'suv'].includes(driver.vehicles[0].vehicleType)
+                              ? 'taxi'
+                              : 'truck'}
+                          size={22}
+                          color={colors.primary}
+                        />
                       </View>
                       <View>
                         <Text style={[bodyText, { fontSize: 15 }]}>{driver.vehicles[0].vehicleModel || 'Fleet Vehicle'}</Text>
@@ -1284,16 +1311,28 @@ export default function App() {
                     </View>
                     <View style={{ backgroundColor: colors.card2, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: colors.border }}>
                       <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '700', textTransform: 'capitalize' }}>
-                        {driver.vehicles[0].vehicleType || 'Truck'}
+                        {driver.vehicles[0].serviceCategory === 'EV_PASSENGER'
+                          ? 'EV Passenger'
+                          : driver.vehicles[0].serviceCategory === 'TAXI'
+                            ? 'Taxi'
+                            : (driver.vehicles[0].vehicleType?.replace(/-/g, ' ') || 'Goods Vehicle')}
                       </Text>
                     </View>
                   </View>
 
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: colors.border }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Ionicons name="speedometer-outline" size={13} color={colors.muted} />
+                      <Ionicons
+                        name={driver.vehicles[0].seatingCapacity ? 'people-outline' : 'speedometer-outline'}
+                        size={13}
+                        color={colors.muted}
+                      />
                       <Text style={{ color: colors.muted, fontSize: 11 }}>
-                        Cap: <Text style={{ color: colors.ink, fontWeight: '700' }}>{driver.vehicles[0].loadCapacity?.value || '—'} {driver.vehicles[0].loadCapacity?.unit || 'kg'}</Text>
+                        {driver.vehicles[0].seatingCapacity ? (
+                          <>Seats: <Text style={{ color: colors.ink, fontWeight: '700' }}>{driver.vehicles[0].seatingCapacity} Passengers</Text></>
+                        ) : (
+                          <>Cap: <Text style={{ color: colors.ink, fontWeight: '700' }}>{driver.vehicles[0].loadCapacity?.value || '—'} {driver.vehicles[0].loadCapacity?.unit || 'kg'}</Text></>
+                        )}
                       </Text>
                     </View>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
@@ -2161,45 +2200,83 @@ export default function App() {
 
                 {/* Cargo & Vehicle */}
                 <View style={{ backgroundColor: colors.card, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, gap: 6 }}>
-                  <Text style={sectionTitle}>CARGO SPECIFICATIONS</Text>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={mutedText}>Service:</Text>
-                    <Text style={[bodyText, { fontSize: 12 }]}>
-                      {selectedTripDetails.serviceCategory === 'EV_GOODS'
-                        ? 'EV Goods Transport'
-                        : selectedTripDetails.serviceCategory === 'GOODS_TAXI'
-                          ? 'Goods Taxi Transport'
-                          : 'Truck'}
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={mutedText}>Goods / Material:</Text>
-                    <Text style={[bodyText, { fontSize: 12 }]}>{selectedTripDetails.goods || 'General Cargo'}</Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={mutedText}>Quantity:</Text>
-                    <Text style={[bodyText, { fontSize: 12 }]}>{selectedTripDetails.quantity ?? 1}</Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={mutedText}>Weight:</Text>
-                    <Text style={[bodyText, { fontSize: 12 }]}>{selectedTripDetails.weight?.value || 0} {selectedTripDetails.weight?.unit || 'kg'}</Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <Text style={mutedText}>Required Vehicle Type:</Text>
-                    <Text style={[bodyText, { fontSize: 12, textTransform: 'capitalize' }]}>{selectedTripDetails.vehicleType || 'Truck'}</Text>
-                  </View>
-                  {selectedTripDetails.vehicle ? (
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 4, borderTopWidth: 1, borderTopColor: colors.border }}>
-                      <Text style={mutedText}>Assigned Vehicle:</Text>
-                      <Text style={[bodyText, { fontSize: 12 }]}>{selectedTripDetails.vehicle.vehicleNumber || selectedTripDetails.vehicle.vehicleModel}</Text>
-                    </View>
-                  ) : null}
-                  {selectedTripDetails.loadingRequired ? (
-                    <Text style={mutedText}>Loading: {selectedTripDetails.loadingInstructions || 'Assistance requested'}</Text>
-                  ) : null}
-                  {selectedTripDetails.unloadingRequired ? (
-                    <Text style={mutedText}>Unloading: {selectedTripDetails.unloadingInstructions || 'Assistance requested'}</Text>
-                  ) : null}
+                  {(() => {
+                    const isPassengerRide = selectedTripDetails.serviceCategory === 'EV_PASSENGER' ||
+                      selectedTripDetails.serviceCategory === 'TAXI' ||
+                      ['electric-rickshaw', 'electric-passenger-three-wheeler', 'other-electric-passenger', 'sedan', 'hatchback', 'suv'].includes(selectedTripDetails.vehicleType);
+                    
+                    if (isPassengerRide) {
+                      return (
+                        <>
+                          <Text style={sectionTitle}>PASSENGER SERVICE SPECIFICATIONS</Text>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                            <Text style={mutedText}>Service:</Text>
+                            <Text style={[bodyText, { fontSize: 12 }]}>
+                              {selectedTripDetails.serviceCategory === 'EV_PASSENGER' || selectedTripDetails.serviceCategory === 'EV_GOODS'
+                                ? 'EV Passenger'
+                                : 'Taxi'}
+                            </Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                            <Text style={mutedText}>Purpose:</Text>
+                            <Text style={[bodyText, { fontSize: 12 }]}>Passenger Transportation</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                            <Text style={mutedText}>Passengers:</Text>
+                            <Text style={[bodyText, { fontSize: 12 }]}>{selectedTripDetails.passengerCount || 1} passenger(s)</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                            <Text style={mutedText}>Required Vehicle Type:</Text>
+                            <Text style={[bodyText, { fontSize: 12, textTransform: 'capitalize' }]}>{(selectedTripDetails.vehicleType || 'Passenger Vehicle').replace(/-/g, ' ')}</Text>
+                          </View>
+                          {selectedTripDetails.vehicle ? (
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 4, borderTopWidth: 1, borderTopColor: colors.border }}>
+                              <Text style={mutedText}>Assigned Vehicle:</Text>
+                              <Text style={[bodyText, { fontSize: 12 }]}>{selectedTripDetails.vehicle.vehicleNumber || selectedTripDetails.vehicle.vehicleModel}</Text>
+                            </View>
+                          ) : null}
+                        </>
+                      );
+                    }
+
+                    return (
+                      <>
+                        <Text style={sectionTitle}>CARGO SPECIFICATIONS</Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          <Text style={mutedText}>Service:</Text>
+                          <Text style={[bodyText, { fontSize: 12 }]}>Goods Transport</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          <Text style={mutedText}>Goods / Material:</Text>
+                          <Text style={[bodyText, { fontSize: 12 }]}>{selectedTripDetails.goods || 'General Cargo'}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          <Text style={mutedText}>Quantity:</Text>
+                          <Text style={[bodyText, { fontSize: 12 }]}>{selectedTripDetails.quantity ?? 1}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          <Text style={mutedText}>Weight:</Text>
+                          <Text style={[bodyText, { fontSize: 12 }]}>{selectedTripDetails.weight?.value || 0} {selectedTripDetails.weight?.unit || 'kg'}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          <Text style={mutedText}>Required Vehicle Type:</Text>
+                          <Text style={[bodyText, { fontSize: 12, textTransform: 'capitalize' }]}>{(selectedTripDetails.vehicleType || 'Truck').replace(/-/g, ' ')}</Text>
+                        </View>
+                        {selectedTripDetails.vehicle ? (
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 4, borderTopWidth: 1, borderTopColor: colors.border }}>
+                            <Text style={mutedText}>Assigned Vehicle:</Text>
+                            <Text style={[bodyText, { fontSize: 12 }]}>{selectedTripDetails.vehicle.vehicleNumber || selectedTripDetails.vehicle.vehicleModel}</Text>
+                          </View>
+                        ) : null}
+                        {selectedTripDetails.loadingRequired ? (
+                          <Text style={mutedText}>Loading: {selectedTripDetails.loadingInstructions || 'Assistance requested'}</Text>
+                        ) : null}
+                        {selectedTripDetails.unloadingRequired ? (
+                          <Text style={mutedText}>Unloading: {selectedTripDetails.unloadingInstructions || 'Assistance requested'}</Text>
+                        ) : null}
+                      </>
+                    );
+                  })()}
                 </View>
 
                 {/* Action buttons inside details modal */}
@@ -2586,15 +2663,34 @@ function BookingCard({ booking, actions = [], onAction, actionLoading, onViewDet
       </View>
 
       {/* SPECIFICATIONS */}
-      <Text style={[mutedText, { fontSize: 12, marginTop: 12 }]}>
-        {booking.vehicleType || 'Truck'} · {booking.goods || 'General Cargo'} · {booking.weight?.value || 0} {booking.weight?.unit || 'kg'}
-        {booking.distanceKm ? ` · ${booking.distanceKm} km` : ''}
-      </Text>
+      {(() => {
+        const isPassenger = booking.serviceCategory === 'EV_PASSENGER' ||
+          booking.serviceCategory === 'TAXI' ||
+          ['sedan', 'hatchback', 'suv', 'electric-rickshaw', 'electric-passenger-three-wheeler', 'other-electric-passenger'].includes(booking.vehicleType);
+        if (isPassenger) {
+          return (
+            <Text style={[mutedText, { fontSize: 12, marginTop: 12 }]}>
+              {(booking.serviceCategory === 'EV_PASSENGER' ? 'EV Passenger' : 'Taxi')} · {(booking.vehicleType || 'Ride').replace(/-/g, ' ')} · {booking.passengerCount ? `${booking.passengerCount} Passengers` : 'Passenger Transportation'}
+              {booking.distanceKm ? ` · ${booking.distanceKm} km` : ''}
+            </Text>
+          );
+        }
+        return (
+          <Text style={[mutedText, { fontSize: 12, marginTop: 12 }]}>
+            {(booking.vehicleType || 'Truck').replace(/-/g, ' ')} · {booking.goods || 'General Cargo'} · {booking.weight?.value || 0} {booking.weight?.unit || 'kg'}
+            {booking.distanceKm ? ` · ${booking.distanceKm} km` : ''}
+          </Text>
+        );
+      })()}
 
       {booking.vehicle ? (
         <Text style={[mutedText, { fontSize: 12, marginTop: 6 }]}>
           Vehicle: {booking.vehicle.vehicleNumber || booking.vehicle.vehicleModel || 'Assigned vehicle'}
-          {booking.vehicle.loadCapacity?.value ? ` · Capacity ${booking.vehicle.loadCapacity.value} ${booking.vehicle.loadCapacity.unit || 'kg'}` : ''}
+          {booking.vehicle.seatingCapacity
+            ? ` · ${booking.vehicle.seatingCapacity} Seats`
+            : booking.vehicle.loadCapacity?.value
+              ? ` · Capacity ${booking.vehicle.loadCapacity.value} ${booking.vehicle.loadCapacity.unit || 'kg'}`
+              : ''}
         </Text>
       ) : null}
 

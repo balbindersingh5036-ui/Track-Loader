@@ -1,6 +1,5 @@
 import React from "react";
 import { Text, View, StyleSheet, ActivityIndicator } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Button, Notice } from "../../components/Phase12UI";
 import LoadBalbinLogo from "../../components/LoadBalbinLogo";
 import { colors } from "../../theme/theme";
@@ -9,9 +8,9 @@ export default function SplashScreen({ error, onRetry, onSignOut }) {
   return (
     <View style={styles.container}>
       <View style={styles.logoWrap}>
-        <LoadBalbinLogo width={200} height={60} />
+        <LoadBalbinLogo width={220} height={180} centered resizeMode="contain" />
       </View>
-      <View style={styles.logoWrap}>
+      <View style={styles.taglineWrap}>
         <Text style={styles.tagline}>Move goods with confidence.</Text>
       </View>
 
@@ -47,27 +46,12 @@ const styles = StyleSheet.create({
   },
   logoWrap: {
     alignItems: "center",
-    gap: 8
-  },
-  iconBadge: {
-    width: 88,
-    height: 88,
-    borderRadius: 24,
-    backgroundColor: colors.primary,
-    alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6
+    marginBottom: 8
   },
-  brandTitle: {
-    color: colors.text,
-    fontSize: 32,
-    fontWeight: "800",
-    letterSpacing: -0.5
+  taglineWrap: {
+    alignItems: "center",
+    marginTop: 6
   },
   tagline: {
     color: colors.textMuted,

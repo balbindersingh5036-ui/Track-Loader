@@ -4,8 +4,10 @@ import Vehicle from "../models/Vehicle.js";
 import Booking from "../models/Booking.js";
 import { isSettingEnabled } from "./systemSettingService.js";
 import {
+  canonicalizeServiceCategory,
   getCategoryEnabledSettingKey,
   getServiceCategoryForVehicleType,
+  isPassengerCategory,
   SERVICE_CATEGORIES,
   VEHICLE_TYPES_BY_CATEGORY
 } from "../utils/vehicleCategories.js";
@@ -178,13 +180,15 @@ export const calculateFareBreakdown = async ({
     throw error;
   }
 
+  const isPassenger = isPassengerCategory(vehicleType);
+
   if (!Number.isFinite(numericDistance) || numericDistance < 0) {
     const error = new Error("Invalid distance value");
     error.status = 400;
     throw error;
   }
 
-  if (!Number.isFinite(numericWeight) || numericWeight < 0) {
+  if (!isPassenger && (!Number.isFinite(numericWeight) || numericWeight < 0)) {
     const error = new Error("Invalid weight value");
     error.status = 400;
     throw error;
@@ -205,7 +209,7 @@ export const calculateFareBreakdown = async ({
     throw error;
   }
 
-  if (weightUnit !== "kg" && weightUnit !== "ton") {
+  if (!isPassenger && weightUnit !== "kg" && weightUnit !== "ton") {
     const error = new Error("Invalid weight unit");
     error.status = 400;
     throw error;
@@ -224,16 +228,16 @@ export const calculateFareBreakdown = async ({
 
   // Cargo Weight in KG & Weight in Ton
   // Weight in Ton = Cargo Weight in KG / 1000
-  const cargoWeightKg = Number((weightUnit === "ton" ? numericWeight * 1000 : numericWeight).toFixed(2));
-  const weightInTon = Number((cargoWeightKg / 1000).toFixed(4));
+  const cargoWeightKg = isPassenger ? 0 : Number((weightUnit === "ton" ? numericWeight * 1000 : (numericWeight || 0)).toFixed(2));
+  const weightInTon = isPassenger ? 0 : Number((cargoWeightKg / 1000).toFixed(4));
 
   // Distance Charge = Actual ORS Road Distance KM × Rate Per KM
   const distanceCharge = Number((numericDistance * ratePerKm).toFixed(2));
 
-  // Weight Charge = Weight in Ton × Rate Per Ton
-  const weightCharge = Number((weightInTon * ratePerTon).toFixed(2));
-  const loadingCharge = loadingRequired ? Number(fareConfig.loadingCharge || 0) : 0;
-  const unloadingCharge = unloadingRequired ? Number(fareConfig.unloadingCharge || 0) : 0;
+  // Weight Charge = Weight in Ton × Rate Per Ton (strictly 0 for passenger)
+  const weightCharge = isPassenger ? 0 : Number((weightInTon * ratePerTon).toFixed(2));
+  const loadingCharge = (!isPassenger && loadingRequired) ? Number(fareConfig.loadingCharge || 0) : 0;
+  const unloadingCharge = (!isPassenger && unloadingRequired) ? Number(fareConfig.unloadingCharge || 0) : 0;
   const waitingCharge = Number(
     ((numericWaitingMinutes / 60) * Number(fareConfig.waitingCharge || 0)).toFixed(2)
   );
@@ -299,22 +303,23 @@ export const calculateMultiVehicleFareQuotes = async ({
   if (vehicleType) {
     filter.vehicleType = vehicleType;
   }
-  if (serviceCategory) {
-    const eligibleTypes = VEHICLE_TYPES_BY_CATEGORY[serviceCategory];
+  if (serviceCategory && serviceCategory !== "all" && serviceCategory !== "ALL") {
+    const canonicalCat = canonicalizeServiceCategory(serviceCategory, vehicleType);
+    const eligibleTypes = VEHICLE_TYPES_BY_CATEGORY[canonicalCat] || VEHICLE_TYPES_BY_CATEGORY[serviceCategory];
     if (!eligibleTypes) {
       const error = new Error("Invalid service category");
       error.status = 400;
       throw error;
     }
-    const settingKey = getCategoryEnabledSettingKey(serviceCategory);
-    if (settingKey && !(await isSettingEnabled(settingKey))) {
-      const error = new Error("Service category is unavailable");
-      error.status = 403;
-      throw error;
-    }
     if (vehicleType && !eligibleTypes.includes(vehicleType)) {
       const error = new Error("Vehicle type does not belong to the selected service category");
       error.status = 400;
+      throw error;
+    }
+    const settingKey = getCategoryEnabledSettingKey(canonicalCat);
+    if (settingKey && !(await isSettingEnabled(settingKey))) {
+      const error = new Error("Service category is unavailable");
+      error.status = 403;
       throw error;
     }
     filter.vehicleType = vehicleType || { $in: eligibleTypes };

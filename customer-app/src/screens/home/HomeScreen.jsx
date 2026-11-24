@@ -231,25 +231,25 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
 
-        {(config["service.ev_goods.enabled"] === true ||
-          config["service.goods_taxi.enabled"] === true) ? (
+        {((config["service.ev_passenger.enabled"] ?? config["service.ev_goods.enabled"]) === true ||
+          (config["service.taxi.enabled"] ?? config["service.goods_taxi.enabled"]) === true) ? (
           <View style={styles.goodsServices}>
-            <Text style={styles.goodsServicesTitle}>More Goods Transport</Text>
+            <Text style={styles.goodsServicesTitle}>Passenger Transportation</Text>
             <Text style={styles.goodsServicesSubtitle}>
-              Choose a goods-only vehicle service for your load.
+              Eco-friendly EV Passenger rides and on-demand taxi travel.
             </Text>
             {[
-              config["service.ev_goods.enabled"] === true && {
-                category: "EV_GOODS",
-                title: "EV Goods Transport",
+              (config["service.ev_passenger.enabled"] ?? config["service.ev_goods.enabled"]) === true && {
+                category: "EV_PASSENGER",
+                title: "EV Passenger",
                 icon: "lightning-bolt-outline",
-                description: "Electric cargo vehicles"
+                description: "Electric Rickshaws and passenger EVs"
               },
-              config["service.goods_taxi.enabled"] === true && {
-                category: "GOODS_TAXI",
-                title: "Goods Taxi Transport",
-                icon: "truck-outline",
-                description: "Small goods carriers only"
+              (config["service.taxi.enabled"] ?? config["service.goods_taxi.enabled"]) === true && {
+                category: "TAXI",
+                title: "Taxi",
+                icon: "car-outline",
+                description: "Sedan, Hatchback, and SUV travel"
               }
             ].filter(Boolean).map((service) => (
               <View key={service.category} style={styles.goodsServiceCard}>
@@ -323,7 +323,7 @@ export default function HomeScreen({ navigation }) {
                       borderRadius: 4
                     }}>
                       <Text style={{ color: "#10B981", fontSize: 10, fontWeight: "700" }}>
-                        EV Goods
+                        {getVehicleCategoryLabel(activeBooking)}
                       </Text>
                     </View>
                   ) : null}

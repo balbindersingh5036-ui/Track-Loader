@@ -31,7 +31,10 @@ import {
   validatePrivateDocument
 } from "./documentController.js";
 import {
+  canonicalizeServiceCategory,
   getServiceCategoryForVehicleType,
+  isGoodsCategory,
+  isPassengerCategory,
   isValidCategoryVehicleType,
   SERVICE_CATEGORIES
 } from "../utils/vehicleCategories.js";
@@ -556,28 +559,48 @@ export const createAgencyVehicle = async (req, res) => {
     const parsedDimensions = parseVehicleCapacity(dimensions);
     const parsedServiceAreas = parseVehicleServiceAreas(serviceAreas);
 
-    if (!vehicleNumber || !vehicleModel || !vehicleType || !parsedCapacity) {
+    const resolvedServiceCategory =
+      serviceCategory || getServiceCategoryForVehicleType(vehicleType) || SERVICE_CATEGORIES.GOODS_TRANSPORT;
+    const isPassenger = isPassengerCategory({ serviceCategory: resolvedServiceCategory, vehicleType });
+    const effectiveCapacity = parsedCapacity || (isPassenger ? { value: 0, unit: "kg" } : null);
+
+    if (!vehicleNumber || !vehicleModel || !vehicleType || (!isPassenger && !effectiveCapacity)) {
       return errorResponse(res, "Required vehicle details missing", 400);
     }
-    const resolvedServiceCategory =
-      serviceCategory || getServiceCategoryForVehicleType(vehicleType);
     if (!isValidCategoryVehicleType(resolvedServiceCategory, vehicleType)) {
       return errorResponse(res, "Vehicle type does not belong to the selected service category", 400);
     }
-    if (
-      resolvedServiceCategory === SERVICE_CATEGORIES.EV_GOODS &&
-      fuelType !== "electric"
-    ) {
-      return errorResponse(res, "EV Goods vehicles must use electric power", 400);
+    const isTaxi = canonicalizeServiceCategory(resolvedServiceCategory, vehicleType) === SERVICE_CATEGORIES.TAXI && isPassenger;
+    if (isTaxi && !fuelType) {
+      return errorResponse(res, "Taxi vehicles need a supported fuel type", 400);
     }
     if (
-      resolvedServiceCategory === SERVICE_CATEGORIES.EV_GOODS &&
+      (resolvedServiceCategory === SERVICE_CATEGORIES.EV_PASSENGER || resolvedServiceCategory === SERVICE_CATEGORIES.TAXI) &&
+      (!Number.isFinite(Number(req.body.seatingCapacity)) || Number(req.body.seatingCapacity) < 1)
+    ) {
+      return errorResponse(res, "Passenger vehicles require a seating capacity of at least 1", 400);
+    }
+    const isEV = canonicalizeServiceCategory(resolvedServiceCategory) === SERVICE_CATEGORIES.EV_PASSENGER || resolvedServiceCategory === SERVICE_CATEGORIES.EV_GOODS;
+    if (
+      isEV &&
+      fuelType !== "electric"
+    ) {
+      const msg = resolvedServiceCategory === SERVICE_CATEGORIES.EV_GOODS
+        ? "EV Goods vehicles must use electric power"
+        : "EV Passenger vehicles must use electric power";
+      return errorResponse(res, msg, 400);
+    }
+    if (
+      isEV &&
       (!Number.isFinite(Number(batteryRangeKm)) ||
         Number(batteryRangeKm) <= 0 ||
         typeof chargingInformation !== "string" ||
         !chargingInformation.trim())
     ) {
-      return errorResponse(res, "EV Goods vehicles require battery range and charging information", 400);
+      const msg = resolvedServiceCategory === SERVICE_CATEGORIES.EV_GOODS
+        ? "EV Goods vehicles require battery range and charging information"
+        : "EV Passenger vehicles require battery range and charging information";
+      return errorResponse(res, msg, 400);
     }
     if (
       parsedServiceAreas === null ||
@@ -603,7 +626,7 @@ export const createAgencyVehicle = async (req, res) => {
       await validateGoodsVehiclePolicy({
         serviceCategory: resolvedServiceCategory,
         vehicleType,
-        loadCapacity: parsedCapacity,
+        loadCapacity: effectiveCapacity,
         serviceAreas: parsedServiceAreas || []
       });
     } catch (policyError) {
@@ -667,11 +690,13 @@ export const createAgencyVehicle = async (req, res) => {
       chargingInformation: chargingInformation || "",
       dimensions: parsedDimensions || {},
       serviceAreas: parsedServiceAreas || [],
-      loadCapacity: parsedCapacity,
+      loadCapacity: effectiveCapacity,
+      seatingCapacity: req.body.seatingCapacity ? Number(req.body.seatingCapacity) : null,
+      isAirConditioned: req.body.isAirConditioned === true || req.body.isAirConditioned === "true",
       bodyType: bodyType || "open",
       vehicleImage: photoUrls[0] || "",
       vehicleImages: photoUrls,
-      ...(resolvedServiceCategory === SERVICE_CATEGORIES.TRUCK
+      ...(resolvedServiceCategory === SERVICE_CATEGORIES.TRUCK || resolvedServiceCategory === SERVICE_CATEGORIES.GOODS_TRANSPORT
         ? {}
         : { isActive: false })
     });
@@ -817,11 +842,15 @@ export const updateAgencyVehicle = async (req, res) => {
     if (!isValidCategoryVehicleType(resolvedServiceCategory, vehicle.vehicleType)) {
       return errorResponse(res, "Vehicle type does not belong to the selected service category", 400);
     }
+    const isEV = canonicalizeServiceCategory(resolvedServiceCategory) === SERVICE_CATEGORIES.EV_PASSENGER || resolvedServiceCategory === SERVICE_CATEGORIES.EV_GOODS;
     if (
-      resolvedServiceCategory === SERVICE_CATEGORIES.EV_GOODS &&
+      isEV &&
       vehicle.fuelType !== "electric"
     ) {
-      return errorResponse(res, "EV Goods vehicles must use electric power", 400);
+      const msg = resolvedServiceCategory === SERVICE_CATEGORIES.EV_GOODS
+        ? "EV Goods vehicles must use electric power"
+        : "EV Passenger vehicles must use electric power";
+      return errorResponse(res, msg, 400);
     }
     if (
       fuelType !== undefined &&
@@ -856,6 +885,12 @@ export const updateAgencyVehicle = async (req, res) => {
     }
     if (parsedCapacity) vehicle.loadCapacity = parsedCapacity;
     if (bodyType) vehicle.bodyType = bodyType;
+    if (req.body.isAirConditioned !== undefined) {
+      vehicle.isAirConditioned = req.body.isAirConditioned === true || req.body.isAirConditioned === "true";
+    }
+    if (req.body.seatingCapacity !== undefined) {
+      vehicle.seatingCapacity = req.body.seatingCapacity ? Number(req.body.seatingCapacity) : null;
+    }
     if (typeof req.body.isActive === "boolean") vehicle.isActive = req.body.isActive;
 
     const currentPhotoUrls = Array.isArray(vehicle.vehicleImages) && vehicle.vehicleImages.length
@@ -1122,8 +1157,8 @@ export const assignAgencyBooking = async (req, res) => {
       return errorResponse(res, "Vehicle type does not match the booking", 400);
     }
     if (
-      (vehicle.serviceCategory || getServiceCategoryForVehicleType(vehicle.vehicleType)) !==
-      (booking.serviceCategory || getServiceCategoryForVehicleType(booking.vehicleType))
+      canonicalizeServiceCategory(vehicle.serviceCategory || getServiceCategoryForVehicleType(vehicle.vehicleType)) !==
+      canonicalizeServiceCategory(booking.serviceCategory || getServiceCategoryForVehicleType(booking.vehicleType))
     ) {
       return errorResponse(res, "Vehicle service category does not match the booking", 400);
     }

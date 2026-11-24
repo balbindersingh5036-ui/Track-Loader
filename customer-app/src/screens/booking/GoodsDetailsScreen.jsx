@@ -5,9 +5,11 @@ import { Button, Card, Field, Heading, Notice, Screen } from "../../components/P
 import { colors } from "../../theme/theme";
 import DatePickerModal, { getLocalDateString } from "../../components/DatePickerModal";
 import TimePickerModal, { formatTime12h } from "../../components/TimePickerModal";
+import { isPassengerCategory } from "../../utils/vehicleDisplay";
 
 export default function GoodsDetailsScreen({ route, navigation }) {
   const bookingMode = route.params?.bookingMode || "instant";
+  const isPassengerRide = isPassengerCategory(route.params?.serviceCategory);
 
   const getTodayDateString = () => getLocalDateString();
 
@@ -18,6 +20,9 @@ export default function GoodsDetailsScreen({ route, navigation }) {
     return `${hh}:${mm}`;
   };
 
+  const [passengerCount, setPassengerCount] = useState(
+    route.params?.passengerCount !== undefined ? String(route.params.passengerCount) : "1"
+  );
   const [goods, setGoods] = useState(route.params?.goods || "");
   const [weightValue, setWeightValue] = useState(
     route.params?.weight?.value !== undefined ? String(route.params.weight.value) : ""
@@ -106,6 +111,54 @@ export default function GoodsDetailsScreen({ route, navigation }) {
 
   const continueToVehicle = () => {
     setError("");
+
+    if (isPassengerRide) {
+      const passengers = Number(passengerCount);
+      if (!passengerCount.trim() || !Number.isFinite(passengers) || passengers < 1) {
+        return setError("Please enter a valid number of passengers (at least 1).");
+      }
+      const isInstant = bookingMode === "instant";
+      const pickupDateToUse = isInstant ? getTodayDateString() : preferredPickupDate.trim();
+      let pickupTimeToUse = isInstant ? getCurrentTimeString() : preferredPickupTime.trim();
+
+      if (!isInstant) {
+        if (
+          !/^\d{4}-\d{2}-\d{2}$/.test(pickupDateToUse) ||
+          Number.isNaN(Date.parse(pickupDateToUse))
+        ) {
+          return setError("Please enter the pickup date in YYYY-MM-DD format (e.g. 2026-10-15).");
+        }
+
+        const normalizedTime = parseAndNormalizeTime(pickupTimeToUse);
+        if (!normalizedTime) {
+          return setError("Please enter a valid pickup time (e.g. 14:30 or 2:30 PM).");
+        }
+        pickupTimeToUse = normalizedTime;
+
+        const scheduledDateTime = new Date(`${pickupDateToUse}T${pickupTimeToUse}`);
+        if (isNaN(scheduledDateTime.getTime()) || scheduledDateTime.getTime() <= Date.now()) {
+          return setError("Scheduled pickup date and time must be set to a future date and time.");
+        }
+      }
+
+      navigation.navigate("BookingVehicle", {
+        ...route.params,
+        bookingMode,
+        passengerCount: passengers,
+        goods: goods.trim() || "Passenger Transportation",
+        weight: { value: 0, unit: "kg" },
+        quantity: 1,
+        loadingRequired: false,
+        unloadingRequired: false,
+        loadingInstructions: "",
+        unloadingInstructions: "",
+        preferredPickupDate: pickupDateToUse,
+        preferredPickupTime: pickupTimeToUse,
+        customerNote: customerNote.trim()
+      });
+      return;
+    }
+
     const weight = Number(weightValue);
     if (!goods.trim()) {
       return setError("Please describe the goods being transported.");
@@ -163,8 +216,10 @@ export default function GoodsDetailsScreen({ route, navigation }) {
     <Screen>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
         <Heading
-          title={bookingMode === "instant" ? "Goods & Instant Pickup" : "Goods & Scheduled Pickup"}
-          subtitle="Provide cargo specifications and pickup schedule."
+          title={isPassengerRide
+            ? (bookingMode === "instant" ? "Ride & Instant Pickup" : "Ride & Scheduled Pickup")
+            : (bookingMode === "instant" ? "Goods & Instant Pickup" : "Goods & Scheduled Pickup")}
+          subtitle={isPassengerRide ? "Provide passenger details and pickup schedule." : "Provide cargo specifications and pickup schedule."}
         />
         <View style={{
           backgroundColor: bookingMode === "instant" ? colors.surfaceAlt : (colors.primaryDark || "#0071AB"),
@@ -195,7 +250,7 @@ export default function GoodsDetailsScreen({ route, navigation }) {
         <View style={[styles.stepDot, styles.stepDotActive]}>
           <Text style={styles.stepNumActive}>2</Text>
         </View>
-        <Text style={styles.stepLabelActive}>Goods</Text>
+        <Text style={styles.stepLabelActive}>{isPassengerRide ? "Ride" : "Goods"}</Text>
         <View style={styles.stepLine} />
         <View style={styles.stepDot}>
           <Text style={styles.stepNum}>3</Text>
@@ -203,108 +258,133 @@ export default function GoodsDetailsScreen({ route, navigation }) {
         <Text style={styles.stepLabel}>Vehicle</Text>
       </View>
 
-      <Card>
-        <Text style={styles.cardSectionTitle}>Cargo Information</Text>
+      {isPassengerRide ? (
+        <Card>
+          <Text style={styles.cardSectionTitle}>Passenger Ride Details</Text>
 
-        <Field
-          label="Goods Description"
-          value={goods}
-          onChangeText={setGoods}
-          placeholder="e.g. Commercial cartons, furniture, metal pipes"
-          icon={<Ionicons name="cube-outline" size={18} color={colors.textMuted} />}
-        />
-
-        <Field
-          label="Quantity"
-          value={quantity}
-          onChangeText={setQuantity}
-          keyboardType="number-pad"
-          placeholder="e.g. 12"
-          icon={<Ionicons name="layers-outline" size={18} color={colors.textMuted} />}
-        />
-
-        <View style={styles.weightRow}>
           <Field
-            style={{ flex: 1 }}
-            label="Cargo Weight"
-            value={weightValue}
-            onChangeText={setWeightValue}
-            keyboardType="decimal-pad"
-            placeholder="e.g. 500"
-            icon={<Ionicons name="speedometer-outline" size={18} color={colors.textMuted} />}
+            label="Number of Passengers *"
+            value={passengerCount}
+            onChangeText={setPassengerCount}
+            keyboardType="number-pad"
+            placeholder="e.g. 1, 2, 4"
+            icon={<Ionicons name="people-outline" size={18} color={colors.textMuted} />}
           />
 
-          <View style={styles.unitSelector}>
-            <Text style={styles.unitLabel}>Unit</Text>
-            <View style={styles.unitPills}>
-              <Pressable
-                style={[styles.unitPill, weightUnit === "kg" && styles.unitPillActive]}
-                onPress={() => setWeightUnit("kg")}
-              >
-                <Text style={[styles.unitPillText, weightUnit === "kg" && styles.unitPillTextActive]}>
-                  KG
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[styles.unitPill, weightUnit === "ton" && styles.unitPillActive]}
-                onPress={() => setWeightUnit("ton")}
-              >
-                <Text style={[styles.unitPillText, weightUnit === "ton" && styles.unitPillTextActive]}>
-                  TON
-                </Text>
-              </Pressable>
+          <Field
+            label="Trip Notes / Luggage (Optional)"
+            value={goods}
+            onChangeText={setGoods}
+            placeholder="e.g. 2 bags, airport pickup, child seat requested"
+            icon={<Ionicons name="information-circle-outline" size={18} color={colors.textMuted} />}
+          />
+        </Card>
+      ) : (
+        <>
+          <Card>
+            <Text style={styles.cardSectionTitle}>Cargo Information</Text>
+
+            <Field
+              label="Goods Description"
+              value={goods}
+              onChangeText={setGoods}
+              placeholder="e.g. Commercial cartons, furniture, metal pipes"
+              icon={<Ionicons name="cube-outline" size={18} color={colors.textMuted} />}
+            />
+
+            <Field
+              label="Quantity"
+              value={quantity}
+              onChangeText={setQuantity}
+              keyboardType="number-pad"
+              placeholder="e.g. 12"
+              icon={<Ionicons name="layers-outline" size={18} color={colors.textMuted} />}
+            />
+
+            <View style={styles.weightRow}>
+              <Field
+                style={{ flex: 1 }}
+                label="Cargo Weight"
+                value={weightValue}
+                onChangeText={setWeightValue}
+                keyboardType="decimal-pad"
+                placeholder="e.g. 500"
+                icon={<Ionicons name="speedometer-outline" size={18} color={colors.textMuted} />}
+              />
+
+              <View style={styles.unitSelector}>
+                <Text style={styles.unitLabel}>Unit</Text>
+                <View style={styles.unitPills}>
+                  <Pressable
+                    style={[styles.unitPill, weightUnit === "kg" && styles.unitPillActive]}
+                    onPress={() => setWeightUnit("kg")}
+                  >
+                    <Text style={[styles.unitPillText, weightUnit === "kg" && styles.unitPillTextActive]}>
+                      KG
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.unitPill, weightUnit === "ton" && styles.unitPillActive]}
+                    onPress={() => setWeightUnit("ton")}
+                  >
+                    <Text style={[styles.unitPillText, weightUnit === "ton" && styles.unitPillTextActive]}>
+                      TON
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
             </View>
-          </View>
-        </View>
-      </Card>
+          </Card>
 
-      <Card>
-        <Text style={styles.cardSectionTitle}>Loading & Unloading</Text>
-        <Pressable
-          style={styles.requirementRow}
-          onPress={() => setLoadingRequired((value) => !value)}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: loadingRequired }}
-        >
-          <Ionicons
-            name={loadingRequired ? "checkbox" : "square-outline"}
-            size={20}
-            color={colors.primary}
-          />
-          <Text style={styles.requirementLabel}>Loading assistance required</Text>
-        </Pressable>
-        {loadingRequired ? (
-          <Field
-            label="Loading requirements (Optional)"
-            value={loadingInstructions}
-            onChangeText={setLoadingInstructions}
-            multiline
-            placeholder="Describe loading help or equipment needed"
-          />
-        ) : null}
-        <Pressable
-          style={styles.requirementRow}
-          onPress={() => setUnloadingRequired((value) => !value)}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: unloadingRequired }}
-        >
-          <Ionicons
-            name={unloadingRequired ? "checkbox" : "square-outline"}
-            size={20}
-            color={colors.primary}
-          />
-          <Text style={styles.requirementLabel}>Unloading assistance required</Text>
-        </Pressable>
-        {unloadingRequired ? (
-          <Field
-            label="Unloading requirements (Optional)"
-            value={unloadingInstructions}
-            onChangeText={setUnloadingInstructions}
-            multiline
-            placeholder="Describe unloading help needed"
-          />
-        ) : null}
-      </Card>
+          <Card>
+            <Text style={styles.cardSectionTitle}>Loading & Unloading</Text>
+            <Pressable
+              style={styles.requirementRow}
+              onPress={() => setLoadingRequired((value) => !value)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: loadingRequired }}
+            >
+              <Ionicons
+                name={loadingRequired ? "checkbox" : "square-outline"}
+                size={20}
+                color={colors.primary}
+              />
+              <Text style={styles.requirementLabel}>Loading assistance required</Text>
+            </Pressable>
+            {loadingRequired ? (
+              <Field
+                label="Loading requirements (Optional)"
+                value={loadingInstructions}
+                onChangeText={setLoadingInstructions}
+                multiline
+                placeholder="Describe loading help or equipment needed"
+              />
+            ) : null}
+            <Pressable
+              style={styles.requirementRow}
+              onPress={() => setUnloadingRequired((value) => !value)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: unloadingRequired }}
+            >
+              <Ionicons
+                name={unloadingRequired ? "checkbox" : "square-outline"}
+                size={20}
+                color={colors.primary}
+              />
+              <Text style={styles.requirementLabel}>Unloading assistance required</Text>
+            </Pressable>
+            {unloadingRequired ? (
+              <Field
+                label="Unloading requirements (Optional)"
+                value={unloadingInstructions}
+                onChangeText={setUnloadingInstructions}
+                multiline
+                placeholder="Describe unloading help needed"
+              />
+            ) : null}
+          </Card>
+        </>
+      )}
 
       <Card>
         <Text style={styles.cardSectionTitle}>
@@ -384,12 +464,12 @@ export default function GoodsDetailsScreen({ route, navigation }) {
         )}
 
         <Field
-          label="Special Instructions / Notes (Optional)"
+          label={isPassengerRide ? "Trip Instructions (Optional)" : "Special Instructions / Notes (Optional)"}
           value={customerNote}
           onChangeText={setCustomerNote}
           multiline
-          placeholder="e.g. Loading dock at gate 3, handle with care"
-          icon={<Ionicons name="document-text-outline" size={18} color={colors.textMuted} />}
+          placeholder={isPassengerRide ? "e.g. Airport terminal 2 pickup, luggage assistance, child seat requested" : "e.g. Loading dock at gate 3, handle with care"}
+          icon={<Ionicons name={isPassengerRide ? "navigate-outline" : "document-text-outline"} size={18} color={colors.textMuted} />}
         />
       </Card>
 

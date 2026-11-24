@@ -6,6 +6,10 @@ dotenv.config();
 
 const defaultSettings = [
   { key: "booking.enabled", value: true, type: "boolean", category: "booking", description: "Enable new customer bookings" },
+  { key: "service.ev_passenger.enabled", value: true, type: "boolean", category: "booking", description: "Enable EV Passenger Transport bookings" },
+  { key: "service.taxi.enabled", value: true, type: "boolean", category: "booking", description: "Enable Taxi Transport bookings" },
+  { key: "service.ev_passenger.allowed_vehicle_types", value: ["electric-rickshaw", "electric-passenger-three-wheeler", "other-electric-passenger"], type: "json", category: "booking", description: "Approved EV Passenger vehicle subcategories" },
+  { key: "service.taxi.allowed_vehicle_types", value: ["sedan", "hatchback", "suv"], type: "json", category: "booking", description: "Approved Taxi vehicle subcategories" },
   { key: "service.ev_goods.enabled", value: false, type: "boolean", category: "booking", description: "Enable EV Goods Transport bookings" },
   { key: "service.goods_taxi.enabled", value: false, type: "boolean", category: "booking", description: "Enable Goods Taxi Transport bookings" },
   { key: "service.ev_goods.allowed_vehicle_types", value: ["electric-cargo-loader", "electric-goods-e-rickshaw", "electric-mini-cargo-carrier"], type: "json", category: "booking", description: "Approved EV Goods vehicle subcategories" },

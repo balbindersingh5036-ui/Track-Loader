@@ -29,7 +29,8 @@ import {
   VEHICLE_TYPES_BY_CATEGORY,
   formatVehicleCategory,
   isEVVehicle,
-  getVehicleCategoryLabel
+  getVehicleCategoryLabel,
+  isPassengerCategory
 } from "../../utils/vehicleDisplay";
 import EVBadge from "../../components/EVBadge";
 
@@ -47,8 +48,8 @@ export default function VehicleListScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
 
-  const isEvEnabled = config["service.ev_goods.enabled"] !== false;
-  const isTaxiEnabled = config["service.goods_taxi.enabled"] !== false;
+  const isEvEnabled = (config["service.ev_passenger.enabled"] ?? config["service.ev_goods.enabled"]) !== false;
+  const isTaxiEnabled = (config["service.taxi.enabled"] ?? config["service.goods_taxi.enabled"]) !== false;
 
   useEffect(() => {
     configService.getPublicConfig()
@@ -58,15 +59,15 @@ export default function VehicleListScreen({ navigation, route }) {
 
   const categoryTabs = useMemo(() => {
     const tabs = [
-      { key: "all", label: "All Vehicles" },
-      { key: SERVICE_CATEGORIES.TRUCK, label: "Trucks" }
+      { key: "all", label: "All Vehicles" }
     ];
     if (isEvEnabled) {
-      tabs.push({ key: SERVICE_CATEGORIES.EV_GOODS, label: "EV Goods" });
+      tabs.push({ key: SERVICE_CATEGORIES.EV_PASSENGER, label: "EV Passenger" });
     }
     if (isTaxiEnabled) {
-      tabs.push({ key: SERVICE_CATEGORIES.GOODS_TAXI, label: "Goods Taxi" });
+      tabs.push({ key: SERVICE_CATEGORIES.TAXI, label: "Taxi" });
     }
+    tabs.push({ key: SERVICE_CATEGORIES.GOODS_TRANSPORT, label: "Goods Transport" });
     return tabs;
   }, [isEvEnabled, isTaxiEnabled]);
 
@@ -75,9 +76,9 @@ export default function VehicleListScreen({ navigation, route }) {
     let allowedTypes = [];
     if (serviceCategory === "all") {
       allowedTypes = [
-        ...VEHICLE_TYPES_BY_CATEGORY.TRUCK,
-        ...(isEvEnabled ? VEHICLE_TYPES_BY_CATEGORY.EV_GOODS : []),
-        ...(isTaxiEnabled ? VEHICLE_TYPES_BY_CATEGORY.GOODS_TAXI : [])
+        ...(isEvEnabled ? VEHICLE_TYPES_BY_CATEGORY.EV_PASSENGER : []),
+        ...(isTaxiEnabled ? VEHICLE_TYPES_BY_CATEGORY.TAXI : []),
+        ...VEHICLE_TYPES_BY_CATEGORY.GOODS_TRANSPORT
       ];
     } else if (VEHICLE_TYPES_BY_CATEGORY[serviceCategory]) {
       allowedTypes = VEHICLE_TYPES_BY_CATEGORY[serviceCategory];
@@ -366,19 +367,30 @@ export default function VehicleListScreen({ navigation, route }) {
                   </View>
 
                   <View style={styles.specsGrid}>
-                    <View style={styles.specBadge}>
-                      <Ionicons name="speedometer-outline" size={13} color={colors.primary} />
-                      <Text style={styles.specVal}>
-                        {vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit}
-                      </Text>
-                    </View>
+                    {isPassengerCategory(vehicle) ? (
+                      <View style={styles.specBadge}>
+                        <Ionicons name="people-outline" size={13} color={colors.primary} />
+                        <Text style={styles.specVal}>
+                          {vehicle.seatingCapacity || 4} Passengers
+                        </Text>
+                      </View>
+                    ) : (
+                      <>
+                        <View style={styles.specBadge}>
+                          <Ionicons name="speedometer-outline" size={13} color={colors.primary} />
+                          <Text style={styles.specVal}>
+                            {vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit || "kg"}
+                          </Text>
+                        </View>
 
-                    <View style={styles.specBadge}>
-                      <Ionicons name="cube-outline" size={13} color={colors.primary} />
-                      <Text style={styles.specVal}>
-                        {vehicle.bodyType || (isEV ? "EV Loader" : "Open Body")}
-                      </Text>
-                    </View>
+                        <View style={styles.specBadge}>
+                          <Ionicons name="cube-outline" size={13} color={colors.primary} />
+                          <Text style={styles.specVal}>
+                            {vehicle.bodyType || "Open Body"}
+                          </Text>
+                        </View>
+                      </>
+                    )}
 
                     {vehicle.vehicleNumber ? (
                       <View style={styles.specBadge}>

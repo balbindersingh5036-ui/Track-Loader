@@ -13,13 +13,22 @@ import {
   SERVICE_CATEGORIES,
   SERVICE_CATEGORY_LABELS,
   isEVVehicle,
-  getVehicleCategoryLabel
+  getVehicleCategoryLabel,
+  isPassengerCategory,
+  isGoodsCategory,
+  canonicalizeServiceCategory
 } from "../../utils/vehicleDisplay";
 import EVBadge from "../../components/EVBadge";
 
 const formatCategory = (category) => formatVehicleCategory(category);
 
-const formatCapacity = (loadCapacity) => {
+const formatCapacity = (vehicle) => {
+  if (!vehicle) return "Standard Capacity";
+  if (isPassengerCategory(vehicle)) {
+    const seats = vehicle.seatingCapacity || 4;
+    return `Seating: ${seats} Passenger${seats > 1 ? "s" : ""}`;
+  }
+  const loadCapacity = vehicle.loadCapacity;
   if (!loadCapacity || loadCapacity.value == null) return "Standard Capacity";
   const unitStr = loadCapacity.unit === "ton" ? "Tons" : "kg";
   return `Capacity: ${loadCapacity.value} ${unitStr}`;
@@ -55,8 +64,10 @@ export default function VehicleSelectionScreen({ route, navigation }) {
 
   const isInstant = route.params?.bookingMode === "instant";
   const serviceCategory = route.params?.serviceCategory;
-  const loadingRequired = route.params?.loadingRequired === true;
-  const unloadingRequired = route.params?.unloadingRequired === true;
+  const isPassengerFlow = isPassengerCategory(serviceCategory) || isPassengerCategory(route.params?.vehicleType);
+  const passengerCount = Number(route.params?.passengerCount) || 1;
+  const loadingRequired = isPassengerFlow ? false : route.params?.loadingRequired === true;
+  const unloadingRequired = isPassengerFlow ? false : route.params?.unloadingRequired === true;
 
   const distanceKm = useMemo(() => {
     const raw = Number(route.params?.distanceKm);
@@ -64,6 +75,9 @@ export default function VehicleSelectionScreen({ route, navigation }) {
   }, [route.params?.distanceKm]);
 
   const weightObj = useMemo(() => {
+    if (isPassengerFlow) {
+      return { value: 0, unit: "kg" };
+    }
     if (route.params?.weight?.value != null) {
       return {
         value: Number(route.params.weight.value),
@@ -71,14 +85,15 @@ export default function VehicleSelectionScreen({ route, navigation }) {
       };
     }
     return null;
-  }, [route.params?.weight]);
+  }, [isPassengerFlow, route.params?.weight]);
 
   const requestedWeightKg = useMemo(() => {
+    if (isPassengerFlow) return 0;
     if (weightObj?.unit === "ton") {
       return (weightObj.value || 0) * 1000;
     }
     return weightObj?.value || 0;
-  }, [weightObj]);
+  }, [isPassengerFlow, weightObj]);
 
   // Load public config
   useEffect(() => {
@@ -87,28 +102,43 @@ export default function VehicleSelectionScreen({ route, navigation }) {
       .catch(() => {});
   }, []);
 
-  const isEvEnabled = config["service.ev_goods.enabled"] !== false;
-  const isTaxiEnabled = config["service.goods_taxi.enabled"] !== false;
+  const isEvEnabled = config["service.ev_passenger.enabled"] !== false && config["service.ev_goods.enabled"] !== false;
+  const isTaxiEnabled = config["service.taxi.enabled"] !== false && config["service.goods_taxi.enabled"] !== false;
 
   const availableCategoryTabs = useMemo(() => {
     const tabs = [
       { key: "all", label: "All Vehicles" },
-      { key: SERVICE_CATEGORIES.TRUCK, label: "Trucks" }
+      { key: SERVICE_CATEGORIES.GOODS_TRANSPORT, label: "Goods Transport" }
     ];
     if (isEvEnabled) {
-      tabs.push({ key: SERVICE_CATEGORIES.EV_GOODS, label: "EV Goods" });
+      tabs.push({ key: SERVICE_CATEGORIES.EV_PASSENGER, label: "EV Passenger" });
     }
     if (isTaxiEnabled) {
-      tabs.push({ key: SERVICE_CATEGORIES.GOODS_TAXI, label: "Goods Taxi" });
+      tabs.push({ key: SERVICE_CATEGORIES.TAXI, label: "Taxi" });
     }
     return tabs;
   }, [isEvEnabled, isTaxiEnabled]);
 
   // Load available vehicles matching filters
   useEffect(() => {
+    let vehicleTypeParam = route.params?.vehicleType;
+    if (vehicleTypeParam === "all") vehicleTypeParam = undefined;
+
+    const activeCat = serviceCategory && serviceCategory !== "all"
+      ? canonicalizeServiceCategory(serviceCategory)
+      : null;
+
+    if (vehicleTypeParam && activeCat) {
+      const allowed = VEHICLE_TYPES_BY_CATEGORY[activeCat] || [];
+      if (!allowed.includes(vehicleTypeParam)) {
+        // Never send mismatched vehicleType (e.g. electric-cargo-loader for EV_PASSENGER)
+        vehicleTypeParam = undefined;
+      }
+    }
+
     const queryParams = {
-      ...(route.params?.vehicleType ? { vehicleType: route.params.vehicleType } : {}),
-      ...(serviceCategory ? { serviceCategory } : {}),
+      ...(vehicleTypeParam ? { vehicleType: vehicleTypeParam } : {}),
+      ...(activeCat ? { serviceCategory: activeCat } : {}),
       ...(route.params?.pickup?.address ? { pickupAddress: route.params.pickup.address } : {}),
       ...(route.params?.drop?.address ? { dropAddress: route.params.drop.address } : {})
     };
@@ -122,7 +152,7 @@ export default function VehicleSelectionScreen({ route, navigation }) {
 
   // Load authoritative backend fare quotations using actual ORS road distance
   useEffect(() => {
-    if (!distanceKm || !weightObj || weightObj.value <= 0) {
+    if (!distanceKm || (!isPassengerFlow && (!weightObj || weightObj.value <= 0))) {
       setFareQuotes({});
       return;
     }
@@ -130,13 +160,27 @@ export default function VehicleSelectionScreen({ route, navigation }) {
     let isCurrent = true;
     setQuotesLoading(true);
 
-    const quoteCategory = categoryFilter !== "all" ? categoryFilter : serviceCategory;
+    const rawCategory = categoryFilter !== "all" ? categoryFilter : serviceCategory;
+    const quoteCategory = rawCategory && rawCategory !== "all"
+      ? canonicalizeServiceCategory(rawCategory)
+      : undefined;
+
+    console.log("[VehicleSelectionScreen] Initiating fare quotes request:", {
+      rawCategory,
+      serviceCategory,
+      categoryFilter,
+      quoteCategory,
+      vehicleType: route.params?.vehicleType,
+      isPassengerFlow,
+      distanceKm,
+      weight: weightObj
+    });
 
     fareService
       .getQuotes({
         distanceKm,
-        weight: weightObj,
-        serviceCategory: quoteCategory,
+        weight: weightObj || { value: 0, unit: "kg" },
+        ...(quoteCategory ? { serviceCategory: quoteCategory } : {}),
         loadingRequired,
         unloadingRequired
       })
@@ -149,8 +193,9 @@ export default function VehicleSelectionScreen({ route, navigation }) {
         }
         setFareQuotes(quoteMap);
       })
-      .catch(() => {
+      .catch((err) => {
         if (!isCurrent) return;
+        console.warn("[VehicleSelectionScreen] Fare quote request failed:", err?.message || err);
         setFareQuotes({});
       })
       .finally(() => {
@@ -160,7 +205,7 @@ export default function VehicleSelectionScreen({ route, navigation }) {
     return () => {
       isCurrent = false;
     };
-  }, [distanceKm, weightObj, categoryFilter, serviceCategory, loadingRequired, unloadingRequired]);
+  }, [distanceKm, weightObj, isPassengerFlow, categoryFilter, serviceCategory, loadingRequired, unloadingRequired]);
 
   // Filter only active, available vehicles belonging to approved active agencies with sufficient capacity
   const cargoCompatibleVehicles = useMemo(() => {
@@ -173,9 +218,19 @@ export default function VehicleSelectionScreen({ route, navigation }) {
 
       // Filter by Category selector tab
       if (categoryFilter !== "all") {
-        const vCat = vehicle.serviceCategory || SERVICE_CATEGORIES.TRUCK;
-        if (vCat !== categoryFilter) return false;
+        const vCat = canonicalizeServiceCategory(vehicle.serviceCategory, vehicle.vehicleType);
+        const filterCat = canonicalizeServiceCategory(categoryFilter);
+        if (vCat !== filterCat) return false;
       }
+
+      // Check passenger vs goods compatibility
+      if (isPassengerFlow) {
+        if (isGoodsCategory(vehicle)) return false;
+        const seats = Number(vehicle.seatingCapacity || 4);
+        return seats >= passengerCount;
+      }
+
+      if (isPassengerCategory(vehicle)) return false;
 
       const capacityKg =
         vehicle.loadCapacity?.unit === "ton"
@@ -184,7 +239,7 @@ export default function VehicleSelectionScreen({ route, navigation }) {
 
       return capacityKg >= requestedWeightKg;
     });
-  }, [vehicles, requestedWeightKg, categoryFilter]);
+  }, [vehicles, requestedWeightKg, categoryFilter, isPassengerFlow, passengerCount]);
 
   // Auto-select first compatible vehicle if none is selected or current selection is filtered out
   useEffect(() => {
@@ -213,15 +268,16 @@ export default function VehicleSelectionScreen({ route, navigation }) {
       return;
     }
     const displayName = getVehicleDisplayName(selected);
-    const resolvedCategory = selected.serviceCategory || (categoryFilter !== "all" ? categoryFilter : serviceCategory || SERVICE_CATEGORIES.TRUCK);
+    const resolvedCategory = canonicalizeServiceCategory(selected.serviceCategory || (categoryFilter !== "all" ? categoryFilter : serviceCategory || SERVICE_CATEGORIES.GOODS_TRANSPORT));
 
     navigation.navigate("BookingConfirm", {
       ...route.params,
       distanceKm,
-      vehicleType: selected.vehicleType || route.params?.vehicleType || "mini-truck",
+      vehicleType: selected.vehicleType || route.params?.vehicleType || (isPassengerFlow ? "sedan" : "mini-truck"),
       serviceCategory: resolvedCategory,
       vehicleId: selected._id,
       agencyId: selectedAgencyId,
+      passengerCount: isPassengerFlow ? passengerCount : undefined,
       vehicle: {
         ...selected,
         vehicleModel: displayName,
@@ -235,7 +291,7 @@ export default function VehicleSelectionScreen({ route, navigation }) {
     <Screen>
       <Heading
         title="Select Vehicle"
-        subtitle="Choose a verified commercial vehicle for your transport request."
+        subtitle={isPassengerFlow ? "Choose a verified passenger vehicle for your journey." : "Choose a verified commercial vehicle for your transport request."}
       />
 
       {/* STEP INDICATOR */}
@@ -248,7 +304,7 @@ export default function VehicleSelectionScreen({ route, navigation }) {
         <View style={[styles.stepDot, styles.stepDotDone]}>
           <Ionicons name="checkmark" size={14} color={colors.white} />
         </View>
-        <Text style={styles.stepLabelDone}>Goods</Text>
+        <Text style={styles.stepLabelDone}>{isPassengerFlow ? "Ride" : "Goods"}</Text>
         <View style={[styles.stepLine, styles.stepLineDone]} />
         <View style={[styles.stepDot, styles.stepDotActive]}>
           <Text style={styles.stepNumActive}>3</Text>
@@ -266,10 +322,17 @@ export default function VehicleSelectionScreen({ route, navigation }) {
             <Text style={styles.metricText}>Road Distance: <Text style={styles.metricBold}>{distanceKm} km</Text></Text>
           </View>
           <View style={styles.metricDivider} />
-          <View style={styles.metricItem}>
-            <Ionicons name="cube-outline" size={15} color={colors.primary} />
-            <Text style={styles.metricText}>Cargo: <Text style={styles.metricBold}>{weightObj?.value} {weightObj?.unit}</Text></Text>
-          </View>
+          {isPassengerFlow ? (
+            <View style={styles.metricItem}>
+              <Ionicons name="people-outline" size={15} color={colors.primary} />
+              <Text style={styles.metricText}>Passengers: <Text style={styles.metricBold}>{passengerCount} Person{passengerCount > 1 ? "s" : ""}</Text></Text>
+            </View>
+          ) : (
+            <View style={styles.metricItem}>
+              <Ionicons name="cube-outline" size={15} color={colors.primary} />
+              <Text style={styles.metricText}>Cargo: <Text style={styles.metricBold}>{weightObj?.value} {weightObj?.unit}</Text></Text>
+            </View>
+          )}
         </View>
       ) : (
         <Notice
@@ -308,17 +371,27 @@ export default function VehicleSelectionScreen({ route, navigation }) {
         <View style={styles.list}>
           {cargoCompatibleVehicles.length === 0 ? (
             <View style={[styles.emptyCard, shadows.soft]}>
-              <MaterialCommunityIcons name="truck-alert-outline" size={44} color={colors.textLight} />
-              <Text style={styles.emptyTitle}>No Matching Vehicles Available</Text>
+              <MaterialCommunityIcons
+                name={isPassengerFlow ? "account-alert-outline" : "truck-alert-outline"}
+                size={44}
+                color={colors.textLight}
+              />
+              <Text style={styles.emptyTitle}>
+                {isPassengerFlow ? "No Matching Passenger Vehicles Available" : "No Matching Vehicles Available"}
+              </Text>
               <Text style={styles.emptySubtitle}>
-                We could not find verified vehicles with sufficient capacity (
-                {requestedWeightKg >= 1000
-                  ? `${(requestedWeightKg / 1000).toFixed(1)} Tons`
-                  : `${requestedWeightKg} kg`}
-                ) currently ready for dispatch in this category.
+                {isPassengerFlow
+                  ? `We could not find verified passenger vehicles with sufficient seating capacity (${passengerCount} passenger${passengerCount > 1 ? "s" : ""}) currently ready for dispatch in this category.`
+                  : `We could not find verified vehicles with sufficient capacity (${
+                      requestedWeightKg >= 1000
+                        ? `${(requestedWeightKg / 1000).toFixed(1)} Tons`
+                        : `${requestedWeightKg} kg`
+                    }) currently ready for dispatch in this category.`}
               </Text>
               <Text style={styles.emptyHint}>
-                Please switch to &quot;All Vehicles&quot; or adjust cargo weight.
+                {isPassengerFlow
+                  ? "Please switch to \"All Vehicles\" or adjust passenger count."
+                  : "Please switch to \"All Vehicles\" or adjust cargo weight."}
               </Text>
             </View>
           ) : (
@@ -328,7 +401,8 @@ export default function VehicleSelectionScreen({ route, navigation }) {
               const displayName = getVehicleDisplayName(vehicle);
               const validPlate = getValidRegistrationPlate(vehicle.vehicleNumber);
               const isEV = isEVVehicle(vehicle);
-              const isTaxi = vehicle.serviceCategory === SERVICE_CATEGORIES.GOODS_TAXI;
+              const vehicleIsPassenger = isPassengerCategory(vehicle);
+              const isTaxi = canonicalizeServiceCategory(vehicle.serviceCategory) === SERVICE_CATEGORIES.TAXI;
 
               return (
                 <Pressable
@@ -359,7 +433,7 @@ export default function VehicleSelectionScreen({ route, navigation }) {
                           ]}
                         >
                           <MaterialCommunityIcons
-                            name={isEV ? "lightning-bolt-outline" : isTaxi ? "truck-delivery-outline" : "truck-fast-outline"}
+                            name={isEV ? "lightning-bolt-outline" : vehicleIsPassenger ? "car-outline" : "truck-fast-outline"}
                             size={28}
                             color={isEV ? "#10B981" : isTaxi ? "#F59E0B" : colors.primary}
                           />
@@ -401,10 +475,19 @@ export default function VehicleSelectionScreen({ route, navigation }) {
                         ) : null}
                       </View>
                       <View style={styles.capacityRow}>
-                        <Ionicons name="cube-outline" size={13} color={colors.textMuted} />
+                        <Ionicons
+                          name={vehicleIsPassenger ? "people-outline" : "cube-outline"}
+                          size={13}
+                          color={colors.textMuted}
+                        />
                         <Text style={styles.capacityText}>
-                          {formatCapacity(vehicle.loadCapacity)}
+                          {formatCapacity(vehicle)}
                         </Text>
+                        {isTaxi && vehicle.isAirConditioned !== undefined && (
+                          <Text style={[styles.capacityText, { color: vehicle.isAirConditioned ? "#0284c7" : colors.textMuted, fontWeight: "600" }]}>
+                            · {vehicle.isAirConditioned ? "AC" : "Non-AC"}
+                          </Text>
+                        )}
                       </View>
                     </View>
 

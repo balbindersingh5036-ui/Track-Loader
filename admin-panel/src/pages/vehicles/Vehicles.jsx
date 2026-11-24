@@ -51,23 +51,23 @@ function StatusBadge({ children, tone = 'neutral' }) {
 }
 
 function CategoryBadge({ category }) {
-  if (category === SERVICE_CATEGORIES.EV_GOODS) {
+  if (category === SERVICE_CATEGORIES.EV_PASSENGER || category === SERVICE_CATEGORIES.EV_GOODS) {
     return (
       <span className="vehicle-category-badge vehicle-category-ev_goods">
-        <Zap size={11} /> EV Goods
+        <Zap size={11} /> EV Passenger
       </span>
     );
   }
-  if (category === SERVICE_CATEGORIES.GOODS_TAXI) {
+  if (category === SERVICE_CATEGORIES.TAXI || category === SERVICE_CATEGORIES.GOODS_TAXI) {
     return (
       <span className="vehicle-category-badge vehicle-category-goods_taxi">
-        <Car size={11} /> Goods Taxi
+        <Car size={11} /> Taxi
       </span>
     );
   }
   return (
     <span className="vehicle-category-badge vehicle-category-truck">
-      <Truck size={11} /> Truck
+      <Truck size={11} /> Goods Transport
     </span>
   );
 }
@@ -192,9 +192,9 @@ export default function Vehicles() {
     { label: 'Inactive', value: stats?.inactive ?? '—', onClick: () => applyFilter('status', 'inactive') },
     { label: 'Available', value: stats?.available ?? '—', onClick: () => applyFilter('availability', 'true') },
     { label: 'Assigned', value: stats?.assigned ?? '—', onClick: () => applyFilter('assigned', 'true') },
-    { label: 'Trucks', value: vehicles.filter(v => resolveVehicleCategory(v) === SERVICE_CATEGORIES.TRUCK).length || '—', onClick: () => applyFilter('serviceCategory', SERVICE_CATEGORIES.TRUCK) },
-    { label: 'EV Goods', value: vehicles.filter(v => resolveVehicleCategory(v) === SERVICE_CATEGORIES.EV_GOODS).length || '—', onClick: () => applyFilter('serviceCategory', SERVICE_CATEGORIES.EV_GOODS) },
-    { label: 'Goods Taxi', value: vehicles.filter(v => resolveVehicleCategory(v) === SERVICE_CATEGORIES.GOODS_TAXI).length || '—', onClick: () => applyFilter('serviceCategory', SERVICE_CATEGORIES.GOODS_TAXI) },
+    { label: 'Goods Transport', value: vehicles.filter(v => [SERVICE_CATEGORIES.GOODS_TRANSPORT, SERVICE_CATEGORIES.TRUCK].includes(resolveVehicleCategory(v))).length || '—', onClick: () => applyFilter('serviceCategory', SERVICE_CATEGORIES.GOODS_TRANSPORT) },
+    { label: 'EV Passenger', value: vehicles.filter(v => [SERVICE_CATEGORIES.EV_PASSENGER, SERVICE_CATEGORIES.EV_GOODS].includes(resolveVehicleCategory(v))).length || '—', onClick: () => applyFilter('serviceCategory', SERVICE_CATEGORIES.EV_PASSENGER) },
+    { label: 'Taxi', value: vehicles.filter(v => [SERVICE_CATEGORIES.TAXI, SERVICE_CATEGORIES.GOODS_TAXI].includes(resolveVehicleCategory(v))).length || '—', onClick: () => applyFilter('serviceCategory', SERVICE_CATEGORIES.TAXI) },
     { label: 'Pending RC', value: stats?.pendingRegistration ?? '—', onClick: () => applyFilter('registrationStatus', 'pending') },
     { label: 'Pending Insurance', value: stats?.pendingInsurance ?? '—', onClick: () => applyFilter('insuranceStatus', 'pending') },
     { label: 'Rejected Docs', value: stats?.rejectedDocuments ?? '—', onClick: () => applyFilter('documentStatus', 'rejected') }
@@ -212,7 +212,7 @@ export default function Vehicles() {
       <header className="vehicle-page-header">
         <div>
           <h1>Fleet Vehicle Management</h1>
-          <p>Inspect commercial trucks, EV goods carriers, and goods taxis across all registered agencies.</p>
+          <p>Inspect commercial trucks, EV passenger vehicles, and taxis across all registered agencies.</p>
         </div>
         <button type="button" className="vehicle-secondary-button" onClick={() => loadVehicles(pagination.page)} disabled={loading}>
           <RefreshCw size={16} className={loading ? 'vehicle-spin' : ''} /> Refresh
@@ -258,9 +258,9 @@ export default function Vehicles() {
               onChange={(event) => applyFilter('serviceCategory', event.target.value)}
             >
               <option value="">All Categories</option>
-              <option value={SERVICE_CATEGORIES.TRUCK}>Trucks</option>
-              <option value={SERVICE_CATEGORIES.EV_GOODS}>EV Goods</option>
-              <option value={SERVICE_CATEGORIES.GOODS_TAXI}>Goods Taxi</option>
+              <option value={SERVICE_CATEGORIES.EV_PASSENGER}>EV Passenger</option>
+              <option value={SERVICE_CATEGORIES.TAXI}>Taxi</option>
+              <option value={SERVICE_CATEGORIES.GOODS_TRANSPORT}>Goods Transport</option>
             </select>
           </label>
 
@@ -272,7 +272,7 @@ export default function Vehicles() {
             >
               <option value="">
                 {filters.serviceCategory
-                  ? `All ${SERVICE_CATEGORY_LABELS[filters.serviceCategory]} Types`
+                  ? `All ${SERVICE_CATEGORY_LABELS[filters.serviceCategory] || 'Category'} Types`
                   : 'All Subcategories'}
               </option>
               {availableSubcategories ? (
@@ -283,18 +283,18 @@ export default function Vehicles() {
                 ))
               ) : (
                 <>
-                  <optgroup label="Trucks">
-                    {VEHICLE_TYPES_BY_CATEGORY[SERVICE_CATEGORIES.TRUCK].map((type) => (
+                  <optgroup label="EV Passenger">
+                    {VEHICLE_TYPES_BY_CATEGORY[SERVICE_CATEGORIES.EV_PASSENGER].map((type) => (
                       <option key={type} value={type}>{formatVehicleType(type)}</option>
                     ))}
                   </optgroup>
-                  <optgroup label="EV Goods Transport">
-                    {VEHICLE_TYPES_BY_CATEGORY[SERVICE_CATEGORIES.EV_GOODS].map((type) => (
+                  <optgroup label="Taxi">
+                    {VEHICLE_TYPES_BY_CATEGORY[SERVICE_CATEGORIES.TAXI].map((type) => (
                       <option key={type} value={type}>{formatVehicleType(type)}</option>
                     ))}
                   </optgroup>
-                  <optgroup label="Goods Taxi Transport">
-                    {VEHICLE_TYPES_BY_CATEGORY[SERVICE_CATEGORIES.GOODS_TAXI].map((type) => (
+                  <optgroup label="Goods Transport">
+                    {VEHICLE_TYPES_BY_CATEGORY[SERVICE_CATEGORIES.GOODS_TRANSPORT].map((type) => (
                       <option key={type} value={type}>{formatVehicleType(type)}</option>
                     ))}
                   </optgroup>

@@ -11,8 +11,11 @@ import { isDesignatedSuperAdmin } from "../utils/superAdmin.js";
 import { checkDriverAssignableToVehicle } from "../utils/driverEligibility.js";
 import { isValidVehicleModel, formatFullVehicleModel } from "../utils/vehicleValidation.js";
 import {
+  canonicalizeServiceCategory,
   getCategoryEnabledSettingKey,
   getServiceCategoryForVehicleType,
+  isGoodsCategory,
+  isPassengerCategory,
   isValidCategoryVehicleType,
   SERVICE_CATEGORIES,
   VEHICLE_TYPES
@@ -190,11 +193,22 @@ const parseVehicleUpdates = (body, { creating = false, allowedFields }) => {
   if (resolvedType && !isValidCategoryVehicleType(resolvedCategory, resolvedType)) {
     return { error: "Vehicle type does not belong to the selected service category" };
   }
+  const canonical = canonicalizeServiceCategory(resolvedCategory);
+  const isEV = canonical === SERVICE_CATEGORIES.EV_PASSENGER || resolvedCategory === SERVICE_CATEGORIES.EV_GOODS;
   if (
-    resolvedCategory === SERVICE_CATEGORIES.EV_GOODS &&
+    isEV &&
     (updates.fuelType || body.fuelType) !== "electric"
   ) {
-    return { error: "EV Goods vehicles must use electric power" };
+    const msg = resolvedCategory === SERVICE_CATEGORIES.EV_GOODS
+      ? "EV Goods vehicles must use electric power"
+      : "EV Passenger vehicles must use electric power";
+    return { error: msg };
+  }
+  if (Object.hasOwn(body, "seatingCapacity")) {
+    if (body.seatingCapacity !== null && (!Number.isFinite(Number(body.seatingCapacity)) || Number(body.seatingCapacity) < 1)) {
+      return { error: "Seating capacity must be at least 1 passenger" };
+    }
+    updates.seatingCapacity = body.seatingCapacity === null ? null : Number(body.seatingCapacity);
   }
   if (Object.hasOwn(body, "batteryRangeKm")) {
     if (
@@ -236,16 +250,20 @@ const parseVehicleUpdates = (body, { creating = false, allowedFields }) => {
     updates.serviceAreas = body.serviceAreas.map((area) => area.trim());
   }
   if (
-    resolvedCategory === SERVICE_CATEGORIES.EV_GOODS &&
+    isEV &&
     (!Number.isFinite(Number(updates.batteryRangeKm ?? body.batteryRangeKm)) ||
       Number(updates.batteryRangeKm ?? body.batteryRangeKm) <= 0 ||
       typeof (updates.chargingInformation ?? body.chargingInformation) !== "string" ||
       !(updates.chargingInformation ?? body.chargingInformation).trim())
   ) {
-    return { error: "EV Goods vehicles require a positive battery range and charging information" };
+    const msg = resolvedCategory === SERVICE_CATEGORIES.EV_GOODS
+      ? "EV Goods vehicles require a positive battery range and charging information"
+      : "EV Passenger vehicles require a positive battery range and charging information";
+    return { error: msg };
   }
   if (
     resolvedCategory !== SERVICE_CATEGORIES.TRUCK &&
+    resolvedCategory !== SERVICE_CATEGORIES.GOODS_TRANSPORT &&
     !(updates.serviceAreas || body.serviceAreas || []).length
   ) {
     return { error: "Goods vehicles must list at least one operating area" };
@@ -272,7 +290,13 @@ const parseVehicleUpdates = (body, { creating = false, allowedFields }) => {
       unit: capacity.unit
     };
   } else if (creating) {
-    return { error: "loadCapacity is required" };
+    if (!isPassengerCategory(resolvedCategory)) {
+      return { error: "loadCapacity is required" };
+    }
+    updates.loadCapacity = {
+      value: 0,
+      unit: "kg"
+    };
   }
 
   if (Object.hasOwn(body, "bodyType")) {
@@ -331,30 +355,10 @@ export const getVehicles = async (req, res) => {
       dropAddress
     } = req.query;
 
-    if (serviceCategory !== undefined) {
-      if (!serviceCategories.includes(serviceCategory)) {
-        return errorResponse(res, "Invalid service category", 400);
-      }
-      const settingKey = getCategoryEnabledSettingKey(serviceCategory);
-      if (settingKey && !(await isSettingEnabled(settingKey))) {
-        return successResponse(res, { vehicles: [] }, "Service category is unavailable");
-      }
-      filter.serviceCategory = serviceCategory === SERVICE_CATEGORIES.TRUCK
-        ? { $in: [SERVICE_CATEGORIES.TRUCK, null] }
-        : serviceCategory;
-    } else {
-      const enabledCategories = [SERVICE_CATEGORIES.TRUCK];
-      for (const category of [
-        SERVICE_CATEGORIES.EV_GOODS,
-        SERVICE_CATEGORIES.GOODS_TAXI
-      ]) {
-        const settingKey = getCategoryEnabledSettingKey(category);
-        if (await isSettingEnabled(settingKey)) enabledCategories.push(category);
-      }
-      filter.serviceCategory = { $in: [...enabledCategories, null] };
-    }
+    const hasCategoryFilter = serviceCategory !== undefined && serviceCategory !== "" && serviceCategory !== "all";
+    const hasVehicleTypeFilter = vehicleType !== undefined && vehicleType !== "" && vehicleType !== "all";
 
-    if (vehicleType !== undefined) {
+    if (hasVehicleTypeFilter) {
       if (
         typeof vehicleType !== "string" ||
         !vehicleTypes.includes(vehicleType)
@@ -362,21 +366,48 @@ export const getVehicles = async (req, res) => {
         return errorResponse(res, "Invalid vehicle type", 400);
       }
       filter.vehicleType = vehicleType;
-      const expectedCategory = getServiceCategoryForVehicleType(vehicleType);
-      if (
-        serviceCategory !== undefined &&
-        expectedCategory !== serviceCategory
-      ) {
-        return errorResponse(res, "Vehicle type does not belong to the selected service category", 400);
-      }
-      if (serviceCategory === undefined) {
-        const settingKey = getCategoryEnabledSettingKey(expectedCategory);
-        if (settingKey && !(await isSettingEnabled(settingKey))) {
-          return successResponse(res, { vehicles: [] }, "Service category is unavailable");
+
+      if (hasCategoryFilter) {
+        const belongs = isValidCategoryVehicleType(serviceCategory, vehicleType);
+        if (!belongs) {
+          return errorResponse(res, "Vehicle type does not belong to the selected service category", 400);
         }
-        filter.serviceCategory = expectedCategory === SERVICE_CATEGORIES.TRUCK
-          ? { $in: [SERVICE_CATEGORIES.TRUCK, null] }
-          : expectedCategory;
+      }
+    }
+
+    if (hasCategoryFilter) {
+      const canonicalCategory = canonicalizeServiceCategory(serviceCategory, vehicleType);
+      const allKnownCategories = [
+        ...Object.values(SERVICE_CATEGORIES),
+        ...Object.values(SERVICE_CATEGORIES).map((c) => c.toLowerCase())
+      ];
+      if (!allKnownCategories.includes(serviceCategory) && !Object.values(SERVICE_CATEGORIES).includes(canonicalCategory)) {
+        return errorResponse(res, "Invalid service category", 400);
+      }
+      const settingKey = getCategoryEnabledSettingKey(canonicalCategory);
+      if (settingKey && !(await isSettingEnabled(settingKey))) {
+        return successResponse(res, { vehicles: [] }, "Service category is unavailable");
+      }
+      if (canonicalCategory === SERVICE_CATEGORIES.EV_PASSENGER) {
+        filter.$or = [
+          { serviceCategory: SERVICE_CATEGORIES.EV_PASSENGER },
+          { serviceCategory: SERVICE_CATEGORIES.EV_GOODS, vehicleType: { $in: VEHICLE_TYPES_BY_CATEGORY.EV_PASSENGER } }
+        ];
+      } else if (canonicalCategory === SERVICE_CATEGORIES.TAXI) {
+        filter.$or = [
+          { serviceCategory: SERVICE_CATEGORIES.TAXI },
+          { serviceCategory: SERVICE_CATEGORIES.GOODS_TAXI, vehicleType: { $in: VEHICLE_TYPES_BY_CATEGORY.TAXI } }
+        ];
+      } else if (canonicalCategory === SERVICE_CATEGORIES.GOODS_TRANSPORT) {
+        filter.$or = [
+          { serviceCategory: { $in: [SERVICE_CATEGORIES.GOODS_TRANSPORT, SERVICE_CATEGORIES.TRUCK, null] } },
+          { serviceCategory: SERVICE_CATEGORIES.EV_GOODS, vehicleType: { $in: VEHICLE_TYPES_BY_CATEGORY.EV_GOODS } },
+          { serviceCategory: SERVICE_CATEGORIES.GOODS_TAXI, vehicleType: { $nin: VEHICLE_TYPES_BY_CATEGORY.TAXI } }
+        ];
+      } else if (serviceCategory === SERVICE_CATEGORIES.TRUCK) {
+        filter.serviceCategory = { $in: [SERVICE_CATEGORIES.TRUCK, null] };
+      } else {
+        filter.serviceCategory = serviceCategory;
       }
     }
 
@@ -677,9 +708,17 @@ export const getAdminVehicles = async (req, res) => {
       if (!serviceCategories.includes(req.query.serviceCategory)) {
         return errorResponse(res, "Invalid service category", 400);
       }
-      filter.serviceCategory = req.query.serviceCategory === SERVICE_CATEGORIES.TRUCK
-        ? { $in: [SERVICE_CATEGORIES.TRUCK, null] }
-        : req.query.serviceCategory;
+      if (req.query.serviceCategory === SERVICE_CATEGORIES.TRUCK) {
+        filter.serviceCategory = { $in: [SERVICE_CATEGORIES.TRUCK, null] };
+      } else if (req.query.serviceCategory === SERVICE_CATEGORIES.GOODS_TRANSPORT) {
+        filter.serviceCategory = { $in: [SERVICE_CATEGORIES.GOODS_TRANSPORT, SERVICE_CATEGORIES.TRUCK, null] };
+      } else if (req.query.serviceCategory === SERVICE_CATEGORIES.EV_PASSENGER) {
+        filter.serviceCategory = { $in: [SERVICE_CATEGORIES.EV_PASSENGER, SERVICE_CATEGORIES.EV_GOODS] };
+      } else if (req.query.serviceCategory === SERVICE_CATEGORIES.TAXI) {
+        filter.serviceCategory = { $in: [SERVICE_CATEGORIES.TAXI, SERVICE_CATEGORIES.GOODS_TAXI] };
+      } else {
+        filter.serviceCategory = req.query.serviceCategory;
+      }
     }
 
     if (req.query.status !== undefined) {

@@ -12,6 +12,7 @@ import {
   View
 } from 'react-native';
 import authService from '../../services/authService';
+import LoadBalbinLogo from '../../components/LoadBalbinLogo';
 
 const colors = {
   ink: '#FFFFFF',
@@ -115,6 +116,7 @@ export default function RegisterScreen({ onCancel, onRegistered }) {
       >
         <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}>
           <View style={{ backgroundColor: colors.surface, padding: 24, borderRadius: 16, gap: 14, borderColor: colors.border, borderWidth: 1 }}>
+            <LoadBalbinLogo width={180} height={50} style={{ alignSelf: 'center', marginBottom: 12 }} />
             <Text style={{ fontSize: 24, fontWeight: '800', color: colors.ink }}>Driver registration</Text>
             <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 19 }}>
               New driver accounts remain pending until reviewed by the Super Admin.

@@ -23,6 +23,8 @@ import {
 const PROTECTED_KEYS = [
   'system.maintenanceMode',
   'booking.enabled',
+  'service.ev_passenger.enabled',
+  'service.taxi.enabled',
   'service.ev_goods.enabled',
   'service.goods_taxi.enabled',
   'payment.enabled',
@@ -208,11 +210,11 @@ export default function Settings() {
   }, [settings, searchQuery, categoryFilter]);
 
   // Core Service Definition Cards
-  const evGoodsSetting = getSettingByKey('service.ev_goods.enabled');
-  const isEvEnabled = evGoodsSetting ? evGoodsSetting.value === true : false;
+  const evPassengerSetting = getSettingByKey('service.ev_passenger.enabled') || getSettingByKey('service.ev_goods.enabled');
+  const isEvEnabled = evPassengerSetting ? evPassengerSetting.value === true : false;
 
-  const goodsTaxiSetting = getSettingByKey('service.goods_taxi.enabled');
-  const isTaxiEnabled = goodsTaxiSetting ? goodsTaxiSetting.value === true : false;
+  const taxiSetting = getSettingByKey('service.taxi.enabled') || getSettingByKey('service.goods_taxi.enabled');
+  const isTaxiEnabled = taxiSetting ? taxiSetting.value === true : false;
 
   const bookingSetting = getSettingByKey('booking.enabled');
   const isBookingEnabled = bookingSetting ? bookingSetting.value === true : true;
@@ -232,7 +234,7 @@ export default function Settings() {
             System & Service Settings
           </h1>
           <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '14px' }}>
-            Centrally manage platform core services, vehicle category activation (EV Goods, Goods Taxi), and system configurations.
+            Centrally manage platform core services, vehicle category activation (EV Passenger, Taxi, Goods Transport), and system configurations.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
@@ -279,7 +281,7 @@ export default function Settings() {
         </h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
           
-          {/* EV Goods Transport Card */}
+          {/* EV Passenger Transport Card */}
           <div className="card" style={{ border: isEvEnabled ? '1px solid #86efac' : '1px solid #e2e8f0', background: isEvEnabled ? '#f0fdf4' : '#ffffff', position: 'relative' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -287,9 +289,9 @@ export default function Settings() {
                   <Zap size={22} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#0f172a' }}>EV Goods Transport</h3>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#0f172a' }}>EV Passenger Transport</h3>
                   <code style={{ fontSize: '11px', color: '#64748b', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>
-                    service.ev_goods.enabled
+                    service.ev_passenger.enabled
                   </code>
                 </div>
               </div>
@@ -308,22 +310,22 @@ export default function Settings() {
               </span>
             </div>
             <p style={{ fontSize: '13px', color: '#475569', marginBottom: '16px', minHeight: '38px' }}>
-              Controls whether electric cargo loaders, e-rickshaws, and mini cargo carriers can be registered by agencies, booked by customers, and dispatched to drivers.
+              Controls whether Electric Rickshaws, Electric Passenger Three-Wheelers, and other passenger EVs can be registered by agencies, booked by customers for passenger rides, and dispatched.
             </p>
             <div style={{ background: '#ffffff', borderRadius: '8px', padding: '10px 12px', border: '1px solid #e2e8f0', marginBottom: '16px', fontSize: '12px', color: '#64748b' }}>
               <div style={{ fontWeight: '600', color: '#334155', marginBottom: '4px' }}>Allowed Types:</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>electric-cargo-loader</span>
-                <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>electric-goods-e-rickshaw</span>
-                <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>electric-mini-cargo-carrier</span>
+                <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>electric-rickshaw</span>
+                <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>electric-passenger-three-wheeler</span>
+                <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>other-electric-passenger</span>
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '13px', fontWeight: '500', color: '#334155' }}>Service Activation:</span>
               <button
                 type="button"
-                onClick={() => handleToggleService('service.ev_goods.enabled', 'system', 'Enable or disable EV Goods transport services')}
-                disabled={updatingKey === 'service.ev_goods.enabled'}
+                onClick={() => handleToggleService('service.ev_passenger.enabled', 'system', 'Enable or disable EV Passenger transport services')}
+                disabled={updatingKey === 'service.ev_passenger.enabled'}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -339,12 +341,12 @@ export default function Settings() {
                 }}
               >
                 <Power size={14} />
-                {updatingKey === 'service.ev_goods.enabled' ? 'Updating...' : isEvEnabled ? 'Disable Service' : 'Enable Service'}
+                {updatingKey === 'service.ev_passenger.enabled' ? 'Updating...' : isEvEnabled ? 'Disable Service' : 'Enable Service'}
               </button>
             </div>
           </div>
 
-          {/* Goods Taxi Transport Card */}
+          {/* Taxi Transport Card */}
           <div className="card" style={{ border: isTaxiEnabled ? '1px solid #93c5fd' : '1px solid #e2e8f0', background: isTaxiEnabled ? '#eff6ff' : '#ffffff', position: 'relative' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -352,9 +354,9 @@ export default function Settings() {
                   <Car size={22} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#0f172a' }}>Goods Taxi Transport</h3>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#0f172a' }}>Taxi Service</h3>
                   <code style={{ fontSize: '11px', color: '#64748b', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>
-                    service.goods_taxi.enabled
+                    service.taxi.enabled
                   </code>
                 </div>
               </div>
@@ -373,23 +375,22 @@ export default function Settings() {
               </span>
             </div>
             <p style={{ fontSize: '13px', color: '#475569', marginBottom: '16px', minHeight: '38px' }}>
-              Controls whether Tata Ace, Mini Pickup, Cargo Pickup, and Goods Loading Taxis can be registered by agencies and booked by customers.
+              Controls whether Sedans, Hatchbacks, and SUVs can be registered by agencies and booked by customers for passenger trips.
             </p>
             <div style={{ background: '#ffffff', borderRadius: '8px', padding: '10px 12px', border: '1px solid #e2e8f0', marginBottom: '16px', fontSize: '12px', color: '#64748b' }}>
               <div style={{ fontWeight: '600', color: '#334155', marginBottom: '4px' }}>Allowed Types:</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>tata-ace</span>
-                <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>mini-pickup</span>
-                <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>cargo-pickup</span>
-                <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>goods-loading-taxi</span>
+                <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>sedan</span>
+                <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>hatchback</span>
+                <span style={{ background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px' }}>suv</span>
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '13px', fontWeight: '500', color: '#334155' }}>Service Activation:</span>
               <button
                 type="button"
-                onClick={() => handleToggleService('service.goods_taxi.enabled', 'system', 'Enable or disable Goods Taxi transport services')}
-                disabled={updatingKey === 'service.goods_taxi.enabled'}
+                onClick={() => handleToggleService('service.taxi.enabled', 'system', 'Enable or disable Taxi transport services')}
+                disabled={updatingKey === 'service.taxi.enabled'}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -405,12 +406,12 @@ export default function Settings() {
                 }}
               >
                 <Power size={14} />
-                {updatingKey === 'service.goods_taxi.enabled' ? 'Updating...' : isTaxiEnabled ? 'Disable Service' : 'Enable Service'}
+                {updatingKey === 'service.taxi.enabled' ? 'Updating...' : isTaxiEnabled ? 'Disable Service' : 'Enable Service'}
               </button>
             </div>
           </div>
 
-          {/* Truck Booking System Card */}
+          {/* Goods Transport System Card */}
           <div className="card" style={{ border: '1px solid #e2e8f0', background: '#ffffff' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -418,7 +419,7 @@ export default function Settings() {
                   <Truck size={22} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#0f172a' }}>Truck Transport (Core)</h3>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#0f172a' }}>Goods Transport (Core)</h3>
                   <code style={{ fontSize: '11px', color: '#64748b', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>
                     booking.enabled
                   </code>

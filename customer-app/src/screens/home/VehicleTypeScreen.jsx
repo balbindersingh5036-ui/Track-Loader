@@ -13,27 +13,79 @@ import {
 import EVBadge from "../../components/EVBadge";
 
 const ALL_VEHICLE_TYPES = [
-  // Trucks Category
+  // EV Passenger Category
   {
-    type: "mini-truck",
-    title: "Mini Truck",
-    category: SERVICE_CATEGORIES.TRUCK,
-    icon: "truck-fast-outline",
-    desc: "Ideal for small to medium goods, local moves, and light cargo.",
-    idealFor: "Up to 750 - 1200 kg"
+    type: "electric-rickshaw",
+    title: "Electric Rickshaw",
+    category: SERVICE_CATEGORIES.EV_PASSENGER,
+    icon: "lightning-bolt-outline",
+    desc: "Eco-friendly electric rickshaw for quick and affordable passenger travel.",
+    idealFor: "Up to 3-4 Passengers · Zero Emissions"
   },
+  {
+    type: "electric-passenger-three-wheeler",
+    title: "Electric Passenger Three-Wheeler",
+    category: SERVICE_CATEGORIES.EV_PASSENGER,
+    icon: "lightning-bolt-outline",
+    desc: "Spacious electric passenger three-wheeler for daily urban commutes.",
+    idealFor: "Up to 4 Passengers · Green Travel"
+  },
+  {
+    type: "other-electric-passenger",
+    title: "Other Electric Passenger Vehicle",
+    category: SERVICE_CATEGORIES.EV_PASSENGER,
+    icon: "lightning-bolt-outline",
+    desc: "Modern electric passenger vehicle providing a clean and comfortable ride.",
+    idealFor: "Up to 4-6 Passengers · Electric"
+  },
+
+  // Taxi Category
+  {
+    type: "sedan",
+    title: "Sedan Taxi",
+    category: SERVICE_CATEGORIES.TAXI,
+    icon: "car-outline",
+    desc: "Comfortable air-conditioned sedan taxi for comfortable point-to-point travel.",
+    idealFor: "Up to 4 Passengers · AC Comfort"
+  },
+  {
+    type: "hatchback",
+    title: "Hatchback Taxi",
+    category: SERVICE_CATEGORIES.TAXI,
+    icon: "car-outline",
+    desc: "Affordable compact city taxi for quick, economical passenger travel.",
+    idealFor: "Up to 4 Passengers · Compact & Fast"
+  },
+  {
+    type: "suv",
+    title: "SUV Taxi",
+    category: SERVICE_CATEGORIES.TAXI,
+    icon: "car-estate",
+    desc: "Spacious premium SUV taxi for group passenger travel and outstation trips.",
+    idealFor: "Up to 6-7 Passengers · Extra Legroom"
+  },
+
+  // Goods Transport Category
   {
     type: "pickup",
     title: "Pickup",
-    category: SERVICE_CATEGORIES.TRUCK,
+    category: SERVICE_CATEGORIES.GOODS_TRANSPORT,
     icon: "truck-outline",
-    desc: "For quick, light deliveries, furniture, and intra-city hardware.",
+    desc: "For quick, light deliveries, furniture, and intra-city cargo logistics.",
     idealFor: "Up to 1250 - 1750 kg"
+  },
+  {
+    type: "mini-truck",
+    title: "Mini Truck",
+    category: SERVICE_CATEGORIES.GOODS_TRANSPORT,
+    icon: "truck-fast-outline",
+    desc: "Ideal for small to medium goods, local moves, and commercial freight.",
+    idealFor: "Up to 750 - 1200 kg"
   },
   {
     type: "small-truck",
     title: "Small Truck",
-    category: SERVICE_CATEGORIES.TRUCK,
+    category: SERVICE_CATEGORIES.GOODS_TRANSPORT,
     icon: "truck-cargo-container",
     desc: "For intra-city commercial loads and distribution batches.",
     idealFor: "Up to 1.5 - 2.5 tons"
@@ -41,94 +93,18 @@ const ALL_VEHICLE_TYPES = [
   {
     type: "medium-truck",
     title: "Medium Truck",
-    category: SERVICE_CATEGORIES.TRUCK,
+    category: SERVICE_CATEGORIES.GOODS_TRANSPORT,
     icon: "truck-flatbed",
-    desc: "For regional logistics, large consignments, and bulk transport.",
+    desc: "For regional logistics, large consignments, and bulk freight transport.",
     idealFor: "Up to 2.5 - 4.5 tons"
   },
   {
     type: "large-truck",
     title: "Large Truck",
-    category: SERVICE_CATEGORIES.TRUCK,
+    category: SERVICE_CATEGORIES.GOODS_TRANSPORT,
     icon: "truck-trailer",
-    desc: "For heavy industrial freight, long-haul logistics, and containers.",
+    desc: "For heavy industrial freight, long-haul logistics, and container loads.",
     idealFor: "Up to 5 - 10+ tons"
-  },
-
-  // EV Goods Category
-  {
-    type: "electric-cargo-loader",
-    title: "Electric Cargo Loader",
-    category: SERVICE_CATEGORIES.EV_GOODS,
-    icon: "lightning-bolt-outline",
-    desc: "Zero emission 3-wheeler/4-wheeler cargo loader for green deliveries.",
-    idealFor: "Up to 500 - 800 kg · Zero Emissions"
-  },
-  {
-    type: "electric-goods-e-rickshaw",
-    title: "Electric Goods E-Rickshaw",
-    category: SERVICE_CATEGORIES.EV_GOODS,
-    icon: "lightning-bolt-outline",
-    desc: "Compact electric carrier built for narrow urban streets and market distribution.",
-    idealFor: "Up to 400 - 600 kg · Electric Urban"
-  },
-  {
-    type: "electric-mini-cargo-carrier",
-    title: "Electric Mini Cargo Carrier",
-    category: SERVICE_CATEGORIES.EV_GOODS,
-    icon: "lightning-bolt-outline",
-    desc: "High efficiency electric mini carrier for commercial parcel logistics.",
-    idealFor: "Up to 800 - 1200 kg · Battery Powered"
-  },
-  {
-    type: "other-electric-goods",
-    title: "Electric Goods Carrier",
-    category: SERVICE_CATEGORIES.EV_GOODS,
-    icon: "lightning-bolt-outline",
-    desc: "Specialized electric freight vehicle tailored for eco-friendly shipping.",
-    idealFor: "Custom EV Capacity · Green Logistics"
-  },
-
-  // Goods Taxi Category
-  {
-    type: "mini-pickup",
-    title: "Mini Pickup Taxi",
-    category: SERVICE_CATEGORIES.GOODS_TAXI,
-    icon: "truck-delivery-outline",
-    desc: "Fast on-demand goods taxi for small furniture, luggage, and urgent goods.",
-    idealFor: "Up to 600 - 900 kg · Rapid Dispatch"
-  },
-  {
-    type: "tata-ace",
-    title: "Tata Ace / Chota Hathi",
-    category: SERVICE_CATEGORIES.GOODS_TAXI,
-    icon: "truck-outline",
-    desc: "India's trusted compact goods carrier for intra-city trade and market loads.",
-    idealFor: "Up to 750 - 1000 kg · Market Champion"
-  },
-  {
-    type: "cargo-pickup",
-    title: "Cargo Pickup Taxi",
-    category: SERVICE_CATEGORIES.GOODS_TAXI,
-    icon: "truck-fast-outline",
-    desc: "Dedicated cargo taxi vehicle for swift retail deliveries and wholesale dispatch.",
-    idealFor: "Up to 1.0 - 1.5 tons · High Speed"
-  },
-  {
-    type: "goods-loading-taxi",
-    title: "Goods Loading Taxi",
-    category: SERVICE_CATEGORIES.GOODS_TAXI,
-    icon: "package-variant-closed",
-    desc: "Instant loading and unloading service for commercial cartons and equipment.",
-    idealFor: "Up to 500 - 800 kg · Loading Assisted"
-  },
-  {
-    type: "other-goods-carrier",
-    title: "Goods Carrier Taxi",
-    category: SERVICE_CATEGORIES.GOODS_TAXI,
-    icon: "truck-outline",
-    desc: "General goods taxi carrier ready for quick city-wide dispatch.",
-    idealFor: "Up to 1 ton · City-Wide"
   }
 ];
 
@@ -154,29 +130,29 @@ export default function VehicleTypeScreen({ navigation, route }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const isEvEnabled = config["service.ev_goods.enabled"] !== false;
-  const isTaxiEnabled = config["service.goods_taxi.enabled"] !== false;
+  const isEvEnabled = (config["service.ev_passenger.enabled"] ?? config["service.ev_goods.enabled"]) !== false;
+  const isTaxiEnabled = (config["service.taxi.enabled"] ?? config["service.goods_taxi.enabled"]) !== false;
 
   // Filter categories according to Admin settings
   const availableTabs = useMemo(() => {
     const tabs = [
-      { key: "all", label: "All Services" },
-      { key: SERVICE_CATEGORIES.TRUCK, label: "Trucks" }
+      { key: "all", label: "All Services" }
     ];
     if (isEvEnabled) {
-      tabs.push({ key: SERVICE_CATEGORIES.EV_GOODS, label: "EV Goods" });
+      tabs.push({ key: SERVICE_CATEGORIES.EV_PASSENGER, label: "EV Passenger" });
     }
     if (isTaxiEnabled) {
-      tabs.push({ key: SERVICE_CATEGORIES.GOODS_TAXI, label: "Goods Taxi" });
+      tabs.push({ key: SERVICE_CATEGORIES.TAXI, label: "Taxi" });
     }
+    tabs.push({ key: SERVICE_CATEGORIES.GOODS_TRANSPORT, label: "Goods Transport" });
     return tabs;
   }, [isEvEnabled, isTaxiEnabled]);
 
   // Filter vehicle items based on Admin settings and tab selection
   const filteredVehicleTypes = useMemo(() => {
     return ALL_VEHICLE_TYPES.filter((item) => {
-      if (item.category === SERVICE_CATEGORIES.EV_GOODS && !isEvEnabled) return false;
-      if (item.category === SERVICE_CATEGORIES.GOODS_TAXI && !isTaxiEnabled) return false;
+      if ((item.category === SERVICE_CATEGORIES.EV_PASSENGER || item.category === SERVICE_CATEGORIES.EV_GOODS) && !isEvEnabled) return false;
+      if ((item.category === SERVICE_CATEGORIES.TAXI || item.category === SERVICE_CATEGORIES.GOODS_TAXI) && !isTaxiEnabled) return false;
       if (selectedCategory !== "all" && item.category !== selectedCategory) return false;
       return true;
     });
@@ -224,8 +200,8 @@ export default function VehicleTypeScreen({ navigation, route }) {
               (v) => v.vehicleType === item.type && v.isAvailable
             ).length;
             const isSelected = selected === item.type;
-            const isEV = item.category === SERVICE_CATEGORIES.EV_GOODS;
-            const isTaxi = item.category === SERVICE_CATEGORIES.GOODS_TAXI;
+            const isEV = item.category === SERVICE_CATEGORIES.EV_PASSENGER || item.category === SERVICE_CATEGORIES.EV_GOODS;
+            const isTaxi = item.category === SERVICE_CATEGORIES.TAXI || item.category === SERVICE_CATEGORIES.GOODS_TAXI;
 
             return (
               <Pressable

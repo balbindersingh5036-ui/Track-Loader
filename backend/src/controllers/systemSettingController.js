@@ -5,6 +5,8 @@ import { setSetting } from "../services/systemSettingService.js";
 const PROTECTED_KEYS = [
   "system.maintenanceMode",
   "booking.enabled",
+  "service.ev_passenger.enabled",
+  "service.taxi.enabled",
   "service.ev_goods.enabled",
   "service.goods_taxi.enabled",
   "payment.enabled",
@@ -120,6 +122,10 @@ export const deleteSetting = async (req, res) => {
 
 const PUBLIC_SETTINGS = [
   ["booking.enabled", "booking.enabled"],
+  ["service.ev_passenger.enabled", "service.ev_passenger.enabled"],
+  ["service.taxi.enabled", "service.taxi.enabled"],
+  ["service.ev_passenger.allowed_vehicle_types", "service.ev_passenger.allowed_vehicle_types"],
+  ["service.taxi.allowed_vehicle_types", "service.taxi.allowed_vehicle_types"],
   ["service.ev_goods.enabled", "service.ev_goods.enabled"],
   ["service.goods_taxi.enabled", "service.goods_taxi.enabled"],
   ["service.ev_goods.allowed_vehicle_types", "service.ev_goods.allowed_vehicle_types"],
@@ -149,6 +155,35 @@ export const getPublicSettings = async (req, res) => {
       }
       return acc;
     }, {});
+
+    // Sync EV Passenger <-> EV Goods for seamless backward compatibility
+    if (config["service.ev_passenger.enabled"] === undefined && config["service.ev_goods.enabled"] !== undefined) {
+      config["service.ev_passenger.enabled"] = config["service.ev_goods.enabled"];
+    } else if (config["service.ev_goods.enabled"] === undefined && config["service.ev_passenger.enabled"] !== undefined) {
+      config["service.ev_goods.enabled"] = config["service.ev_passenger.enabled"];
+    }
+
+    // Sync Taxi <-> Goods Taxi for seamless backward compatibility
+    if (config["service.taxi.enabled"] === undefined && config["service.goods_taxi.enabled"] !== undefined) {
+      config["service.taxi.enabled"] = config["service.goods_taxi.enabled"];
+    } else if (config["service.goods_taxi.enabled"] === undefined && config["service.taxi.enabled"] !== undefined) {
+      config["service.goods_taxi.enabled"] = config["service.taxi.enabled"];
+    }
+
+    if (config["service.ev_passenger.allowed_vehicle_types"] === undefined) {
+      config["service.ev_passenger.allowed_vehicle_types"] = [
+        "electric-rickshaw",
+        "electric-passenger-three-wheeler",
+        "other-electric-passenger"
+      ];
+    }
+    if (config["service.taxi.allowed_vehicle_types"] === undefined) {
+      config["service.taxi.allowed_vehicle_types"] = [
+        "sedan",
+        "hatchback",
+        "suv"
+      ];
+    }
 
     if (config["service.ev_goods.allowed_vehicle_types"] === undefined) {
       config["service.ev_goods.allowed_vehicle_types"] = [

@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 import {
+  canonicalizeServiceCategory,
+  isPassengerCategory,
   isValidCategoryVehicleType,
   SERVICE_CATEGORIES,
   VEHICLE_TYPES
@@ -199,9 +201,20 @@ const bookingSchema = new mongoose.Schema(
       index: true
     },
 
+    passengerCount: {
+      type: Number,
+      min: 1,
+      default: null
+    },
+
     goods: {
       type: String,
-      required: true,
+      required: function () {
+        return !isPassengerCategory(this.serviceCategory);
+      },
+      default: function () {
+        return isPassengerCategory(this.serviceCategory) ? "Passenger Transportation" : "";
+      },
       trim: true
     },
 
@@ -269,7 +282,10 @@ const bookingSchema = new mongoose.Schema(
     weight: {
       value: {
         type: Number,
-        required: true,
+        required: function () {
+          return !isPassengerCategory(this.serviceCategory);
+        },
+        default: 0,
         min: 0
       },
 
@@ -499,7 +515,8 @@ const bookingSchema = new mongoose.Schema(
 );
 
 bookingSchema.pre("validate", function validateCategoryVehicleType() {
-  if (!isValidCategoryVehicleType(this.serviceCategory, this.vehicleType)) {
+  const canonical = canonicalizeServiceCategory(this.serviceCategory);
+  if (!isValidCategoryVehicleType(this.serviceCategory, this.vehicleType) && !isValidCategoryVehicleType(canonical, this.vehicleType)) {
     this.invalidate("vehicleType", "Vehicle type does not belong to the selected service category");
   }
 });

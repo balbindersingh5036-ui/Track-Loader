@@ -2,6 +2,14 @@ import React, { useEffect, useState } from 'react';
 import agencyService from '../../services/agencyService';
 import systemSettingService from '../../services/systemSettingService';
 import {
+  SERVICE_CATEGORIES,
+  SERVICE_CATEGORY_LABELS,
+  VEHICLE_TYPES_BY_CATEGORY,
+  canonicalizeServiceCategory,
+  isPassengerCategory,
+  formatVehicleType
+} from '../../utils/vehicleCategories';
+import {
   Building2, Users, Car, MapPin, RefreshCw, PlusCircle,
   UploadCloud, AlertCircle, CheckCircle2, XCircle, Clock,
   Search, ShieldCheck, Phone, Mail, FileText, ArrowRight,
@@ -221,11 +229,13 @@ export default function AgencyDashboard() {
     vehicleNumber: '',
     vehicleMake: '',
     vehicleModel: '',
-    serviceCategory: 'TRUCK',
+    serviceCategory: 'GOODS_TRANSPORT',
     vehicleType: 'mini-truck',
     fuelType: 'diesel',
     loadCapacityValue: 1000,
     loadCapacityUnit: 'kg',
+    seatingCapacity: 4,
+    isAirConditioned: false,
     bodyType: 'open',
     vehicleImage: '',
     batteryRangeKm: '',
@@ -239,9 +249,11 @@ export default function AgencyDashboard() {
     vehicleId: null,
     vehicleModel: '',
     vehicleType: 'mini-truck',
-    serviceCategory: 'TRUCK',
+    serviceCategory: 'GOODS_TRANSPORT',
     loadCapacityValue: 1000,
     loadCapacityUnit: 'kg',
+    seatingCapacity: 4,
+    isAirConditioned: false,
     bodyType: 'open',
     vehicleImage: '',
     isActive: true,
@@ -776,16 +788,17 @@ export default function AgencyDashboard() {
 
   const handleCreateVehicle = async (e) => {
     e.preventDefault();
-    const serviceCategory = newVehicle.serviceCategory || 'TRUCK';
-    const isEvEnabled = publicConfig ? publicConfig['service.ev_goods.enabled'] === true : false;
-    const isTaxiEnabled = publicConfig ? publicConfig['service.goods_taxi.enabled'] === true : false;
+    const serviceCategory = newVehicle.serviceCategory || 'GOODS_TRANSPORT';
+    const isPassenger = isPassengerCategory(serviceCategory);
+    const isEvEnabled = publicConfig ? (publicConfig['service.ev_passenger.enabled'] ?? publicConfig['service.ev_goods.enabled'] ?? true) === true : true;
+    const isTaxiEnabled = publicConfig ? (publicConfig['service.taxi.enabled'] ?? publicConfig['service.goods_taxi.enabled'] ?? true) === true : true;
 
-    if (serviceCategory === 'EV_GOODS' && !isEvEnabled) {
-      alert('EV Goods Transport is currently disabled by administrator. New vehicles in this category cannot be registered.');
+    if ((serviceCategory === 'EV_PASSENGER' || serviceCategory === 'EV_GOODS') && !isEvEnabled) {
+      alert('EV Passenger Transport is currently disabled by administrator. New vehicles in this category cannot be registered.');
       return;
     }
-    if (serviceCategory === 'GOODS_TAXI' && !isTaxiEnabled) {
-      alert('Goods Taxi Transport is currently disabled by administrator. New vehicles in this category cannot be registered.');
+    if ((serviceCategory === 'TAXI' || serviceCategory === 'GOODS_TAXI') && !isTaxiEnabled) {
+      alert('Taxi Service is currently disabled by administrator. New vehicles in this category cannot be registered.');
       return;
     }
 
@@ -798,12 +811,14 @@ export default function AgencyDashboard() {
         vehicleModel: newVehicle.vehicleModel,
         serviceCategory,
         vehicleType: newVehicle.vehicleType,
-        fuelType: newVehicle.fuelType || (serviceCategory === 'EV_GOODS' ? 'electric' : 'diesel'),
-        batteryRangeKm: newVehicle.batteryRangeKm ? Number(newVehicle.batteryRangeKm) : null,
-        chargingInformation: newVehicle.chargingInformation || '',
+        fuelType: newVehicle.fuelType || (serviceCategory === 'EV_PASSENGER' || serviceCategory === 'EV_GOODS' ? 'electric' : 'diesel'),
+        batteryRangeKm: (serviceCategory === 'EV_PASSENGER' || serviceCategory === 'EV_GOODS') && newVehicle.batteryRangeKm ? Number(newVehicle.batteryRangeKm) : null,
+        chargingInformation: (serviceCategory === 'EV_PASSENGER' || serviceCategory === 'EV_GOODS') ? (newVehicle.chargingInformation || '') : '',
         serviceAreas: newVehicle.serviceAreas ? newVehicle.serviceAreas.split(',').map(s => s.trim()).filter(Boolean) : [],
-        loadCapacity: { value: Number(newVehicle.loadCapacityValue), unit: newVehicle.loadCapacityUnit },
-        bodyType: newVehicle.bodyType,
+        seatingCapacity: isPassenger ? Number(newVehicle.seatingCapacity) || 4 : null,
+        isAirConditioned: Boolean(newVehicle.isAirConditioned),
+        loadCapacity: isPassenger ? { value: 0, unit: 'kg' } : { value: Number(newVehicle.loadCapacityValue), unit: newVehicle.loadCapacityUnit },
+        bodyType: isPassenger ? undefined : newVehicle.bodyType,
         vehicleImage: newVehicle.vehicleImage || ''
       });
       setNewVehicle({
@@ -811,11 +826,12 @@ export default function AgencyDashboard() {
         vehicleNumber: '',
         vehicleMake: '',
         vehicleModel: '',
-        serviceCategory: 'TRUCK',
+        serviceCategory: 'GOODS_TRANSPORT',
         vehicleType: 'mini-truck',
         fuelType: 'diesel',
         loadCapacityValue: 1000,
         loadCapacityUnit: 'kg',
+        seatingCapacity: 4,
         bodyType: 'open',
         vehicleImage: '',
         batteryRangeKm: '',
@@ -833,16 +849,25 @@ export default function AgencyDashboard() {
 
   const handleUpdateVehicle = async (e) => {
     e.preventDefault();
+    const isPassenger = isPassengerCategory(editVehicleModal.serviceCategory);
     try {
       setEditVehicleModal(prev => ({ ...prev, saving: true }));
       const payload = {
         vehicleModel: editVehicleModal.vehicleModel,
         vehicleType: editVehicleModal.vehicleType,
-        loadCapacity: { value: Number(editVehicleModal.loadCapacityValue), unit: editVehicleModal.loadCapacityUnit },
-        bodyType: editVehicleModal.bodyType,
         vehicleImage: editVehicleModal.vehicleImage
       };
-      if (editVehicleModal.originalIsActive || editVehicleModal.serviceCategory === 'TRUCK') {
+      if (isPassenger) {
+        payload.seatingCapacity = Number(editVehicleModal.seatingCapacity) || 4;
+        payload.isAirConditioned = Boolean(editVehicleModal.isAirConditioned);
+        if (editVehicleModal.serviceCategory === 'TAXI' || editVehicleModal.serviceCategory === 'GOODS_TAXI') {
+          payload.fuelType = editVehicleModal.fuelType || 'petrol';
+        }
+      } else {
+        payload.loadCapacity = { value: Number(editVehicleModal.loadCapacityValue), unit: editVehicleModal.loadCapacityUnit };
+        payload.bodyType = editVehicleModal.bodyType;
+      }
+      if (editVehicleModal.originalIsActive || editVehicleModal.serviceCategory === 'GOODS_TRANSPORT' || editVehicleModal.serviceCategory === 'TRUCK') {
         payload.isActive = editVehicleModal.isActive;
       }
       await agencyService.updateAgencyVehicle(editVehicleModal.vehicleId, payload);
@@ -851,9 +876,10 @@ export default function AgencyDashboard() {
         vehicleId: null,
         vehicleModel: '',
         vehicleType: 'mini-truck',
-        serviceCategory: 'TRUCK',
+        serviceCategory: 'GOODS_TRANSPORT',
         loadCapacityValue: 1000,
         loadCapacityUnit: 'kg',
+        seatingCapacity: 4,
         bodyType: 'open',
         vehicleImage: '',
         isActive: true,
@@ -1911,9 +1937,24 @@ export default function AgencyDashboard() {
                         </div>
                       </td>
                       <td>{v.vehicleModel}</td>
-                      <td style={{ textTransform: 'capitalize' }}>{v.vehicleType}</td>
-                      <td>{v.loadCapacity?.value} {v.loadCapacity?.unit}</td>
-                      <td style={{ textTransform: 'capitalize' }}>{v.bodyType || 'open'}</td>
+                      <td style={{ textTransform: 'capitalize' }}>{formatVehicleType(v.vehicleType)}</td>
+                      <td>
+                        {isPassengerCategory(v.serviceCategory || v.vehicleType)
+                          ? (
+                            <div>
+                              <span>{v.seatingCapacity || 4} seats</span>
+                              {(v.serviceCategory === 'TAXI' || v.serviceCategory === 'GOODS_TAXI') && (
+                                <span style={{ marginLeft: 6, fontSize: 11, padding: '2px 6px', borderRadius: 4, background: v.isAirConditioned ? '#e0f2fe' : '#f1f5f9', color: v.isAirConditioned ? '#0369a1' : '#64748b', fontWeight: 600 }}>
+                                  {v.isAirConditioned ? 'AC' : 'Non-AC'}
+                                </span>
+                              )}
+                            </div>
+                          )
+                          : `${v.loadCapacity?.value ?? '—'} ${v.loadCapacity?.unit || ''}`}
+                      </td>
+                      <td style={{ textTransform: 'capitalize' }}>
+                        {isPassengerCategory(v.serviceCategory || v.vehicleType) ? 'Passenger' : (v.bodyType || 'open')}
+                      </td>
                       <td>
                         {v.driver?.fullName ? (
                           <div>
@@ -1965,21 +2006,18 @@ export default function AgencyDashboard() {
                             type="button"
                             className="btn btn-secondary btn-sm"
                             onClick={() => {
-                              const resolvedCat = v.serviceCategory || (
-                                ['electric-cargo-loader', 'electric-goods-e-rickshaw', 'electric-mini-cargo-carrier', 'other-electric-goods'].includes(v.vehicleType)
-                                  ? 'EV_GOODS'
-                                  : ['mini-pickup', 'tata-ace', 'cargo-pickup', 'goods-loading-taxi', 'other-goods-carrier'].includes(v.vehicleType)
-                                    ? 'GOODS_TAXI'
-                                    : 'TRUCK'
-                              );
+                              const resolvedCat = canonicalizeServiceCategory(v.serviceCategory || v.vehicleType);
                               setEditVehicleModal({
                                 open: true,
                                 vehicleId: v._id,
                                 vehicleModel: v.vehicleModel || '',
-                                vehicleType: v.vehicleType || 'mini-truck',
+                                vehicleType: v.vehicleType || (VEHICLE_TYPES_BY_CATEGORY[resolvedCat]?.[0] || 'mini-truck'),
                                 serviceCategory: resolvedCat,
                                 loadCapacityValue: v.loadCapacity?.value || 1000,
                                 loadCapacityUnit: v.loadCapacity?.unit || 'kg',
+                                seatingCapacity: v.seatingCapacity || 4,
+                                isAirConditioned: v.isAirConditioned ?? false,
+                                fuelType: v.fuelType || 'petrol',
                                 bodyType: v.bodyType || 'open',
                                 vehicleImage: v.vehicleImage || '',
                                 isActive: v.isActive !== false,
@@ -2586,40 +2624,34 @@ export default function AgencyDashboard() {
               <div className="form-group">
                 <label>Service Category *</label>
                 <select
-                  value={newVehicle.serviceCategory || 'TRUCK'}
+                  value={newVehicle.serviceCategory || 'GOODS_TRANSPORT'}
                   onChange={(e) => {
                     const cat = e.target.value;
-                    const evTypes = (publicConfig && Array.isArray(publicConfig['service.ev_goods.allowed_vehicle_types']))
-                      ? publicConfig['service.ev_goods.allowed_vehicle_types']
-                      : ['electric-cargo-loader', 'electric-goods-e-rickshaw', 'electric-mini-cargo-carrier'];
-                    const taxiTypes = (publicConfig && Array.isArray(publicConfig['service.goods_taxi.allowed_vehicle_types']))
-                      ? publicConfig['service.goods_taxi.allowed_vehicle_types']
-                      : ['mini-pickup', 'tata-ace', 'cargo-pickup', 'goods-loading-taxi'];
-                    const defaultType = cat === 'EV_GOODS' ? evTypes[0] : cat === 'GOODS_TAXI' ? taxiTypes[0] : 'mini-truck';
+                    const defaultType = (VEHICLE_TYPES_BY_CATEGORY[cat] || VEHICLE_TYPES_BY_CATEGORY['GOODS_TRANSPORT'])[0] || 'mini-truck';
                     setNewVehicle({
                       ...newVehicle,
                       serviceCategory: cat,
                       vehicleType: defaultType,
-                      fuelType: cat === 'EV_GOODS' ? 'electric' : 'diesel'
+                      fuelType: cat === 'EV_PASSENGER' ? 'electric' : 'diesel'
                     });
                   }}
                   style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
                 >
-                  <option value="TRUCK">Truck</option>
-                  <option value="EV_GOODS">
-                    EV Goods {publicConfig && publicConfig['service.ev_goods.enabled'] !== true ? '(Disabled by Admin)' : ''}
+                  <option value="GOODS_TRANSPORT">Goods Transport</option>
+                  <option value="EV_PASSENGER">
+                    EV Passenger {publicConfig && (publicConfig['service.ev_passenger.enabled'] ?? publicConfig['service.ev_goods.enabled']) === false ? '(Disabled by Admin)' : ''}
                   </option>
-                  <option value="GOODS_TAXI">
-                    Goods Taxi {publicConfig && publicConfig['service.goods_taxi.enabled'] !== true ? '(Disabled by Admin)' : ''}
+                  <option value="TAXI">
+                    Taxi {publicConfig && (publicConfig['service.taxi.enabled'] ?? publicConfig['service.goods_taxi.enabled']) === false ? '(Disabled by Admin)' : ''}
                   </option>
                 </select>
               </div>
 
-              {((newVehicle.serviceCategory === 'EV_GOODS' && (!publicConfig || publicConfig['service.ev_goods.enabled'] !== true)) ||
-                (newVehicle.serviceCategory === 'GOODS_TAXI' && (!publicConfig || publicConfig['service.goods_taxi.enabled'] !== true))) && (
+              {((newVehicle.serviceCategory === 'EV_PASSENGER' && publicConfig && (publicConfig['service.ev_passenger.enabled'] ?? publicConfig['service.ev_goods.enabled']) === false) ||
+                (newVehicle.serviceCategory === 'TAXI' && publicConfig && (publicConfig['service.taxi.enabled'] ?? publicConfig['service.goods_taxi.enabled']) === false)) && (
                 <div style={{ padding: '10px 12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, color: '#b91c1c', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <AlertCircle size={16} color="#b91c1c" />
-                  <span>{newVehicle.serviceCategory === 'EV_GOODS' ? 'EV Goods Transport' : 'Goods Taxi Transport'} is currently disabled by administrator. New vehicle registration is blocked.</span>
+                  <span>{newVehicle.serviceCategory === 'EV_PASSENGER' ? 'EV Passenger Transport' : 'Taxi Service'} is currently disabled by administrator. New vehicle registration is blocked.</span>
                 </div>
               )}
 
@@ -2641,12 +2673,12 @@ export default function AgencyDashboard() {
                     required
                     value={newVehicle.vehicleModel}
                     onChange={(e) => setNewVehicle({ ...newVehicle, vehicleModel: e.target.value })}
-                    placeholder="e.g. Tata 407 / Bolero"
+                    placeholder="e.g. Tata 407 / Bolero / Dzire"
                   />
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isPassengerCategory(newVehicle.serviceCategory) ? '1fr 1fr' : '1fr 1fr', gap: 12 }}>
                 <div className="form-group">
                   <label>Vehicle Type *</label>
                   <select
@@ -2654,47 +2686,42 @@ export default function AgencyDashboard() {
                     onChange={(e) => setNewVehicle({ ...newVehicle, vehicleType: e.target.value })}
                     style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
                   >
-                    {newVehicle.serviceCategory === 'EV_GOODS' ? (
-                      ((publicConfig && Array.isArray(publicConfig['service.ev_goods.allowed_vehicle_types']))
-                        ? publicConfig['service.ev_goods.allowed_vehicle_types']
-                        : ['electric-cargo-loader', 'electric-goods-e-rickshaw', 'electric-mini-cargo-carrier']
-                      ).map(t => (
-                        <option key={t} value={t}>{t.replace(/-/g, ' ')}</option>
-                      ))
-                    ) : newVehicle.serviceCategory === 'GOODS_TAXI' ? (
-                      ((publicConfig && Array.isArray(publicConfig['service.goods_taxi.allowed_vehicle_types']))
-                        ? publicConfig['service.goods_taxi.allowed_vehicle_types']
-                        : ['mini-pickup', 'tata-ace', 'cargo-pickup', 'goods-loading-taxi']
-                      ).map(t => (
-                        <option key={t} value={t}>{t.replace(/-/g, ' ')}</option>
-                      ))
-                    ) : (
-                      <>
-                        <option value="mini-truck">Mini Truck</option>
-                        <option value="pickup">Pickup</option>
-                        <option value="small-truck">Small Truck</option>
-                        <option value="medium-truck">Medium Truck</option>
-                        <option value="large-truck">Large Truck</option>
-                      </>
-                    )}
+                    {(VEHICLE_TYPES_BY_CATEGORY[newVehicle.serviceCategory] || VEHICLE_TYPES_BY_CATEGORY['GOODS_TRANSPORT']).map((t) => (
+                      <option key={t} value={t}>{formatVehicleType(t)}</option>
+                    ))}
                   </select>
                 </div>
-                <div className="form-group">
-                  <label>Body Type</label>
-                  <select
-                    value={newVehicle.bodyType}
-                    onChange={(e) => setNewVehicle({ ...newVehicle, bodyType: e.target.value })}
-                    style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
-                  >
-                    <option value="open">Open</option>
-                    <option value="closed">Closed</option>
-                    <option value="container">Container</option>
-                    <option value="flatbed">Flatbed</option>
-                  </select>
-                </div>
+                {isPassengerCategory(newVehicle.serviceCategory) ? (
+                  <div className="form-group">
+                    <label>Passenger Seating * (persons)</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      max="20"
+                      value={newVehicle.seatingCapacity}
+                      onChange={(e) => setNewVehicle({ ...newVehicle, seatingCapacity: e.target.value })}
+                      placeholder="e.g. 4"
+                    />
+                  </div>
+                ) : (
+                  <div className="form-group">
+                    <label>Body Type</label>
+                    <select
+                      value={newVehicle.bodyType}
+                      onChange={(e) => setNewVehicle({ ...newVehicle, bodyType: e.target.value })}
+                      style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+                    >
+                      <option value="open">Open</option>
+                      <option value="closed">Closed</option>
+                      <option value="container">Container</option>
+                      <option value="flatbed">Flatbed</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
-              {newVehicle.serviceCategory === 'EV_GOODS' && (
+              {(newVehicle.serviceCategory === 'EV_PASSENGER' || newVehicle.serviceCategory === 'EV_GOODS') && (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div className="form-group">
                     <label>Battery Range (km) *</label>
@@ -2720,29 +2747,60 @@ export default function AgencyDashboard() {
                 </div>
               )}
 
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
-                <div className="form-group">
-                  <label>Load Capacity *</label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    value={newVehicle.loadCapacityValue}
-                    onChange={(e) => setNewVehicle({ ...newVehicle, loadCapacityValue: e.target.value })}
-                  />
+              {newVehicle.serviceCategory === 'TAXI' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label>Fuel Type *</label>
+                    <select
+                      value={newVehicle.fuelType || 'petrol'}
+                      onChange={(e) => setNewVehicle({ ...newVehicle, fuelType: e.target.value })}
+                      style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+                    >
+                      <option value="petrol">Petrol</option>
+                      <option value="diesel">Diesel</option>
+                      <option value="cng">CNG</option>
+                      <option value="electric">Electric</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Air Conditioning</label>
+                    <select
+                      value={newVehicle.isAirConditioned ? 'true' : 'false'}
+                      onChange={(e) => setNewVehicle({ ...newVehicle, isAirConditioned: e.target.value === 'true' })}
+                      style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+                    >
+                      <option value="false">Non-AC</option>
+                      <option value="true">AC</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>Unit</label>
-                  <select
-                    value={newVehicle.loadCapacityUnit}
-                    onChange={(e) => setNewVehicle({ ...newVehicle, loadCapacityUnit: e.target.value })}
-                    style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
-                  >
-                    <option value="kg">kg</option>
-                    <option value="ton">ton</option>
-                  </select>
+              )}
+
+              {!isPassengerCategory(newVehicle.serviceCategory) && (
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label>Load Capacity *</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={newVehicle.loadCapacityValue}
+                      onChange={(e) => setNewVehicle({ ...newVehicle, loadCapacityValue: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Unit</label>
+                    <select
+                      value={newVehicle.loadCapacityUnit}
+                      onChange={(e) => setNewVehicle({ ...newVehicle, loadCapacityUnit: e.target.value })}
+                      style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+                    >
+                      <option value="kg">kg</option>
+                      <option value="ton">ton</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="form-group">
                 <label>Vehicle Photo</label>
@@ -2811,70 +2869,95 @@ export default function AgencyDashboard() {
                     onChange={(e) => setEditVehicleModal({ ...editVehicleModal, vehicleType: e.target.value })}
                     style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
                   >
-                    {editVehicleModal.serviceCategory === 'EV_GOODS' ? (
-                      <>
-                        <option value="electric-cargo-loader">Electric Cargo Loader</option>
-                        <option value="electric-goods-e-rickshaw">Electric Goods E-Rickshaw</option>
-                        <option value="electric-mini-cargo-carrier">Electric Mini Cargo Carrier</option>
-                        <option value="other-electric-goods">Other Electric Goods</option>
-                      </>
-                    ) : editVehicleModal.serviceCategory === 'GOODS_TAXI' ? (
-                      <>
-                        <option value="mini-pickup">Mini Pickup</option>
-                        <option value="tata-ace">Tata Ace</option>
-                        <option value="cargo-pickup">Cargo Pickup</option>
-                        <option value="goods-loading-taxi">Goods Loading Taxi</option>
-                        <option value="other-goods-carrier">Other Goods Carrier</option>
-                      </>
-                    ) : (
-                      <>
-                        <option value="mini-truck">Mini Truck</option>
-                        <option value="pickup">Pickup</option>
-                        <option value="small-truck">Small Truck</option>
-                        <option value="medium-truck">Medium Truck</option>
-                        <option value="large-truck">Large Truck</option>
-                      </>
-                    )}
+                    {(VEHICLE_TYPES_BY_CATEGORY[editVehicleModal.serviceCategory] || VEHICLE_TYPES_BY_CATEGORY['GOODS_TRANSPORT']).map((t) => (
+                      <option key={t} value={t}>{formatVehicleType(t)}</option>
+                    ))}
                   </select>
                 </div>
-                <div className="form-group">
-                  <label>Body Type</label>
-                  <select
-                    value={editVehicleModal.bodyType}
-                    onChange={(e) => setEditVehicleModal({ ...editVehicleModal, bodyType: e.target.value })}
-                    style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
-                  >
-                    <option value="open">Open</option>
-                    <option value="closed">Closed</option>
-                    <option value="container">Container</option>
-                    <option value="flatbed">Flatbed</option>
-                  </select>
-                </div>
+                {isPassengerCategory(editVehicleModal.serviceCategory) ? (
+                  <div className="form-group">
+                    <label>Passenger Seating * (persons)</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      max="20"
+                      value={editVehicleModal.seatingCapacity}
+                      onChange={(e) => setEditVehicleModal({ ...editVehicleModal, seatingCapacity: e.target.value })}
+                      placeholder="e.g. 4"
+                    />
+                  </div>
+                ) : (
+                  <div className="form-group">
+                    <label>Body Type</label>
+                    <select
+                      value={editVehicleModal.bodyType}
+                      onChange={(e) => setEditVehicleModal({ ...editVehicleModal, bodyType: e.target.value })}
+                      style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+                    >
+                      <option value="open">Open</option>
+                      <option value="closed">Closed</option>
+                      <option value="container">Container</option>
+                      <option value="flatbed">Flatbed</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
-                <div className="form-group">
-                  <label>Load Capacity *</label>
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    value={editVehicleModal.loadCapacityValue}
-                    onChange={(e) => setEditVehicleModal({ ...editVehicleModal, loadCapacityValue: e.target.value })}
-                  />
+              {!isPassengerCategory(editVehicleModal.serviceCategory) && (
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label>Load Capacity *</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={editVehicleModal.loadCapacityValue}
+                      onChange={(e) => setEditVehicleModal({ ...editVehicleModal, loadCapacityValue: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Unit</label>
+                    <select
+                      value={editVehicleModal.loadCapacityUnit}
+                      onChange={(e) => setEditVehicleModal({ ...editVehicleModal, loadCapacityUnit: e.target.value })}
+                      style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+                    >
+                      <option value="kg">kg</option>
+                      <option value="ton">ton</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="form-group">
-                  <label>Unit</label>
-                  <select
-                    value={editVehicleModal.loadCapacityUnit}
-                    onChange={(e) => setEditVehicleModal({ ...editVehicleModal, loadCapacityUnit: e.target.value })}
-                    style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
-                  >
-                    <option value="kg">kg</option>
-                    <option value="ton">ton</option>
-                  </select>
+              )}
+
+              {(editVehicleModal.serviceCategory === 'TAXI' || editVehicleModal.serviceCategory === 'GOODS_TAXI') && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label>Fuel Type *</label>
+                    <select
+                      value={editVehicleModal.fuelType || 'petrol'}
+                      onChange={(e) => setEditVehicleModal({ ...editVehicleModal, fuelType: e.target.value })}
+                      style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+                    >
+                      <option value="petrol">Petrol</option>
+                      <option value="diesel">Diesel</option>
+                      <option value="cng">CNG</option>
+                      <option value="electric">Electric</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Air Conditioning</label>
+                    <select
+                      value={editVehicleModal.isAirConditioned ? 'true' : 'false'}
+                      onChange={(e) => setEditVehicleModal({ ...editVehicleModal, isAirConditioned: e.target.value === 'true' })}
+                      style={{ width: '100%', padding: 8, borderRadius: 6, border: '1px solid #ccc' }}
+                    >
+                      <option value="false">Non-AC</option>
+                      <option value="true">AC</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="form-group">
                 <label>Vehicle Photo</label>
@@ -2895,9 +2978,9 @@ export default function AgencyDashboard() {
               </div>
 
               <div className="form-group">
-                {!editVehicleModal.originalIsActive && editVehicleModal.serviceCategory && editVehicleModal.serviceCategory !== 'TRUCK' ? (
+                {!editVehicleModal.originalIsActive && editVehicleModal.serviceCategory && editVehicleModal.serviceCategory !== 'TRUCK' && editVehicleModal.serviceCategory !== 'GOODS_TRANSPORT' ? (
                   <div style={{ background: '#fef3c7', border: '1px solid #fde68a', color: '#92400e', padding: '8px 12px', borderRadius: 6, fontSize: 13 }}>
-                    <strong>Status: Inactive</strong> — Super Admin approval and activation required before this goods vehicle can be dispatched.
+                    <strong>Status: Inactive</strong> — Super Admin approval and activation required before this vehicle can be dispatched.
                   </div>
                 ) : (
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>

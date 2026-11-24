@@ -7,17 +7,18 @@ import {
   KeyboardAvoidingView,
   Platform
 } from "react-native";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import authService from "../../services/authService";
 import { Button, Field, Notice, Screen } from "../../components/Phase12UI";
 import { colors } from "../../theme/theme";
 import LoadBalbinLogo from "../../components/LoadBalbinLogo";
 import { useAuth } from "../../store/AuthContext";
 import { getErrorMessage } from "../../utils/errorMessage";
+import { validateLoginIdentifier, buildLoginPayload } from "../../utils/authValidation";
 
 export default function LoginScreen({ navigation }) {
   const { establishSession } = useAuth();
-  const [phone, setPhone] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -26,16 +27,22 @@ export default function LoginScreen({ navigation }) {
   const submit = async () => {
     if (busy) return;
     setError("");
-    if (!phone.trim() || !password) {
-      setError("Please enter your phone number and password.");
+
+    const validation = validateLoginIdentifier(identifier);
+    if (!validation.valid) {
+      setError(validation.error);
       return;
     }
+
+    if (!password) {
+      setError("Please enter your password.");
+      return;
+    }
+
     setBusy(true);
     try {
-      const credentials = await authService.login({
-        phone: phone.trim(),
-        password
-      });
+      const payload = buildLoginPayload(identifier, password);
+      const credentials = await authService.login(payload);
       await establishSession(credentials);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
@@ -43,6 +50,8 @@ export default function LoginScreen({ navigation }) {
       setBusy(false);
     }
   };
+
+  const isEmail = identifier.includes("@");
 
   return (
     <Screen edges={["top", "bottom"]} style={styles.screen}>
@@ -62,19 +71,33 @@ export default function LoginScreen({ navigation }) {
 
         <View style={styles.formCard}>
           <Field
-            label="Phone Number"
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            autoComplete="tel"
-            placeholder="e.g. 9001000001"
-            icon={<Ionicons name="call-outline" size={18} color={colors.textMuted} />}
+            label="Mobile Number / Email Address"
+            value={identifier}
+            onChangeText={(val) => {
+              setIdentifier(val);
+              if (error) setError("");
+            }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="username"
+            placeholder="Enter mobile number or email address"
+            icon={
+              <Ionicons
+                name={isEmail ? "mail-outline" : "call-outline"}
+                size={18}
+                color={colors.textMuted}
+              />
+            }
           />
 
           <Field
             label="Password"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={(val) => {
+              setPassword(val);
+              if (error) setError("");
+            }}
             secureTextEntry={!showPassword}
             autoComplete="current-password"
             placeholder="Enter your password"
@@ -121,64 +144,43 @@ const styles = StyleSheet.create({
   },
   keyboardView: {
     width: "100%",
-    maxWidth: 440,
+    maxWidth: 420,
     alignSelf: "center",
     gap: 20
   },
   header: {
-    alignItems: "center",
     gap: 6
   },
   logoRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginBottom: 12
-  },
-  logoBadge: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  brandName: {
-    color: colors.text,
-    fontSize: 22,
-    fontWeight: "800",
-    letterSpacing: -0.4
+    marginBottom: 8
   },
   title: {
     color: colors.text,
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: "800",
     letterSpacing: -0.5
   },
   subtitle: {
     color: colors.textMuted,
     fontSize: 14,
-    textAlign: "center",
     lineHeight: 20
   },
   formCard: {
     backgroundColor: colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
     borderColor: colors.line,
+    borderWidth: 1,
+    borderRadius: 16,
     padding: 20,
-    gap: 14,
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 3
+    gap: 16
   },
   footer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: 8,
+    flexWrap: "wrap",
     paddingVertical: 8
   },
   footerText: {

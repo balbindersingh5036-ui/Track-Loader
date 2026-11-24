@@ -79,7 +79,7 @@ export default function MyBookingsScreen({ navigation }) {
     >
       <Heading
         title="My Bookings"
-        subtitle="Manage and track your active and past goods shipments."
+        subtitle="Manage and track your active and past shipments and passenger rides."
         right={
           <Pressable
             style={styles.newBookingBtn}
@@ -134,7 +134,7 @@ export default function MyBookingsScreen({ navigation }) {
           detail={
             filter
               ? "Try switching to another tab to view other bookings."
-              : "Create your first transport request to start moving goods."
+              : "Create your first transport request to start your journey."
           }
           actionTitle="Book a transport"
           onAction={() => navigation.navigate("BookingLocation")}

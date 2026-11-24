@@ -13,7 +13,10 @@ import { colors, shadows } from "../../theme/theme";
 import {
   getCleanVehicleDisplayName,
   isEVVehicle,
-  getVehicleCategoryLabel
+  getVehicleCategoryLabel,
+  isPassengerCategory,
+  isGoodsCategory,
+  canonicalizeServiceCategory
 } from "../../utils/vehicleDisplay";
 import EVBadge from "../../components/EVBadge";
 import RazorpayCheckoutModal from "../../components/RazorpayCheckoutModal";
@@ -270,6 +273,7 @@ export default function BookingDetailsScreen({ route, navigation }) {
 
   const isCancellable = ["pending", "accepted"].includes(booking.bookingStatus);
   const isCompleted = booking.bookingStatus === "completed";
+  const isPassenger = isPassengerCategory(booking);
   const adjustmentRates = booking.pricingSnapshot || {};
   const requestedAdjustments = booking.postTripAdjustments || {};
   const waitingAdjustment = Number((
@@ -365,7 +369,7 @@ export default function BookingDetailsScreen({ route, navigation }) {
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>Driver & Vehicle</Text>
           <MaterialCommunityIcons
-            name={isEVVehicle(booking) ? "lightning-bolt-outline" : "truck-outline"}
+            name={isEVVehicle(booking) ? "lightning-bolt-outline" : isPassenger ? "car-outline" : "truck-outline"}
             size={18}
             color={isEVVehicle(booking) ? "#10B981" : colors.primary}
           />
@@ -420,27 +424,51 @@ export default function BookingDetailsScreen({ route, navigation }) {
             <Text style={styles.infoValue}>{booking.vehicle.vehicleNumber}</Text>
           </View>
         ) : null}
-      </Card>
 
-      {/* CARGO & SCHEDULE */}
-      <Card>
-        <View style={styles.sectionTitleRow}>
-          <Text style={styles.sectionTitle}>Cargo Information</Text>
-          <Ionicons name="cube-outline" size={16} color={colors.primary} />
-        </View>
-
-        <View style={styles.cargoGrid}>
-          <View style={styles.cargoItem}>
-            <Text style={styles.cargoLabel}>Goods</Text>
-            <Text style={styles.cargoVal}>{booking.goods || "General cargo"}</Text>
-          </View>
-          <View style={styles.cargoItem}>
-            <Text style={styles.cargoLabel}>Weight</Text>
-            <Text style={styles.cargoVal}>
-              {booking.weight?.value || 0} {booking.weight?.unit || "kg"}
+        {isPassenger && (booking.vehicle?.seatingCapacity || booking.passengerCount) ? (
+          <View style={styles.vehicleInfoRow}>
+            <Text style={styles.infoLabel}>Seating Capacity:</Text>
+            <Text style={styles.infoValue}>
+              {booking.vehicle?.seatingCapacity ? `${booking.vehicle.seatingCapacity} Passengers` : "Standard Seating"}
             </Text>
           </View>
+        ) : null}
+      </Card>
+
+      {/* CARGO OR PASSENGER & SCHEDULE */}
+      <Card>
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionTitle}>{isPassenger ? "Passenger Information" : "Cargo Information"}</Text>
+          <Ionicons name={isPassenger ? "people-outline" : "cube-outline"} size={16} color={colors.primary} />
         </View>
+
+        {isPassenger ? (
+          <View style={styles.cargoGrid}>
+            <View style={styles.cargoItem}>
+              <Text style={styles.cargoLabel}>Service Purpose</Text>
+              <Text style={styles.cargoVal}>Passenger Transportation</Text>
+            </View>
+            <View style={styles.cargoItem}>
+              <Text style={styles.cargoLabel}>Passengers</Text>
+              <Text style={styles.cargoVal}>
+                {booking.passengerCount || booking.quantity || 1} Person{(booking.passengerCount || booking.quantity || 1) > 1 ? "s" : ""}
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.cargoGrid}>
+            <View style={styles.cargoItem}>
+              <Text style={styles.cargoLabel}>Goods</Text>
+              <Text style={styles.cargoVal}>{booking.goods || "General cargo"}</Text>
+            </View>
+            <View style={styles.cargoItem}>
+              <Text style={styles.cargoLabel}>Weight</Text>
+              <Text style={styles.cargoVal}>
+                {booking.weight?.value || 0} {booking.weight?.unit || "kg"}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {booking.preferredPickupDate ? (
           <View style={styles.cargoGrid}>
@@ -463,11 +491,11 @@ export default function BookingDetailsScreen({ route, navigation }) {
         ) : null}
       </Card>
 
-      {/* DELIVERY PROOF */}
+      {/* DELIVERY OR TRIP PROOF */}
       {(booking.deliveryProofUrl || booking.deliveryProof?.url) ? (
         <Card>
           <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>Delivery Proof</Text>
+            <Text style={styles.sectionTitle}>{isPassenger ? "Trip Completion Proof" : "Delivery Proof"}</Text>
             <Ionicons name="checkmark-done-circle-outline" size={18} color="#12B76A" />
           </View>
           <View style={{ marginTop: 10, alignItems: "center" }}>
@@ -477,7 +505,8 @@ export default function BookingDetailsScreen({ route, navigation }) {
             />
             {booking.unloadedAt ? (
               <Text style={{ marginTop: 8, fontSize: 13, color: colors.textSecondary }}>
-                Delivered & Unloaded: {new Date(booking.unloadedAt).toLocaleString()}
+                {isPassenger ? "Completed: " : "Delivered & Unloaded: "}
+                {new Date(booking.unloadedAt).toLocaleString()}
               </Text>
             ) : null}
           </View>
@@ -741,7 +770,7 @@ export default function BookingDetailsScreen({ route, navigation }) {
         {/* RATE DRIVER IF COMPLETED */}
         {isCompleted && !hasRating ? (
           <Button
-            title="Rate Delivery Experience"
+            title={isPassenger ? "Rate Ride Experience" : "Rate Delivery Experience"}
             icon={<Ionicons name="star" size={16} color={colors.white} />}
             onPress={() => navigation.navigate("Rating", { bookingId: booking._id })}
           />

@@ -1,30 +1,61 @@
+export const CANONICAL_SERVICE_CATEGORIES = Object.freeze({
+  EV_PASSENGER: "EV_PASSENGER",
+  TAXI: "TAXI",
+  GOODS_TRANSPORT: "GOODS_TRANSPORT"
+});
+
 export const SERVICE_CATEGORIES = Object.freeze({
+  EV_PASSENGER: "EV_PASSENGER",
+  TAXI: "TAXI",
+  GOODS_TRANSPORT: "GOODS_TRANSPORT",
+  // Legacy aliases
   TRUCK: "TRUCK",
   EV_GOODS: "EV_GOODS",
   GOODS_TAXI: "GOODS_TAXI"
 });
 
 export const SERVICE_CATEGORY_LABELS = Object.freeze({
-  TRUCK: "Trucks",
-  EV_GOODS: "EV Goods",
-  GOODS_TAXI: "Goods Taxi"
+  [SERVICE_CATEGORIES.EV_PASSENGER]: "EV Passenger",
+  [SERVICE_CATEGORIES.TAXI]: "Taxi",
+  [SERVICE_CATEGORIES.GOODS_TRANSPORT]: "Goods Transport",
+  [SERVICE_CATEGORIES.TRUCK]: "Goods Transport",
+  [SERVICE_CATEGORIES.EV_GOODS]: "EV Passenger",
+  [SERVICE_CATEGORIES.GOODS_TAXI]: "Taxi"
 });
 
 export const VEHICLE_TYPES_BY_CATEGORY = Object.freeze({
-  TRUCK: [
-    "mini-truck",
+  [SERVICE_CATEGORIES.EV_PASSENGER]: [
+    "electric-rickshaw",
+    "electric-passenger-three-wheeler",
+    "other-electric-passenger"
+  ],
+  [SERVICE_CATEGORIES.TAXI]: [
+    "sedan",
+    "hatchback",
+    "suv"
+  ],
+  [SERVICE_CATEGORIES.GOODS_TRANSPORT]: [
     "pickup",
+    "mini-truck",
     "small-truck",
     "medium-truck",
     "large-truck"
   ],
-  EV_GOODS: [
+  // Legacy aliases mapped
+  [SERVICE_CATEGORIES.TRUCK]: [
+    "pickup",
+    "mini-truck",
+    "small-truck",
+    "medium-truck",
+    "large-truck"
+  ],
+  [SERVICE_CATEGORIES.EV_GOODS]: [
     "electric-cargo-loader",
     "electric-goods-e-rickshaw",
     "electric-mini-cargo-carrier",
     "other-electric-goods"
   ],
-  GOODS_TAXI: [
+  [SERVICE_CATEGORIES.GOODS_TAXI]: [
     "mini-pickup",
     "tata-ace",
     "cargo-pickup",
@@ -33,72 +64,165 @@ export const VEHICLE_TYPES_BY_CATEGORY = Object.freeze({
   ]
 });
 
-export const getServiceCategoryForVehicleType = (vehicleType) =>
-  Object.entries(VEHICLE_TYPES_BY_CATEGORY).find(([, types]) =>
-    types.includes(vehicleType)
-  )?.[0] || "TRUCK";
+export const canonicalizeServiceCategory = (category, vehicleType) => {
+  if (!category) {
+    if (vehicleType) return getServiceCategoryForVehicleType(vehicleType);
+    return SERVICE_CATEGORIES.GOODS_TRANSPORT;
+  }
+  const upper = String(category).trim().toUpperCase();
+  if (upper === "EV_PASSENGER") return SERVICE_CATEGORIES.EV_PASSENGER;
+  if (upper === "TAXI") return SERVICE_CATEGORIES.TAXI;
+  if (upper === "GOODS_TRANSPORT" || upper === "TRUCK") return SERVICE_CATEGORIES.GOODS_TRANSPORT;
+
+  if (upper === "EV_GOODS") {
+    if (vehicleType) {
+      const vt = String(vehicleType).toLowerCase();
+      if (VEHICLE_TYPES_BY_CATEGORY[SERVICE_CATEGORIES.EV_PASSENGER]?.includes(vt)) {
+        return SERVICE_CATEGORIES.EV_PASSENGER;
+      }
+      return SERVICE_CATEGORIES.GOODS_TRANSPORT;
+    }
+    return SERVICE_CATEGORIES.EV_PASSENGER;
+  }
+
+  if (upper === "GOODS_TAXI") {
+    if (vehicleType) {
+      const vt = String(vehicleType).toLowerCase();
+      if (VEHICLE_TYPES_BY_CATEGORY[SERVICE_CATEGORIES.TAXI]?.includes(vt)) {
+        return SERVICE_CATEGORIES.TAXI;
+      }
+      return SERVICE_CATEGORIES.GOODS_TRANSPORT;
+    }
+    return SERVICE_CATEGORIES.TAXI;
+  }
+
+  return category;
+};
+
+export const isPassengerCategory = (categoryOrVehicle) => {
+  if (!categoryOrVehicle) return false;
+  let cat = null;
+  let vehicleType = null;
+  if (typeof categoryOrVehicle === "string") {
+    cat = categoryOrVehicle;
+  } else {
+    cat = categoryOrVehicle.serviceCategory || categoryOrVehicle.category || categoryOrVehicle.vehicle?.serviceCategory;
+    vehicleType = categoryOrVehicle.vehicleType || categoryOrVehicle.vehicle?.vehicleType;
+  }
+
+  if (vehicleType) {
+    const vt = String(vehicleType).toLowerCase();
+    if ([
+      "electric-cargo-loader", "electric-goods-e-rickshaw", "electric-mini-cargo-carrier", "other-electric-goods",
+      "mini-truck", "pickup", "small-truck", "medium-truck", "large-truck",
+      "mini-pickup", "cargo-pickup", "goods-loading-taxi", "other-goods-carrier"
+    ].includes(vt)) {
+      return false;
+    }
+    if ([
+      "electric-rickshaw", "electric-passenger-three-wheeler", "other-electric-passenger",
+      "sedan", "hatchback", "suv"
+    ].includes(vt)) {
+      return true;
+    }
+  }
+
+  const canonical = canonicalizeServiceCategory(cat, vehicleType);
+  return canonical === SERVICE_CATEGORIES.EV_PASSENGER || canonical === SERVICE_CATEGORIES.TAXI;
+};
+
+export const isGoodsCategory = (categoryOrVehicle) => !isPassengerCategory(categoryOrVehicle);
+
+export const getServiceCategoryForVehicleType = (vehicleType) => {
+  if (!vehicleType) return SERVICE_CATEGORIES.GOODS_TRANSPORT;
+  const vt = String(vehicleType).toLowerCase();
+  for (const cat of [SERVICE_CATEGORIES.EV_PASSENGER, SERVICE_CATEGORIES.TAXI, SERVICE_CATEGORIES.GOODS_TRANSPORT]) {
+    if (VEHICLE_TYPES_BY_CATEGORY[cat]?.includes(vt)) {
+      return cat;
+    }
+  }
+  if (["electric-cargo-loader", "electric-goods-e-rickshaw", "electric-mini-cargo-carrier", "other-electric-goods", "mini-pickup", "tata-ace", "cargo-pickup", "goods-loading-taxi", "other-goods-carrier"].includes(vt)) {
+    return SERVICE_CATEGORIES.GOODS_TRANSPORT;
+  }
+  return SERVICE_CATEGORIES.GOODS_TRANSPORT;
+};
 
 /**
  * Resolves the service category for a vehicle or booking record.
  * Uses vehicle.serviceCategory as the primary category identifier.
- * Does NOT classify based on vehicle names.
  */
 export const resolveVehicleServiceCategory = (vehicleOrBooking) => {
-  if (!vehicleOrBooking) return SERVICE_CATEGORIES.TRUCK;
+  if (!vehicleOrBooking) return SERVICE_CATEGORIES.GOODS_TRANSPORT;
   const directCategory =
     vehicleOrBooking.serviceCategory ||
     vehicleOrBooking.vehicle?.serviceCategory;
-  if (directCategory && SERVICE_CATEGORIES[directCategory]) {
-    return directCategory;
-  }
   const type =
     vehicleOrBooking.vehicleType ||
     vehicleOrBooking.vehicle?.vehicleType;
+  if (directCategory) {
+    return canonicalizeServiceCategory(directCategory, type);
+  }
   if (type) {
     return getServiceCategoryForVehicleType(type);
   }
-  return SERVICE_CATEGORIES.TRUCK;
+  return SERVICE_CATEGORIES.GOODS_TRANSPORT;
 };
 
 /**
- * Returns true if the vehicle or booking belongs to the EV_GOODS category.
- * Only returns true if serviceCategory === 'EV_GOODS' (or fallback vehicleType is an EV type).
- * Strictly does NOT identify vehicles as EV by name alone.
+ * Returns true if the vehicle or booking belongs to the EV category.
  */
 export const isEVVehicle = (vehicleOrBooking) => {
-  return resolveVehicleServiceCategory(vehicleOrBooking) === SERVICE_CATEGORIES.EV_GOODS;
+  if (!vehicleOrBooking) return false;
+  const rawCat = vehicleOrBooking.serviceCategory || vehicleOrBooking.vehicle?.serviceCategory;
+  const rawType = vehicleOrBooking.vehicleType || vehicleOrBooking.vehicle?.vehicleType;
+  if (rawCat === SERVICE_CATEGORIES.EV_PASSENGER || rawCat === "EV_PASSENGER" || rawCat === "EV_GOODS") {
+    return true;
+  }
+  if (rawType && (
+    VEHICLE_TYPES_BY_CATEGORY[SERVICE_CATEGORIES.EV_PASSENGER]?.includes(rawType) ||
+    ["electric-cargo-loader", "electric-goods-e-rickshaw", "electric-mini-cargo-carrier", "other-electric-goods"].includes(rawType)
+  )) {
+    return true;
+  }
+  return false;
 };
 
 /**
  * Returns the customer-facing category label.
- * Returns "EV Goods" for EV_GOODS, "Goods Taxi" for GOODS_TAXI, and "Truck" (or "Trucks") for TRUCK.
- * Never outputs "Truck" or "Large Truck" for EV_GOODS.
+ * Returns "EV Passenger" for EV_PASSENGER, "Taxi" for TAXI, and "Goods Transport" for GOODS_TRANSPORT.
  */
 export const getVehicleCategoryLabel = (vehicleOrBooking, options = { plural: false }) => {
   const category = resolveVehicleServiceCategory(vehicleOrBooking);
-  if (category === SERVICE_CATEGORIES.EV_GOODS) return "EV Goods";
-  if (category === SERVICE_CATEGORIES.GOODS_TAXI) return "Goods Taxi";
-  return options?.plural ? "Trucks" : "Truck";
+  if (category === SERVICE_CATEGORIES.EV_PASSENGER || category === SERVICE_CATEGORIES.EV_GOODS) return "EV Passenger";
+  if (category === SERVICE_CATEGORIES.TAXI || category === SERVICE_CATEGORIES.GOODS_TAXI) return "Taxi";
+  return options?.plural ? "Goods Transport" : "Goods Transport";
 };
 
 const CATEGORY_LABELS = {
-  // Standard Trucks
+  // EV Passenger
+  "electric-rickshaw": "Electric Rickshaw",
+  "electric-passenger-three-wheeler": "Electric Passenger Three-Wheeler",
+  "other-electric-passenger": "Electric Passenger Vehicle",
+  // Taxi
+  "sedan": "Sedan Taxi",
+  "hatchback": "Hatchback Taxi",
+  "suv": "SUV Taxi",
+  // Goods Transport
   "mini-truck": "Mini Truck",
   "pickup": "Pickup Truck",
   "small-truck": "Small Truck",
   "medium-truck": "Medium Truck",
   "large-truck": "Large Heavy Truck",
-  // EV Goods
-  "electric-cargo-loader": "Electric Cargo Loader",
-  "electric-goods-e-rickshaw": "Electric Goods E-Rickshaw",
-  "electric-mini-cargo-carrier": "Electric Mini Cargo Carrier",
-  "other-electric-goods": "Electric Goods Carrier",
-  // Goods Taxi
-  "mini-pickup": "Mini Goods Pickup",
-  "tata-ace": "Tata Ace / Chota Hathi",
-  "cargo-pickup": "Cargo Pickup Taxi",
-  "goods-loading-taxi": "Goods Loading Taxi",
-  "other-goods-carrier": "Goods Carrier Taxi"
+  // Legacy aliases
+  "electric-cargo-loader": "Electric Passenger Vehicle",
+  "electric-goods-e-rickshaw": "Electric Rickshaw",
+  "electric-mini-cargo-carrier": "Electric Passenger Three-Wheeler",
+  "other-electric-goods": "Electric Passenger Vehicle",
+  "mini-pickup": "Pickup Truck",
+  "tata-ace": "Mini Truck",
+  "cargo-pickup": "Pickup Truck",
+  "goods-loading-taxi": "Sedan Taxi",
+  "other-goods-carrier": "Goods Carrier"
 };
 
 export const formatVehicleCategory = (category) => {
@@ -196,6 +320,9 @@ export default {
   getCleanVehicleDisplayName,
   getServiceCategoryForVehicleType,
   resolveVehicleServiceCategory,
+  canonicalizeServiceCategory,
+  isPassengerCategory,
+  isGoodsCategory,
   isEVVehicle,
   getVehicleCategoryLabel
 };

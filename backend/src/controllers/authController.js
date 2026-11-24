@@ -300,30 +300,30 @@ export const login = async (req, res) => {
     if (!input || !password) {
       return res.status(400).json({
         success: false,
-        message: "Phone and password are required"
+        message: "Mobile number or email and password are required"
       });
     }
 
-    const rawPhone = input.replace(/\D/g, "");
-    const normalizedPhone = normalizePhoneNumber(input);
-    const phoneCandidates = Array.from(new Set([normalizedPhone, rawPhone])).filter(Boolean);
-
     const queryOr = [];
-    if (phoneCandidates.length > 0) {
-      queryOr.push({ phone: { $in: phoneCandidates } });
-    }
     if (input.includes("@")) {
       queryOr.push({ email: input.toLowerCase() });
+    } else {
+      const rawPhone = input.replace(/\D/g, "");
+      const normalizedPhone = normalizePhoneNumber(input);
+      const phoneCandidates = Array.from(new Set([normalizedPhone, rawPhone])).filter(Boolean);
+      if (phoneCandidates.length > 0) {
+        queryOr.push({ phone: { $in: phoneCandidates } });
+      }
     }
 
     const user = await User.findOne({
-      $or: queryOr.length > 0 ? queryOr : [{ phone: normalizedPhone }]
+      $or: queryOr.length > 0 ? queryOr : [{ phone: input }]
     }).select("+password");
 
     if (!user) {
       return res.status(401).json({
         success: false,
-        message: "Invalid phone or password"
+        message: "Invalid mobile number, email, or password"
       });
     }
 
@@ -349,7 +349,7 @@ export const login = async (req, res) => {
     if (!passwordMatch) {
       return res.status(401).json({
         success: false,
-        message: "Invalid phone or password"
+        message: "Invalid mobile number, email, or password"
       });
     }
 
@@ -406,25 +406,25 @@ export const driverLogin = async (req, res) => {
     if (!input || !password) {
       return res.status(400).json({
         success: false,
-        message: "Phone and password are required"
+        message: "Mobile number or email and password are required"
       });
     }
 
-    const rawPhone = input.replace(/\D/g, "");
-    const normalizedPhone = normalizePhoneNumber(input);
-    const phoneCandidates = Array.from(new Set([normalizedPhone, rawPhone])).filter(Boolean);
-
     const queryOr = [];
-    if (phoneCandidates.length > 0) {
-      queryOr.push({ phone: { $in: phoneCandidates } });
-    }
     if (input.includes("@")) {
       queryOr.push({ email: input.toLowerCase() });
+    } else {
+      const rawPhone = input.replace(/\D/g, "");
+      const normalizedPhone = normalizePhoneNumber(input);
+      const phoneCandidates = Array.from(new Set([normalizedPhone, rawPhone])).filter(Boolean);
+      if (phoneCandidates.length > 0) {
+        queryOr.push({ phone: { $in: phoneCandidates } });
+      }
     }
 
     const user = await User.findOne({
       role: "driver",
-      $or: queryOr.length > 0 ? queryOr : [{ phone: normalizedPhone }]
+      $or: queryOr.length > 0 ? queryOr : [{ phone: input }]
     }).select("+password");
 
     if (!user) {
@@ -640,13 +640,21 @@ export const agencyLogin = async (req, res) => {
       });
     }
 
-    const normalizedPhone = input.replace(/\D/g, "");
-    const queryOr = [{ email: input.toLowerCase() }];
-    if (normalizedPhone) queryOr.push({ phone: normalizedPhone });
+    const queryOr = [];
+    if (input.includes("@")) {
+      queryOr.push({ email: input.toLowerCase() });
+    } else {
+      const rawPhone = input.replace(/\D/g, "");
+      const normalizedPhone = normalizePhoneNumber(input);
+      const phoneCandidates = Array.from(new Set([normalizedPhone, rawPhone])).filter(Boolean);
+      if (phoneCandidates.length > 0) {
+        queryOr.push({ phone: { $in: phoneCandidates } });
+      }
+    }
 
     const user = await User.findOne({
       role: "agency",
-      $or: queryOr
+      $or: queryOr.length > 0 ? queryOr : [{ phone: input }]
     }).select("+password");
 
     if (!user || !user.isActive) {

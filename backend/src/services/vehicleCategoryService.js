@@ -1,9 +1,15 @@
 import { getSetting, isSettingEnabled } from "./systemSettingService.js";
-import { SERVICE_CATEGORIES } from "../utils/vehicleCategories.js";
+import {
+  SERVICE_CATEGORIES,
+  canonicalizeServiceCategory,
+  isPassengerCategory
+} from "../utils/vehicleCategories.js";
 
 const getCategorySettingPrefix = (serviceCategory) => {
   if (serviceCategory === SERVICE_CATEGORIES.EV_GOODS) return "service.ev_goods";
   if (serviceCategory === SERVICE_CATEGORIES.GOODS_TAXI) return "service.goods_taxi";
+  if (serviceCategory === SERVICE_CATEGORIES.EV_PASSENGER) return "service.ev_passenger";
+  if (serviceCategory === SERVICE_CATEGORIES.TAXI) return "service.taxi";
   return null;
 };
 
@@ -18,6 +24,16 @@ export const DEFAULT_ALLOWED_VEHICLE_TYPES = Object.freeze({
     "tata-ace",
     "cargo-pickup",
     "goods-loading-taxi"
+  ],
+  [SERVICE_CATEGORIES.EV_PASSENGER]: [
+    "electric-rickshaw",
+    "electric-passenger-three-wheeler",
+    "other-electric-passenger"
+  ],
+  [SERVICE_CATEGORIES.TAXI]: [
+    "sedan",
+    "hatchback",
+    "suv"
   ]
 });
 
@@ -25,7 +41,7 @@ const toCapacityKg = (loadCapacity) =>
   Number(loadCapacity?.value || 0) *
   (loadCapacity?.unit === "ton" ? 1000 : 1);
 
-export const validateGoodsVehiclePolicy = async ({
+export const validateVehiclePolicy = async ({
   serviceCategory,
   vehicleType,
   loadCapacity,
@@ -57,15 +73,18 @@ export const validateGoodsVehiclePolicy = async ({
     throw error;
   }
 
-  const requestedCapacityKg = toCapacityKg(loadCapacity);
-  if (
-    Number.isFinite(Number(maxCapacityKg)) &&
-    Number(maxCapacityKg) > 0 &&
-    requestedCapacityKg > Number(maxCapacityKg)
-  ) {
-    const error = new Error("Vehicle capacity exceeds the administrator's category limit");
-    error.status = 400;
-    throw error;
+  // Only apply cargo weight limits if not a passenger category or if explicitly limited
+  if (!isPassengerCategory(serviceCategory)) {
+    const requestedCapacityKg = toCapacityKg(loadCapacity);
+    if (
+      Number.isFinite(Number(maxCapacityKg)) &&
+      Number(maxCapacityKg) > 0 &&
+      requestedCapacityKg > Number(maxCapacityKg)
+    ) {
+      const error = new Error("Vehicle capacity exceeds the administrator's category limit");
+      error.status = 400;
+      throw error;
+    }
   }
 
   if (
@@ -78,6 +97,8 @@ export const validateGoodsVehiclePolicy = async ({
     throw error;
   }
 };
+
+export const validateGoodsVehiclePolicy = validateVehiclePolicy;
 
 export const vehicleServesRoute = (vehicle, pickupAddress, dropAddress) => {
   const areas = vehicle?.serviceAreas || [];

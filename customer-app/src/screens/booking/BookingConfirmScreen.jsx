@@ -10,7 +10,11 @@ import {
   getCleanVehicleDisplayName,
   formatVehicleCategory,
   isEVVehicle,
-  getVehicleCategoryLabel
+  getVehicleCategoryLabel,
+  isPassengerCategory,
+  isGoodsCategory,
+  canonicalizeServiceCategory,
+  SERVICE_CATEGORIES
 } from "../../utils/vehicleDisplay";
 import EVBadge from "../../components/EVBadge";
 
@@ -21,6 +25,16 @@ export default function BookingConfirmScreen({ route, navigation }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [fareEstimate, setFareEstimate] = useState(null);
+
+  const vehicleEntity = details.vehicle || {
+    displayName: details.vehicle?.displayName,
+    vehicleModel: details.vehicle?.vehicleModel || details.vehicleModel,
+    serviceCategory: details.serviceCategory,
+    vehicleType: details.vehicleType
+  };
+
+  const isPassenger = isPassengerCategory(details.serviceCategory) || isPassengerCategory(details.vehicleType) || isPassengerCategory(vehicleEntity);
+  const passengerCount = Number(details.passengerCount) || Number(details.quantity) || 1;
 
   React.useEffect(() => {
     if (details.vehicleType) {
@@ -36,20 +50,13 @@ export default function BookingConfirmScreen({ route, navigation }) {
   const weightVal = Number(details.weight?.value) || 0;
   const weightInTon = details.weight?.unit === "ton" ? weightVal : weightVal / 1000;
   const distanceCharge = distanceKm * (fareEstimate?.perKmRate || 0);
-  const weightCharge = weightInTon * (fareEstimate?.perTonRate || 0);
-  const loadingCharge = details.loadingRequired ? Number(fareEstimate?.loadingCharge || 0) : 0;
-  const unloadingCharge = details.unloadingRequired ? Number(fareEstimate?.unloadingCharge || 0) : 0;
+  const weightCharge = isPassenger ? 0 : weightInTon * (fareEstimate?.perTonRate || 0);
+  const loadingCharge = (!isPassenger && details.loadingRequired) ? Number(fareEstimate?.loadingCharge || 0) : 0;
+  const unloadingCharge = (!isPassenger && details.unloadingRequired) ? Number(fareEstimate?.unloadingCharge || 0) : 0;
   const calculatedFare = distanceCharge + weightCharge + loadingCharge + unloadingCharge;
   const estimatedTotal = fareEstimate
     ? Number(details.estimatedFare ?? Math.max(calculatedFare, fareEstimate.minimumFare || 0))
     : null;
-
-  const vehicleEntity = details.vehicle || {
-    displayName: details.vehicle?.displayName,
-    vehicleModel: details.vehicle?.vehicleModel || details.vehicleModel,
-    serviceCategory: details.serviceCategory,
-    vehicleType: details.vehicleType
-  };
 
   const isEV = isEVVehicle(vehicleEntity);
   const vehicleCategoryLabel = getVehicleCategoryLabel(vehicleEntity);
@@ -79,14 +86,14 @@ export default function BookingConfirmScreen({ route, navigation }) {
           return;
         }
 
-        const category = details.serviceCategory;
-        if (category === "EV_GOODS" && config["service.ev_goods.enabled"] === false) {
-          setError("EV Goods Transport is currently disabled by the administrator. Please choose an alternative transport service.");
+        const canonicalCat = canonicalizeServiceCategory(details.serviceCategory);
+        if (canonicalCat === SERVICE_CATEGORIES.EV_PASSENGER && config["service.ev_passenger.enabled"] === false) {
+          setError("EV Passenger Transport is currently disabled by the administrator. Please choose an alternative transport service.");
           setBusy(false);
           return;
         }
-        if (category === "GOODS_TAXI" && config["service.goods_taxi.enabled"] === false) {
-          setError("Goods Taxi Transport is currently disabled by the administrator. Please choose an alternative transport service.");
+        if (canonicalCat === SERVICE_CATEGORIES.TAXI && config["service.taxi.enabled"] === false) {
+          setError("Taxi Service is currently disabled by the administrator. Please choose an alternative transport service.");
           setBusy(false);
           return;
         }
@@ -102,17 +109,18 @@ export default function BookingConfirmScreen({ route, navigation }) {
       const payload = {
         pickup: details.pickup,
         drop: details.drop,
-        goods: details.goods,
-        weight: details.weight,
-        quantity: details.quantity,
-        loadingRequired: details.loadingRequired,
-        unloadingRequired: details.unloadingRequired,
-        loadingInstructions: details.loadingInstructions,
-        unloadingInstructions: details.unloadingInstructions,
+        goods: isPassenger ? `Passenger Ride (${passengerCount} passenger${passengerCount > 1 ? "s" : ""})` : details.goods,
+        passengerCount: isPassenger ? passengerCount : undefined,
+        weight: isPassenger ? { value: 0, unit: "kg" } : details.weight,
+        quantity: isPassenger ? passengerCount : details.quantity,
+        loadingRequired: isPassenger ? false : details.loadingRequired,
+        unloadingRequired: isPassenger ? false : details.unloadingRequired,
+        loadingInstructions: isPassenger ? undefined : details.loadingInstructions,
+        unloadingInstructions: isPassenger ? undefined : details.unloadingInstructions,
         preferredPickupDate: isInstant ? todayDate : details.preferredPickupDate,
         preferredPickupTime: isInstant ? currentTime : details.preferredPickupTime,
         vehicleType: details.vehicleType,
-        serviceCategory: details.serviceCategory,
+        serviceCategory: canonicalizeServiceCategory(details.serviceCategory),
         bookingMode,
         paymentMethod,
         vehicleModel: resolvedVehicleModel
@@ -185,22 +193,22 @@ export default function BookingConfirmScreen({ route, navigation }) {
         </View>
       </Card>
 
-      {/* GOODS & SCHEDULE CARD */}
+      {/* GOODS OR PASSENGER & SCHEDULE CARD */}
       <Card>
         <View style={styles.cardHeaderRow}>
-          <Text style={styles.cardHeaderTitle}>Cargo & Schedule</Text>
-          <Ionicons name="cube-outline" size={18} color={colors.primary} />
+          <Text style={styles.cardHeaderTitle}>{isPassenger ? "Passenger & Schedule" : "Cargo & Schedule"}</Text>
+          <Ionicons name={isPassenger ? "people-outline" : "cube-outline"} size={18} color={colors.primary} />
         </View>
 
-        <View style={styles.grid2}>
-          <View style={styles.gridItem}>
-            <Text style={styles.gridLabel}>Cargo</Text>
-            <Text style={styles.gridValue}>{details.goods}</Text>
-          </View>
+        {isPassenger ? (
           <View style={styles.grid2}>
             <View style={styles.gridItem}>
-              <Text style={styles.gridLabel}>Quantity</Text>
-              <Text style={styles.gridValue}>{details.quantity ?? 1}</Text>
+              <Text style={styles.gridLabel}>Service Purpose</Text>
+              <Text style={styles.gridValue}>Passenger Transportation</Text>
+            </View>
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>Passengers</Text>
+              <Text style={styles.gridValue}>{passengerCount} Person{passengerCount > 1 ? "s" : ""}</Text>
             </View>
             <View style={styles.gridItem}>
               <Text style={styles.gridLabel}>Service Category</Text>
@@ -210,23 +218,43 @@ export default function BookingConfirmScreen({ route, navigation }) {
               </View>
             </View>
           </View>
-          <View style={styles.gridItem}>
-            <Text style={styles.gridLabel}>Weight</Text>
-            <Text style={styles.gridValue}>
-              {details.weight?.value} {details.weight?.unit}
-            </Text>
+        ) : (
+          <View style={styles.grid2}>
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>Cargo</Text>
+              <Text style={styles.gridValue}>{details.goods}</Text>
+            </View>
+            <View style={styles.grid2}>
+              <View style={styles.gridItem}>
+                <Text style={styles.gridLabel}>Quantity</Text>
+                <Text style={styles.gridValue}>{details.quantity ?? 1}</Text>
+              </View>
+              <View style={styles.gridItem}>
+                <Text style={styles.gridLabel}>Service Category</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Text style={styles.gridValue}>{vehicleCategoryLabel}</Text>
+                  <EVBadge vehicle={vehicleEntity} size="small" />
+                </View>
+              </View>
+            </View>
+            <View style={styles.gridItem}>
+              <Text style={styles.gridLabel}>Weight</Text>
+              <Text style={styles.gridValue}>
+                {details.weight?.value} {details.weight?.unit}
+              </Text>
+            </View>
           </View>
-        </View>
+        )}
 
         {bookingMode === "instant" ? (
-          <View style={styles.grid2}>
+          <View style={[styles.grid2, { marginTop: isPassenger ? 10 : 0 }]}>
             <View style={styles.gridItem}>
               <Text style={styles.gridLabel}>Pickup Schedule</Text>
               <Text style={[styles.gridValue, { color: colors.primary }]}>Immediate Dispatch (Now)</Text>
             </View>
           </View>
         ) : (
-          <View style={styles.grid2}>
+          <View style={[styles.grid2, { marginTop: isPassenger ? 10 : 0 }]}>
             <View style={styles.gridItem}>
               <Text style={styles.gridLabel}>Pickup Date</Text>
               <Text style={styles.gridValue}>{details.preferredPickupDate}</Text>
@@ -240,11 +268,11 @@ export default function BookingConfirmScreen({ route, navigation }) {
 
         {details.customerNote ? (
           <View style={styles.noteBox}>
-            <Text style={styles.noteLabel}>Driver Note:</Text>
+            <Text style={styles.noteLabel}>{isPassenger ? "Driver Note:" : "Cargo / Driver Note:"}</Text>
             <Text style={styles.noteText}>{details.customerNote}</Text>
           </View>
         ) : null}
-        {details.loadingRequired || details.unloadingRequired ? (
+        {!isPassenger && (details.loadingRequired || details.unloadingRequired) ? (
           <View style={styles.noteBox}>
             <Text style={styles.noteLabel}>Handling Requirements</Text>
             {details.loadingRequired ? (
@@ -266,7 +294,7 @@ export default function BookingConfirmScreen({ route, navigation }) {
         <View style={styles.cardHeaderRow}>
           <Text style={styles.cardHeaderTitle}>Vehicle Assignment</Text>
           <MaterialCommunityIcons
-            name={isEV ? "lightning-bolt-outline" : "truck-outline"}
+            name={isEV ? "lightning-bolt-outline" : isPassenger ? "car-outline" : "truck-outline"}
             size={18}
             color={isEV ? "#10B981" : colors.primary}
           />
@@ -275,7 +303,7 @@ export default function BookingConfirmScreen({ route, navigation }) {
         <View style={styles.vehicleRow}>
           <View style={[styles.vehicleIconBadge, isEV && styles.vehicleIconBadgeEV]}>
             <MaterialCommunityIcons
-              name={isEV ? "lightning-bolt" : "truck-fast"}
+              name={isEV ? "lightning-bolt" : isPassenger ? "car" : "truck-fast"}
               size={24}
               color={isEV ? "#10B981" : colors.primary}
             />
@@ -289,6 +317,7 @@ export default function BookingConfirmScreen({ route, navigation }) {
             </View>
             <Text style={styles.vehicleSubtitle}>
               Category: {vehicleCategoryLabel} · {formatVehicleCategory(details.vehicleType)}
+              {isPassenger && vehicleEntity?.seatingCapacity ? ` · Seats: ${vehicleEntity.seatingCapacity}` : ""}
             </Text>
           </View>
         </View>
@@ -322,16 +351,18 @@ export default function BookingConfirmScreen({ route, navigation }) {
             <Text style={styles.noteText}>
               • Distance: {distanceKm} km × ₹{fareEstimate.perKmRate}/km = ₹{distanceCharge.toFixed(2)}
             </Text>
-            <Text style={styles.noteText}>
-              • Cargo Weight: {weightInTon.toFixed(2)} ton × ₹{fareEstimate.perTonRate || 0}/ton = ₹{weightCharge.toFixed(2)}
-            </Text>
+            {!isPassenger && (
+              <Text style={styles.noteText}>
+                • Cargo Weight: {weightInTon.toFixed(2)} ton × ₹{fareEstimate.perTonRate || 0}/ton = ₹{weightCharge.toFixed(2)}
+              </Text>
+            )}
             <Text style={styles.noteText}>
               • Minimum Fare: ₹{fareEstimate.minimumFare} (Applied if calculated total is less)
             </Text>
-            {details.loadingRequired ? (
+            {!isPassenger && details.loadingRequired ? (
               <Text style={styles.noteText}>• Loading: ₹{loadingCharge.toFixed(2)}</Text>
             ) : null}
-            {details.unloadingRequired ? (
+            {!isPassenger && details.unloadingRequired ? (
               <Text style={styles.noteText}>• Unloading: ₹{unloadingCharge.toFixed(2)}</Text>
             ) : null}
             <Text style={styles.noteText}>

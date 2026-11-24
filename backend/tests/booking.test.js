@@ -20,9 +20,11 @@ test("booking schema supports the customer summary statuses", () => {
   const bookingModes = Booking.schema.path("bookingMode").enumValues;
   assert.deepEqual(bookingModes, ["instant", "scheduled"]);
   assert.equal(Booking.schema.path("alternativeVehicleAssigned").instance, "Boolean");
-  assert.deepEqual(Booking.schema.path("serviceCategory").enumValues, [
-    "TRUCK",
-    "EV_GOODS",
-    "GOODS_TAXI"
-  ]);
+  const categories = Booking.schema.path("serviceCategory").enumValues;
+  assert.ok(categories.includes("EV_PASSENGER"));
+  assert.ok(categories.includes("TAXI"));
+  assert.ok(categories.includes("GOODS_TRANSPORT"));
+  assert.ok(categories.includes("TRUCK"));
+  assert.ok(categories.includes("EV_GOODS"));
+  assert.ok(categories.includes("GOODS_TAXI"));
 });

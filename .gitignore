@@ -8,5 +8,10 @@ test-evidence/
 *.apk
 dist/
 customer-app/dist/
+*.keystore
+!debug.keystore
+*.jks
+releases/
+release-signing/
 
 

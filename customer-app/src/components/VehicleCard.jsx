@@ -5,7 +5,8 @@ import {
   getCleanVehicleDisplayName,
   formatVehicleCategory,
   getVehicleCategoryLabel,
-  isEVVehicle
+  isEVVehicle,
+  isPassengerCategory
 } from "../utils/vehicleDisplay";
 import EVBadge from "./EVBadge";
 
@@ -54,7 +55,9 @@ export default function VehicleCard({ vehicle, onPress }) {
             </Text>
           </View>
           <Text style={{ color: colors.textMuted, fontSize: 12 }}>
-            {vehicle.loadCapacity?.value || vehicle.capacity || "—"} {vehicle.loadCapacity?.unit || "units"}
+            {isPassengerCategory(vehicle)
+              ? `${vehicle.seatingCapacity || 4} Passengers${vehicle.isAirConditioned !== undefined ? (vehicle.isAirConditioned ? " · AC" : " · Non-AC") : ""}`
+              : `${vehicle.loadCapacity?.value || vehicle.capacity || "—"} ${vehicle.loadCapacity?.unit || "kg"}`}
           </Text>
         </View>
       </View>

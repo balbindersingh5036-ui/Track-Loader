@@ -9,7 +9,8 @@ import {
   SERVICE_CATEGORY_LABELS,
   VEHICLE_TYPES_BY_CATEGORY,
   resolveVehicleCategory,
-  formatVehicleType
+  formatVehicleType,
+  isPassengerCategory
 } from '../../utils/vehicleCategories';
 
 const bodies = ['open', 'closed', 'container', 'flatbed'];
@@ -32,13 +33,13 @@ function StatusBadge({ status }) {
 }
 
 function CategoryBadge({ category }) {
-  if (category === SERVICE_CATEGORIES.EV_GOODS) {
-    return <span className="vehicle-category-badge vehicle-category-ev_goods">EV Goods</span>;
+  if (category === SERVICE_CATEGORIES.EV_PASSENGER || category === SERVICE_CATEGORIES.EV_GOODS) {
+    return <span className="vehicle-category-badge vehicle-category-ev_goods">EV Passenger</span>;
   }
-  if (category === SERVICE_CATEGORIES.GOODS_TAXI) {
-    return <span className="vehicle-category-badge vehicle-category-goods_taxi">Goods Taxi</span>;
+  if (category === SERVICE_CATEGORIES.TAXI || category === SERVICE_CATEGORIES.GOODS_TAXI) {
+    return <span className="vehicle-category-badge vehicle-category-goods_taxi">Taxi</span>;
   }
-  return <span className="vehicle-category-badge vehicle-category-truck">Truck</span>;
+  return <span className="vehicle-category-badge vehicle-category-truck">Goods Transport</span>;
 }
 
 function Info({ label, value }) {
@@ -150,13 +151,15 @@ export default function VehicleDetails() {
         vehicleMake: record.vehicleMake || '',
         vehicleModel: record.vehicleModel || '',
         serviceCategory: category,
-        vehicleType: record.vehicleType || VEHICLE_TYPES_BY_CATEGORY[category][0],
-        fuelType: record.fuelType || (category === SERVICE_CATEGORIES.EV_GOODS ? 'electric' : 'diesel'),
+        vehicleType: record.vehicleType || VEHICLE_TYPES_BY_CATEGORY[category]?.[0] || 'mini-truck',
+        fuelType: record.fuelType || (category === SERVICE_CATEGORIES.EV_PASSENGER ? 'electric' : 'diesel'),
         batteryRangeKm: record.batteryRangeKm !== undefined && record.batteryRangeKm !== null ? String(record.batteryRangeKm) : '',
         chargingInformation: record.chargingInformation || '',
         serviceAreas: Array.isArray(record.serviceAreas) ? record.serviceAreas.join(', ') : '',
         capacityValue: String(record.loadCapacity?.value ?? ''),
         capacityUnit: record.loadCapacity?.unit || 'kg',
+        seatingCapacity: record.seatingCapacity !== undefined && record.seatingCapacity !== null ? String(record.seatingCapacity) : '',
+        isAirConditioned: record.isAirConditioned ?? false,
         bodyType: record.bodyType || 'open'
       });
     } catch (requestError) {
@@ -174,11 +177,24 @@ export default function VehicleDetails() {
 
   const save = async (event) => {
     event.preventDefault();
+    const isPassenger = isPassengerCategory(form.serviceCategory);
     const capacity = Number(form.capacityValue);
+    const seating = Number(form.seatingCapacity);
     const model = (form.vehicleModel || '').trim();
-    if (!form.vehicleNumber.trim() || !model || !Number.isFinite(capacity) || capacity < 0) {
-      setError('Enter a registration, model, and non-negative capacity.');
+    if (!form.vehicleNumber.trim() || !model) {
+      setError('Enter a registration and vehicle model.');
       return;
+    }
+    if (isPassenger) {
+      if (!Number.isFinite(seating) || seating < 1) {
+        setError('Enter a valid passenger seating capacity (at least 1 seat).');
+        return;
+      }
+    } else {
+      if (!Number.isFinite(capacity) || capacity < 0) {
+        setError('Enter a non-negative load capacity.');
+        return;
+      }
     }
     if (model.length < 2 || !/[a-zA-Z]/.test(model) || /^[0-9\s.,-]+$/.test(model)) {
       setError('Vehicle model must be a legitimate vehicle name (e.g. Tata Ace Gold, Mahindra Jeeto), not a number or code.');
@@ -199,17 +215,23 @@ export default function VehicleDetails() {
         serviceCategory: form.serviceCategory,
         vehicleType: form.vehicleType,
         fuelType: form.fuelType,
-        ...(form.serviceCategory === SERVICE_CATEGORIES.EV_GOODS
+        isAirConditioned: Boolean(form.isAirConditioned),
+        ...(form.serviceCategory === SERVICE_CATEGORIES.EV_PASSENGER || form.serviceCategory === SERVICE_CATEGORIES.EV_GOODS
           ? {
               batteryRangeKm: Number(form.batteryRangeKm || 120),
               chargingInformation: form.chargingInformation || 'Standard Type 2 AC charging'
             }
           : {}),
-        ...(form.serviceCategory !== SERVICE_CATEGORIES.TRUCK
-          ? { serviceAreas: areas.length ? areas : ['City Center'] }
-          : {}),
-        loadCapacity: { value: capacity, unit: form.capacityUnit },
-        bodyType: form.bodyType
+        ...(!isPassenger
+          ? {
+              loadCapacity: { value: capacity, unit: form.capacityUnit },
+              bodyType: form.bodyType
+            }
+          : {
+              seatingCapacity: seating,
+              loadCapacity: { value: 0, unit: 'kg' },
+              serviceAreas: areas.length ? areas : ['City Center']
+            })
       });
       await loadVehicle();
       setNotice('Vehicle details updated.');
@@ -369,11 +391,20 @@ export default function VehicleDetails() {
               <div className="vehicle-info-grid">
                 <Info label="Registration number" value={vehicle.vehicleNumber} />
                 <Info label="Model" value={vehicle.vehicleModel} />
-                <Info label="Service Category" value={SERVICE_CATEGORY_LABELS[resolveVehicleCategory(vehicle)] || 'Truck'} />
+                <Info label="Service Category" value={SERVICE_CATEGORY_LABELS[resolveVehicleCategory(vehicle)] || 'Goods Transport'} />
                 <Info label="Vehicle Subcategory" value={formatVehicleType(vehicle.vehicleType)} />
                 <Info label="Fuel type" value={vehicle.fuelType ? vehicle.fuelType.toUpperCase() : '—'} />
-                <Info label="Load capacity" value={`${vehicle.loadCapacity?.value ?? '—'} ${vehicle.loadCapacity?.unit || ''}`} />
-                <Info label="Body type" value={vehicle.bodyType} />
+                {vehicle.isAirConditioned !== undefined && (
+                  <Info label="Air Conditioning" value={vehicle.isAirConditioned ? 'AC' : 'Non-AC'} />
+                )}
+                {isPassengerCategory(resolveVehicleCategory(vehicle)) ? (
+                  <Info label="Seating capacity" value={`${vehicle.seatingCapacity ?? 4} passengers`} />
+                ) : (
+                  <>
+                    <Info label="Load capacity" value={`${vehicle.loadCapacity?.value ?? '—'} ${vehicle.loadCapacity?.unit || ''}`} />
+                    <Info label="Body type" value={vehicle.bodyType} />
+                  </>
+                )}
                 {vehicle.batteryRangeKm !== undefined && vehicle.batteryRangeKm !== null && (
                   <Info label="Battery Range" value={`${vehicle.batteryRangeKm} km`} />
                 )}
@@ -392,7 +423,7 @@ export default function VehicleDetails() {
                   <label>Model<input required placeholder="e.g. Tata Ace Gold, Mahindra Jeeto" value={form?.vehicleModel || ''} onChange={(event) => updateForm('vehicleModel', event.target.value)} /></label>
                   <label>Service Category
                     <select
-                      value={form?.serviceCategory || SERVICE_CATEGORIES.TRUCK}
+                      value={form?.serviceCategory || SERVICE_CATEGORIES.GOODS_TRANSPORT}
                       onChange={(event) => {
                         const nextCategory = event.target.value;
                         const allowed = VEHICLE_TYPES_BY_CATEGORY[nextCategory] || [];
@@ -400,13 +431,13 @@ export default function VehicleDetails() {
                           ...current,
                           serviceCategory: nextCategory,
                           vehicleType: allowed[0] || current.vehicleType,
-                          fuelType: nextCategory === SERVICE_CATEGORIES.EV_GOODS ? 'electric' : current.fuelType
+                          fuelType: nextCategory === SERVICE_CATEGORIES.EV_PASSENGER ? 'electric' : current.fuelType
                         }));
                       }}
                     >
-                      <option value={SERVICE_CATEGORIES.TRUCK}>Truck</option>
-                      <option value={SERVICE_CATEGORIES.EV_GOODS}>EV Goods</option>
-                      <option value={SERVICE_CATEGORIES.GOODS_TAXI}>Goods Taxi</option>
+                      <option value={SERVICE_CATEGORIES.EV_PASSENGER}>EV Passenger</option>
+                      <option value={SERVICE_CATEGORIES.TAXI}>Taxi</option>
+                      <option value={SERVICE_CATEGORIES.GOODS_TRANSPORT}>Goods Transport</option>
                     </select>
                   </label>
                   <label>Vehicle Subcategory
@@ -414,7 +445,7 @@ export default function VehicleDetails() {
                       value={form?.vehicleType || ''}
                       onChange={(event) => updateForm('vehicleType', event.target.value)}
                     >
-                      {(VEHICLE_TYPES_BY_CATEGORY[form?.serviceCategory] || VEHICLE_TYPES_BY_CATEGORY[SERVICE_CATEGORIES.TRUCK]).map((type) => (
+                      {(VEHICLE_TYPES_BY_CATEGORY[form?.serviceCategory] || VEHICLE_TYPES_BY_CATEGORY[SERVICE_CATEGORIES.GOODS_TRANSPORT] || []).map((type) => (
                         <option key={type} value={type}>
                           {formatVehicleType(type)}
                         </option>
@@ -424,7 +455,7 @@ export default function VehicleDetails() {
                   <label>Fuel type
                     <select
                       value={form?.fuelType || 'diesel'}
-                      disabled={form?.serviceCategory === SERVICE_CATEGORIES.EV_GOODS}
+                      disabled={form?.serviceCategory === SERVICE_CATEGORIES.EV_PASSENGER || form?.serviceCategory === SERVICE_CATEGORIES.EV_GOODS}
                       onChange={(event) => updateForm('fuelType', event.target.value)}
                     >
                       <option value="diesel">Diesel</option>
@@ -433,7 +464,18 @@ export default function VehicleDetails() {
                       <option value="electric">Electric</option>
                     </select>
                   </label>
-                  {form?.serviceCategory === SERVICE_CATEGORIES.EV_GOODS && (
+                  {(form?.serviceCategory === SERVICE_CATEGORIES.TAXI || form?.serviceCategory === SERVICE_CATEGORIES.GOODS_TAXI) && (
+                    <label>Air Conditioning
+                      <select
+                        value={form?.isAirConditioned ? 'true' : 'false'}
+                        onChange={(event) => updateForm('isAirConditioned', event.target.value === 'true')}
+                      >
+                        <option value="false">Non-AC</option>
+                        <option value="true">AC</option>
+                      </select>
+                    </label>
+                  )}
+                  {(form?.serviceCategory === SERVICE_CATEGORIES.EV_PASSENGER || form?.serviceCategory === SERVICE_CATEGORIES.EV_GOODS) && (
                     <>
                       <label>Battery Range (km)
                         <input
@@ -455,7 +497,7 @@ export default function VehicleDetails() {
                       </label>
                     </>
                   )}
-                  {form?.serviceCategory !== SERVICE_CATEGORIES.TRUCK && (
+                  {form?.serviceCategory !== SERVICE_CATEGORIES.GOODS_TRANSPORT && form?.serviceCategory !== SERVICE_CATEGORIES.TRUCK && (
                     <label>Operating Service Areas (comma-separated)
                       <input
                         type="text"
@@ -465,9 +507,25 @@ export default function VehicleDetails() {
                       />
                     </label>
                   )}
-                  <label>Capacity<input required type="number" min="0" step="any" value={form?.capacityValue ?? ''} onChange={(event) => updateForm('capacityValue', event.target.value)} /></label>
-                  <label>Capacity unit<select value={form?.capacityUnit || 'kg'} onChange={(event) => updateForm('capacityUnit', event.target.value)}><option value="kg">KG</option><option value="ton">TON</option></select></label>
-                  <label>Body type<select value={form?.bodyType || 'open'} onChange={(event) => updateForm('bodyType', event.target.value)}>{bodies.map((body) => <option key={body}>{body}</option>)}</select></label>
+                  {isPassengerCategory(form?.serviceCategory) ? (
+                    <label>Seating Capacity (passengers)
+                      <input
+                        required
+                        type="number"
+                        min="1"
+                        max="20"
+                        value={form?.seatingCapacity ?? ''}
+                        onChange={(event) => updateForm('seatingCapacity', event.target.value)}
+                        placeholder="e.g. 4"
+                      />
+                    </label>
+                  ) : (
+                    <>
+                      <label>Capacity<input required type="number" min="0" step="any" value={form?.capacityValue ?? ''} onChange={(event) => updateForm('capacityValue', event.target.value)} /></label>
+                      <label>Capacity unit<select value={form?.capacityUnit || 'kg'} onChange={(event) => updateForm('capacityUnit', event.target.value)}><option value="kg">KG</option><option value="ton">TON</option></select></label>
+                      <label>Body type<select value={form?.bodyType || 'open'} onChange={(event) => updateForm('bodyType', event.target.value)}>{bodies.map((body) => <option key={body}>{body}</option>)}</select></label>
+                    </>
+                  )}
                   <button type="submit" className="vehicle-primary-button" disabled={saving}>{saving ? 'Saving…' : 'Save vehicle details'}</button>
                 </form>
               </details>

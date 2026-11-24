@@ -13,6 +13,7 @@ import {
 import * as DocumentPicker from 'expo-document-picker';
 import authService from '../../services/authService';
 import agencyService from '../../services/agencyService';
+import LoadBalbinLogo from '../../components/LoadBalbinLogo';
 
 const colors = {
   ink: '#FFFFFF',
@@ -167,6 +168,7 @@ export default function AgencyRegistrationScreen({ onCancel, onRegistered }) {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ padding: 20, gap: 14 }}>
           <View style={{ backgroundColor: colors.surface, padding: 20, borderRadius: 16, gap: 14, borderColor: colors.border, borderWidth: 1 }}>
+            <LoadBalbinLogo width={180} height={50} style={{ alignSelf: 'center', marginBottom: 12 }} />
             <Text style={{ fontSize: 24, fontWeight: '800', color: colors.ink }}>Agency Owner registration</Text>
             <Text style={{ color: colors.muted, fontSize: 13, lineHeight: 19 }}>
               The owner account and agency will be registered separately. Owner Aadhaar is required; other agency documents are optional. All submitted documents remain pending Super Admin review.

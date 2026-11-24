@@ -2,27 +2,39 @@ import { successResponse, errorResponse } from "../utils/response.js";
 import * as fareService from "../services/fareService.js";
 import mongoose from "mongoose";
 import {
+  canonicalizeServiceCategory,
   getCategoryEnabledSettingKey,
   getServiceCategoryForVehicleType,
+  isPassengerCategory,
   VEHICLE_TYPES_BY_CATEGORY
 } from "../utils/vehicleCategories.js";
 import { isSettingEnabled } from "../services/systemSettingService.js";
 
 const CATEGORY_METADATA = {
+  // Goods Transport
   "mini-truck": { label: "Mini Truck", desc: "e.g. Tata Ace, Mahindra Jeeto (Up to 1.5 Tons)" },
   "pickup": { label: "Pickup Truck", desc: "e.g. Bolero Pik-Up, Dost (Up to 2.5 Tons)" },
   "small-truck": { label: "Small Truck", desc: "e.g. Tata 407, Eicher Pro 2049 (Up to 5 Tons)" },
   "medium-truck": { label: "Medium Truck", desc: "e.g. Eicher 17ft/19ft, BharatBenz 1217C (Up to 10 Tons)" },
   "large-truck": { label: "Large Heavy Truck", desc: "e.g. 10/12/14 Wheeler Multi-Axle (10+ Tons)" },
-  "electric-cargo-loader": { label: "Electric Cargo Loader", desc: "Battery-powered goods loader" },
-  "electric-goods-e-rickshaw": { label: "Electric Goods E-Rickshaw", desc: "Electric three-wheeler for goods" },
-  "electric-mini-cargo-carrier": { label: "Electric Mini Cargo Carrier", desc: "Electric compact goods carrier" },
-  "other-electric-goods": { label: "Other Electric Goods Vehicle", desc: "Admin-approved electric goods vehicle" },
-  "mini-pickup": { label: "Mini Pickup", desc: "Small goods pickup" },
-  "tata-ace": { label: "Tata Ace / Small Goods Carrier", desc: "Compact commercial goods carrier" },
-  "cargo-pickup": { label: "Cargo Pickup", desc: "Goods pickup vehicle" },
-  "goods-loading-taxi": { label: "Goods Loading Taxi", desc: "Goods-only loading taxi" },
-  "other-goods-carrier": { label: "Other Goods Carrier", desc: "Admin-approved goods vehicle" }
+  // EV Passenger
+  "electric-rickshaw": { label: "Electric Rickshaw", desc: "Eco-friendly passenger e-rickshaw for city rides" },
+  "electric-passenger-three-wheeler": { label: "Electric Passenger 3-Wheeler", desc: "Zero-emission passenger three-wheeler" },
+  "other-electric-passenger": { label: "Other Electric Passenger Vehicle", desc: "Electric passenger transportation" },
+  // Taxi
+  "sedan": { label: "Sedan Taxi", desc: "Comfortable 4-passenger sedan" },
+  "hatchback": { label: "Hatchback Taxi", desc: "Compact and economical 4-passenger hatchback" },
+  "suv": { label: "SUV Taxi", desc: "Spacious 6-7 passenger SUV" },
+  // Backward-compatible legacy aliases
+  "electric-cargo-loader": { label: "Electric Rickshaw", desc: "Electric passenger vehicle" },
+  "electric-goods-e-rickshaw": { label: "Electric Passenger 3-Wheeler", desc: "Passenger three-wheeler" },
+  "electric-mini-cargo-carrier": { label: "Other Electric Passenger Vehicle", desc: "Electric passenger transportation" },
+  "other-electric-goods": { label: "Other Electric Passenger Vehicle", desc: "Electric passenger transportation" },
+  "mini-pickup": { label: "Hatchback Taxi", desc: "Passenger taxi" },
+  "tata-ace": { label: "Sedan Taxi", desc: "Passenger taxi" },
+  "cargo-pickup": { label: "SUV Taxi", desc: "Passenger taxi" },
+  "goods-loading-taxi": { label: "Taxi", desc: "Passenger taxi" },
+  "other-goods-carrier": { label: "Taxi", desc: "Passenger taxi" }
 };
 
 export const getFares = async (req, res) => {
@@ -34,19 +46,20 @@ export const getFares = async (req, res) => {
 
     const { vehicleType, vehicleId, vehicle, serviceCategory } = req.query;
     const filter = { isActive: true };
-    if (serviceCategory) {
-      const categoryTypes = VEHICLE_TYPES_BY_CATEGORY[serviceCategory];
+    if (serviceCategory && serviceCategory !== "all" && serviceCategory !== "ALL") {
+      const canonicalCat = canonicalizeServiceCategory(serviceCategory, vehicleType);
+      const categoryTypes = VEHICLE_TYPES_BY_CATEGORY[canonicalCat] || VEHICLE_TYPES_BY_CATEGORY[serviceCategory];
       if (!categoryTypes) return errorResponse(res, "Invalid service category", 400);
-      const settingKey = getCategoryEnabledSettingKey(serviceCategory);
+      if (vehicleType && !categoryTypes.includes(vehicleType)) {
+        return errorResponse(res, "Vehicle type does not belong to the selected service category", 400);
+      }
+      const settingKey = getCategoryEnabledSettingKey(canonicalCat);
       if (settingKey && !(await isSettingEnabled(settingKey))) {
         return errorResponse(res, "Service category is currently unavailable", 403);
       }
       filter.vehicleType = vehicleType && categoryTypes.includes(vehicleType)
         ? vehicleType
         : { $in: categoryTypes };
-      if (vehicleType && !categoryTypes.includes(vehicleType)) {
-        return errorResponse(res, "Vehicle type does not belong to the selected service category", 400);
-      }
     }
     if (!serviceCategory && vehicleType) {
       const category = getServiceCategoryForVehicleType(vehicleType);
@@ -160,18 +173,30 @@ export const getFareQuotes = async (req, res) => {
       return errorResponse(res, "Distance in KM is required for fare quotation", 400);
     }
 
-    if (weightValue === undefined || weightValue === null || weightValue === "") {
-      return errorResponse(res, "Cargo weight value is required for fare quotation", 400);
+    let effectiveWeightValue = weightValue;
+    let effectiveLoadingRequired = loadingRequired;
+    let effectiveUnloadingRequired = unloadingRequired;
+
+    if (isPassengerCategory(serviceCategory)) {
+      if (effectiveWeightValue === undefined || effectiveWeightValue === null || effectiveWeightValue === "") {
+        effectiveWeightValue = 0;
+      }
+      effectiveLoadingRequired = false;
+      effectiveUnloadingRequired = false;
+    } else {
+      if (effectiveWeightValue === undefined || effectiveWeightValue === null || effectiveWeightValue === "") {
+        return errorResponse(res, "Cargo weight value is required for fare quotation", 400);
+      }
     }
 
     const quotes = await fareService.calculateMultiVehicleFareQuotes({
       distanceKm,
-      weightValue,
+      weightValue: effectiveWeightValue,
       weightUnit,
       vehicleType,
       serviceCategory,
-      loadingRequired,
-      unloadingRequired
+      loadingRequired: effectiveLoadingRequired,
+      unloadingRequired: effectiveUnloadingRequired
     });
 
     return successResponse(res, {
@@ -279,14 +304,15 @@ export const adminCreateFare = async (req, res) => {
       return errorResponse(res, "Invalid vehicle type", 400);
     }
 
-    if (!validateNumeric(perKmRate) || !validateNumeric(perTonRate) || !validateNumeric(minimumFare)) {
+    const isPassenger = isPassengerCategory(vehicleType);
+
+    if (!validateNumeric(perKmRate) || (!isPassenger && !validateNumeric(perTonRate)) || !validateNumeric(minimumFare)) {
       return errorResponse(res, "Invalid numeric values. Must be >= 0 and finite.", 400);
     }
 
     if (
       !validateNumeric(baseFare) ||
-      !validateNumeric(loadingCharge) ||
-      !validateNumeric(unloadingCharge) ||
+      (!isPassenger && (!validateNumeric(loadingCharge) || !validateNumeric(unloadingCharge))) ||
       !validateNumeric(waitingCharge) ||
       !validateNumeric(extraDistanceCharge)
     ) {
@@ -303,10 +329,10 @@ export const adminCreateFare = async (req, res) => {
         vehicleType,
         baseFare: Number(baseFare),
         perKmRate: Number(perKmRate),
-        perTonRate: Number(perTonRate),
+        perTonRate: isPassenger ? 0 : Number(perTonRate || 0),
         minimumFare: Number(minimumFare),
-        loadingCharge: Number(loadingCharge),
-        unloadingCharge: Number(unloadingCharge),
+        loadingCharge: isPassenger ? 0 : Number(loadingCharge || 0),
+        unloadingCharge: isPassenger ? 0 : Number(unloadingCharge || 0),
         waitingCharge: Number(waitingCharge),
         extraDistanceCharge: Number(extraDistanceCharge)
       },

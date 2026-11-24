@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 import {
+  canonicalizeServiceCategory,
+  isPassengerCategory,
   isValidCategoryVehicleType,
   SERVICE_CATEGORIES,
   VEHICLE_TYPES
@@ -112,10 +114,24 @@ const vehicleSchema = new mongoose.Schema(
       default: []
     },
 
+    seatingCapacity: {
+      type: Number,
+      min: 1,
+      default: null
+    },
+
+    isAirConditioned: {
+      type: Boolean,
+      default: false
+    },
+
     loadCapacity: {
       value: {
         type: Number,
-        required: true,
+        required: function () {
+          return !isPassengerCategory(this.serviceCategory);
+        },
+        default: 0,
         min: 0
       },
 
@@ -181,25 +197,43 @@ const vehicleSchema = new mongoose.Schema(
 );
 
 vehicleSchema.pre("validate", function validateCategoryVehicleType() {
+  const canonical = canonicalizeServiceCategory(this.serviceCategory);
   if (!isValidCategoryVehicleType(this.serviceCategory, this.vehicleType)) {
     this.invalidate("vehicleType", "Vehicle type does not belong to the selected service category");
   }
-  if (this.serviceCategory === SERVICE_CATEGORIES.EV_GOODS && this.fuelType !== "electric") {
-    this.invalidate("fuelType", "EV Goods vehicles must use electric power");
+  const isEV = canonical === SERVICE_CATEGORIES.EV_PASSENGER || this.serviceCategory === SERVICE_CATEGORIES.EV_GOODS;
+  if (isEV && this.fuelType !== "electric") {
+    const msg = this.serviceCategory === SERVICE_CATEGORIES.EV_GOODS
+      ? "EV Goods vehicles must use electric power"
+      : "EV Passenger vehicles must use electric power";
+    this.invalidate("fuelType", msg);
   }
-  if (this.serviceCategory === SERVICE_CATEGORIES.EV_GOODS) {
+  if (isEV) {
     if (!Number.isFinite(this.batteryRangeKm) || this.batteryRangeKm <= 0) {
-      this.invalidate("batteryRangeKm", "EV Goods vehicles need a positive battery range");
+      const msg = this.serviceCategory === SERVICE_CATEGORIES.EV_GOODS
+        ? "EV Goods vehicles need a positive battery range"
+        : "EV Passenger vehicles need a positive battery range";
+      this.invalidate("batteryRangeKm", msg);
     }
     if (!this.chargingInformation?.trim()) {
-      this.invalidate("chargingInformation", "EV Goods vehicles need charging information");
+      const msg = this.serviceCategory === SERVICE_CATEGORIES.EV_GOODS
+        ? "EV Goods vehicles need charging information"
+        : "EV Passenger vehicles need charging information";
+      this.invalidate("chargingInformation", msg);
     }
   }
-  if (
-    this.serviceCategory === SERVICE_CATEGORIES.GOODS_TAXI &&
-    !this.fuelType
-  ) {
-    this.invalidate("fuelType", "Goods Taxi vehicles need a supported fuel type");
+  const isTaxi = canonical === SERVICE_CATEGORIES.TAXI || this.serviceCategory === SERVICE_CATEGORIES.GOODS_TAXI;
+  if (isTaxi && !this.fuelType) {
+    const msg = this.serviceCategory === SERVICE_CATEGORIES.GOODS_TAXI
+      ? "Goods Taxi vehicles need a supported fuel type"
+      : "Taxi vehicles need a supported fuel type";
+    this.invalidate("fuelType", msg);
+  }
+  const isPassenger = isPassengerCategory(this.serviceCategory) || isPassengerCategory(canonical);
+  if (isPassenger && this.seatingCapacity !== undefined && this.seatingCapacity !== null) {
+    if (!Number.isFinite(this.seatingCapacity) || this.seatingCapacity < 1) {
+      this.invalidate("seatingCapacity", "Passenger vehicles must specify a seating capacity of at least 1");
+    }
   }
 });
 

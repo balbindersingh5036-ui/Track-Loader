@@ -1,15 +1,25 @@
-import React from "react";
-import { Image, View, StyleSheet } from "react-native";
-import { HEADER_LOGO_WIDTH, HEADER_LOGO_HEIGHT } from "../utils/logoHelper.mjs";
+import React from 'react';
+import { View, Image, StyleSheet } from 'react-native';
+import { HEADER_LOGO_WIDTH, HEADER_LOGO_HEIGHT } from '../utils/logoHelper.mjs';
 
-export default function LoadBalbinLogo({ style, width = HEADER_LOGO_WIDTH, height = HEADER_LOGO_HEIGHT }) {
+const logoAsset = require('../../assets/loadbalbin-logo-cropped.png');
+
+export default function LoadBalbinLogo({
+  width = HEADER_LOGO_WIDTH,
+  height = HEADER_LOGO_HEIGHT,
+  style,
+  imageStyle,
+  resizeMode = 'contain',
+  centered = false
+}) {
   return (
-    <View style={[styles.container, { height }, style]}>
+    <View style={[styles.container, { height }, centered && styles.centeredContainer, style]}>
       <Image
-        source={require("../../assets/loadbalbin-logo-cropped.png")}
-        style={[styles.logo, { width, height }]}
-        resizeMode="contain"
-        accessibilityLabel="Load Balbin - For Driver & Transporter"
+        source={logoAsset}
+        style={[styles.logo, { width, height }, centered && styles.centeredLogo, imageStyle]}
+        resizeMode={resizeMode}
+        accessibilityRole="image"
+        accessibilityLabel="LoadBalbin Official Logo"
       />
     </View>
   );
@@ -17,12 +27,16 @@ export default function LoadBalbinLogo({ style, width = HEADER_LOGO_WIDTH, heigh
 
 const styles = StyleSheet.create({
   container: {
-    alignItems: "flex-start",
-    justifyContent: "center",
+    justifyContent: 'center',
+    alignItems: 'flex-start'
+  },
+  centeredContainer: {
+    alignItems: 'center'
   },
   logo: {
-    alignSelf: "flex-start",
-    opacity: 1,
-    zIndex: 1,
+    alignSelf: 'flex-start'
   },
+  centeredLogo: {
+    alignSelf: 'center'
+  }
 });

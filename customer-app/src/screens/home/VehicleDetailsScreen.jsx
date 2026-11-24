@@ -13,7 +13,10 @@ import VehiclePhotoCarousel from "../../components/VehiclePhotoCarousel";
 import {
   isEVVehicle,
   getVehicleCategoryLabel,
-  formatVehicleCategory
+  formatVehicleCategory,
+  canonicalizeServiceCategory,
+  isPassengerCategory,
+  SERVICE_CATEGORIES
 } from "../../utils/vehicleDisplay";
 
 export default function VehicleDetailsScreen({ route, navigation }) {
@@ -54,12 +57,12 @@ export default function VehicleDetailsScreen({ route, navigation }) {
     );
   }
 
-  const resolvedCategory = vehicle?.serviceCategory || "TRUCK";
+  const resolvedCategory = canonicalizeServiceCategory(vehicle?.serviceCategory || vehicle?.vehicleType);
   const isEV = isEVVehicle(vehicle);
-  const isTaxi = resolvedCategory === "GOODS_TAXI";
+  const isTaxi = resolvedCategory === SERVICE_CATEGORIES.TAXI || resolvedCategory === "GOODS_TAXI";
   const isCategoryDisabled =
-    (resolvedCategory === "EV_GOODS" && config["service.ev_goods.enabled"] === false) ||
-    (resolvedCategory === "GOODS_TAXI" && config["service.goods_taxi.enabled"] === false);
+    ((resolvedCategory === SERVICE_CATEGORIES.EV_PASSENGER || resolvedCategory === "EV_GOODS") && (config["service.ev_passenger.enabled"] ?? config["service.ev_goods.enabled"]) === false) ||
+    ((resolvedCategory === SERVICE_CATEGORIES.TAXI || resolvedCategory === "GOODS_TAXI") && (config["service.taxi.enabled"] ?? config["service.goods_taxi.enabled"]) === false);
 
   return (
     <Screen>
@@ -139,25 +142,39 @@ export default function VehicleDetailsScreen({ route, navigation }) {
               </>
             ) : null}
 
-            <View style={styles.specRow}>
-              <View style={styles.specLabelCol}>
-                <Ionicons name="speedometer-outline" size={16} color={colors.primary} />
-                <Text style={styles.specLabel}>Load Capacity</Text>
+            {isPassengerCategory(vehicle) ? (
+              <View style={styles.specRow}>
+                <View style={styles.specLabelCol}>
+                  <Ionicons name="people-outline" size={16} color={colors.primary} />
+                  <Text style={styles.specLabel}>Passenger Seating</Text>
+                </View>
+                <Text style={styles.specValue}>
+                  {vehicle.seatingCapacity || 4} Passengers
+                </Text>
               </View>
-              <Text style={styles.specValue}>
-                {vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit}
-              </Text>
-            </View>
+            ) : (
+              <>
+                <View style={styles.specRow}>
+                  <View style={styles.specLabelCol}>
+                    <Ionicons name="speedometer-outline" size={16} color={colors.primary} />
+                    <Text style={styles.specLabel}>Payload Capacity</Text>
+                  </View>
+                  <Text style={styles.specValue}>
+                    {vehicle.loadCapacity?.value} {vehicle.loadCapacity?.unit || "kg"}
+                  </Text>
+                </View>
 
-            <View style={styles.specDivider} />
+                <View style={styles.specDivider} />
 
-            <View style={styles.specRow}>
-              <View style={styles.specLabelCol}>
-                <Ionicons name="cube-outline" size={16} color={colors.primary} />
-                <Text style={styles.specLabel}>Body Type</Text>
-              </View>
-              <Text style={styles.specValue}>{vehicle.bodyType || "Open body"}</Text>
-            </View>
+                <View style={styles.specRow}>
+                  <View style={styles.specLabelCol}>
+                    <Ionicons name="cube-outline" size={16} color={colors.primary} />
+                    <Text style={styles.specLabel}>Body Type</Text>
+                  </View>
+                  <Text style={styles.specValue}>{vehicle.bodyType || "Open body"}</Text>
+                </View>
+              </>
+            )}
 
             <View style={styles.specDivider} />
 

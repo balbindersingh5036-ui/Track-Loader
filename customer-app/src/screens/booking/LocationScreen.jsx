@@ -6,9 +6,11 @@ import { Button, Card, Field, Heading, Notice, Screen } from "../../components/P
 import { colors } from "../../theme/theme";
 import RouteMap from "../../components/RouteMap";
 import routeService from "../../services/routeService";
+import { isPassengerCategory } from "../../utils/vehicleDisplay";
 
 export default function LocationScreen({ route, navigation }) {
   const bookingMode = route.params?.bookingMode || "instant";
+  const isPassengerRide = isPassengerCategory(route.params?.serviceCategory) || isPassengerCategory(route.params?.vehicleType);
 
   // Coordinates and addresses
   const [pickupAddress, setPickupAddress] = useState(route.params?.pickup?.address || "");
@@ -239,7 +241,7 @@ export default function LocationScreen({ route, navigation }) {
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
         <Heading
           title="Route Details"
-          subtitle="Specify the pickup point and destination for your goods transport."
+          subtitle={isPassengerRide ? "Specify the pickup point and destination for your passenger ride." : "Specify the pickup point and destination for your goods transport."}
         />
         <View style={{
           backgroundColor: bookingMode === "instant" ? colors.surfaceAlt : (colors.primaryDark || "#0071AB"),
@@ -270,7 +272,7 @@ export default function LocationScreen({ route, navigation }) {
         <View style={styles.stepDot}>
           <Text style={styles.stepNum}>2</Text>
         </View>
-        <Text style={styles.stepLabel}>Goods</Text>
+        <Text style={styles.stepLabel}>{isPassengerRide ? "Ride" : "Goods"}</Text>
         <View style={styles.stepLine} />
         <View style={styles.stepDot}>
           <Text style={styles.stepNum}>3</Text>

@@ -25,8 +25,11 @@ import { getCleanVehicleDisplayName } from "../utils/vehicleDocumentResponse.js"
 import { isValidVehicleModel } from "../utils/vehicleValidation.js";
 import { isActualDriverProfile } from "../utils/actualDriver.js";
 import {
+  canonicalizeServiceCategory,
   getCategoryEnabledSettingKey,
   getServiceCategoryForVehicleType,
+  isGoodsCategory,
+  isPassengerCategory,
   isValidCategoryVehicleType,
   SERVICE_CATEGORIES
 } from "../utils/vehicleCategories.js";
@@ -150,20 +153,10 @@ export const createBooking = async (req, res) => {
     ) {
       return errorResponse(res, "Invalid drop details", 400);
     }
-    if (!goods) return errorResponse(res, "Goods description is required", 400);
-
-    if (
-      !isFiniteNumericInput(weight?.value) ||
-      Number(weight.value) < 0 ||
-      typeof weight?.unit !== "string" ||
-      !["kg", "ton"].includes(weight.unit)
-    ) {
-      return errorResponse(res, "Weight value and unit are required", 400);
-    }
     if (!preferredPickupDate || !preferredPickupTime) return errorResponse(res, "Preferred date and time are required", 400);
     if (!vehicleType) return errorResponse(res, "Vehicle type is required", 400);
     const resolvedServiceCategory =
-      serviceCategory || getServiceCategoryForVehicleType(vehicleType);
+      serviceCategory || getServiceCategoryForVehicleType(vehicleType) || SERVICE_CATEGORIES.GOODS_TRANSPORT;
     if (
       !resolvedServiceCategory ||
       !isValidCategoryVehicleType(resolvedServiceCategory, vehicleType)
@@ -177,15 +170,48 @@ export const createBooking = async (req, res) => {
     ) {
       return errorResponse(res, "This service category is currently unavailable", 403);
     }
-    if (
-      !isFiniteNumericInput(quantity) ||
-      Number(quantity) < 0 ||
-      typeof loadingRequired !== "boolean" ||
-      typeof unloadingRequired !== "boolean" ||
-      typeof loadingInstructions !== "string" ||
-      typeof unloadingInstructions !== "string"
-    ) {
-      return errorResponse(res, "Invalid cargo quantity or loading/unloading details", 400);
+
+    const isPassenger = isPassengerCategory(resolvedServiceCategory);
+    let effectiveGoods = goods;
+    let effectiveWeight = weight;
+    let effectiveQuantity = quantity;
+    let effectiveLoadingRequired = loadingRequired;
+    let effectiveUnloadingRequired = unloadingRequired;
+    let effectiveLoadingInstructions = loadingInstructions || "";
+    let effectiveUnloadingInstructions = unloadingInstructions || "";
+
+    if (isPassenger) {
+      if (!effectiveGoods) effectiveGoods = "Passenger Transportation";
+      if (!effectiveWeight || !isFiniteNumericInput(effectiveWeight?.value)) {
+        effectiveWeight = { value: 0, unit: "kg" };
+      }
+      if (effectiveQuantity === undefined || !isFiniteNumericInput(effectiveQuantity)) {
+        effectiveQuantity = req.body.passengerCount || 1;
+      }
+      if (typeof effectiveLoadingRequired !== "boolean") effectiveLoadingRequired = false;
+      if (typeof effectiveUnloadingRequired !== "boolean") effectiveUnloadingRequired = false;
+    } else {
+      if (!effectiveGoods) return errorResponse(res, "Goods description is required", 400);
+
+      if (
+        !isFiniteNumericInput(effectiveWeight?.value) ||
+        Number(effectiveWeight.value) < 0 ||
+        typeof effectiveWeight?.unit !== "string" ||
+        !["kg", "ton"].includes(effectiveWeight.unit)
+      ) {
+        return errorResponse(res, "Weight value and unit are required", 400);
+      }
+
+      if (
+        !isFiniteNumericInput(effectiveQuantity) ||
+        Number(effectiveQuantity) < 0 ||
+        typeof effectiveLoadingRequired !== "boolean" ||
+        typeof effectiveUnloadingRequired !== "boolean" ||
+        typeof effectiveLoadingInstructions !== "string" ||
+        typeof effectiveUnloadingInstructions !== "string"
+      ) {
+        return errorResponse(res, "Invalid cargo quantity or loading/unloading details", 400);
+      }
     }
 
     // Validate scheduled pickup date & time if bookingMode is scheduled
@@ -202,14 +228,15 @@ export const createBooking = async (req, res) => {
     let alternativeVehicleAssigned = false;
     let assignmentCandidate = null;
     let agencyDoc = null;
-    const requestedWeightKg = weight.unit === "ton"
-      ? Number(weight.value) * 1000
-      : Number(weight.value);
+    const requestedWeightKg = effectiveWeight.unit === "ton"
+      ? Number(effectiveWeight.value) * 1000
+      : Number(effectiveWeight.value);
     const canDispatchWithVehicle = async (candidate) => {
       if (!candidate?.isActive || !candidate.isAvailable) return false;
       if (vehicleType && candidate.vehicleType !== vehicleType) return false;
       if (
         resolvedServiceCategory !== SERVICE_CATEGORIES.TRUCK &&
+        resolvedServiceCategory !== SERVICE_CATEGORIES.GOODS_TRANSPORT &&
         !vehicleServesRoute(candidate, pickup.address, drop.address)
       ) return false;
       const driver = candidate.driver;
@@ -218,6 +245,12 @@ export const createBooking = async (req, res) => {
       if (!isRoleDriver || !isEligibleDriverVehicle(driver, candidate)) return false;
       if (driver.agency && driver.agencyAssociation?.status !== "approved" && !isDriverAssociationApproved(driver)) return false;
       if (normalizedBookingMode === "instant" && !driver.isOnline) return false;
+
+      if (isPassenger) {
+        const requestedPassengers = Number(req.body.passengerCount || effectiveQuantity || 1);
+        const seats = Number(candidate.seatingCapacity || 4);
+        return seats >= requestedPassengers;
+      }
 
       const capacityKg = candidate.loadCapacity?.unit === "ton"
         ? Number(candidate.loadCapacity.value || 0) * 1000
@@ -247,17 +280,18 @@ export const createBooking = async (req, res) => {
       }
       const selectedCategory = vehicleDoc.serviceCategory ||
         getServiceCategoryForVehicleType(vehicleDoc.vehicleType);
-      if (selectedCategory !== resolvedServiceCategory) {
+      if (canonicalizeServiceCategory(selectedCategory) !== canonicalizeServiceCategory(resolvedServiceCategory)) {
         return errorResponse(res, "Selected vehicle does not belong to the requested service category", 400);
       }
       if (
-        resolvedServiceCategory === SERVICE_CATEGORIES.EV_GOODS &&
+        (canonicalizeServiceCategory(resolvedServiceCategory) === SERVICE_CATEGORIES.EV_PASSENGER || resolvedServiceCategory === SERVICE_CATEGORIES.EV_GOODS) &&
         vehicleDoc.fuelType !== "electric"
       ) {
         return errorResponse(res, "Only electric vehicles can serve EV Goods bookings", 400);
       }
       if (
         resolvedServiceCategory !== SERVICE_CATEGORIES.TRUCK &&
+        resolvedServiceCategory !== SERVICE_CATEGORIES.GOODS_TRANSPORT &&
         (!vehicleDoc.isActive ||
           !vehicleDoc.isAvailable ||
           !isVehicleEligibleForBookings(vehicleDoc) ||
@@ -300,7 +334,7 @@ export const createBooking = async (req, res) => {
       const selectedCapacityKg = vehicleDoc.loadCapacity?.unit === "ton"
         ? Number(vehicleDoc.loadCapacity.value || 0) * 1000
         : Number(vehicleDoc.loadCapacity?.value || 0);
-      if (isSelectedUsable && vehicleDoc.loadCapacity?.value && selectedCapacityKg < requestedWeightKg) {
+      if (!isPassenger && isSelectedUsable && vehicleDoc.loadCapacity?.value && selectedCapacityKg < requestedWeightKg) {
         return errorResponse(res, "Selected vehicle capacity is insufficient for the requested cargo", 400);
       }
 
@@ -322,9 +356,9 @@ export const createBooking = async (req, res) => {
       const agencyVehicles = await Vehicle.find({
         agency: agencyDoc._id,
         vehicleType,
-        serviceCategory: resolvedServiceCategory === SERVICE_CATEGORIES.TRUCK
-          ? { $in: [SERVICE_CATEGORIES.TRUCK, null] }
-          : resolvedServiceCategory,
+        serviceCategory: isGoodsCategory(resolvedServiceCategory)
+          ? { $in: [SERVICE_CATEGORIES.GOODS_TRANSPORT, SERVICE_CATEGORIES.TRUCK, null] }
+          : { $in: [resolvedServiceCategory, canonicalizeServiceCategory(resolvedServiceCategory)] },
         isActive: true,
         isAvailable: true
       }).populate({
@@ -477,14 +511,15 @@ export const createBooking = async (req, res) => {
         routingProfile: routeResult.profile,
         calculatedAt: new Date()
       },
-      goods,
+      goods: effectiveGoods,
       serviceCategory: resolvedServiceCategory,
-      quantity: Number(quantity),
-      loadingRequired,
-      unloadingRequired,
-      loadingInstructions: loadingInstructions.trim(),
-      unloadingInstructions: unloadingInstructions.trim(),
-      weight,
+      quantity: Number(effectiveQuantity),
+      passengerCount: req.body.passengerCount || (isPassenger ? Number(effectiveQuantity) : null),
+      loadingRequired: effectiveLoadingRequired,
+      unloadingRequired: effectiveUnloadingRequired,
+      loadingInstructions: effectiveLoadingInstructions.trim(),
+      unloadingInstructions: effectiveUnloadingInstructions.trim(),
+      weight: effectiveWeight,
       preferredPickupDate,
       preferredPickupTime,
       vehicleType,

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import fareService from '../../services/fareService';
+import { isPassengerCategory } from '../../utils/vehicleCategories';
 import {
   Calculator,
   CheckCircle2,
@@ -16,11 +17,20 @@ import {
 } from 'lucide-react';
 
 const FALLBACK_CATEGORIES = [
-  { type: 'mini-truck', label: 'Mini Truck', desc: 'e.g. Tata Ace, Mahindra Jeeto (Up to 1.5 Tons)' },
-  { type: 'pickup', label: 'Pickup Truck', desc: 'e.g. Bolero Pik-Up, Dost (Up to 2.5 Tons)' },
-  { type: 'small-truck', label: 'Small Truck', desc: 'e.g. Tata 407, Eicher Pro 2049 (Up to 5 Tons)' },
-  { type: 'medium-truck', label: 'Medium Truck', desc: 'e.g. Eicher 17ft/19ft, BharatBenz 1217C (Up to 10 Tons)' },
-  { type: 'large-truck', label: 'Large Heavy Truck', desc: 'e.g. 10/12/14 Wheeler Multi-Axle (10+ Tons)' }
+  // EV Passenger
+  { type: 'electric-rickshaw', label: 'Electric Rickshaw', desc: 'Eco-friendly passenger e-rickshaw for city rides', category: 'EV_PASSENGER' },
+  { type: 'electric-passenger-three-wheeler', label: 'Electric Passenger 3-Wheeler', desc: 'Zero-emission passenger three-wheeler', category: 'EV_PASSENGER' },
+  { type: 'other-electric-passenger', label: 'Other Electric Passenger Vehicle', desc: 'Electric passenger transportation', category: 'EV_PASSENGER' },
+  // Taxi
+  { type: 'sedan', label: 'Sedan Taxi', desc: 'Comfortable 4-passenger sedan', category: 'TAXI' },
+  { type: 'hatchback', label: 'Hatchback Taxi', desc: 'Compact and economical 4-passenger hatchback', category: 'TAXI' },
+  { type: 'suv', label: 'SUV Taxi', desc: 'Spacious 6-7 passenger SUV', category: 'TAXI' },
+  // Goods Transport
+  { type: 'pickup', label: 'Pickup Truck', desc: 'e.g. Bolero Pik-Up, Dost (Up to 2.5 Tons)', category: 'GOODS_TRANSPORT' },
+  { type: 'mini-truck', label: 'Mini Truck', desc: 'e.g. Tata Ace, Mahindra Jeeto (Up to 1.5 Tons)', category: 'GOODS_TRANSPORT' },
+  { type: 'small-truck', label: 'Small Truck', desc: 'e.g. Tata 407, Eicher Pro 2049 (Up to 5 Tons)', category: 'GOODS_TRANSPORT' },
+  { type: 'medium-truck', label: 'Medium Truck', desc: 'e.g. Eicher 17ft/19ft, BharatBenz 1217C (Up to 10 Tons)', category: 'GOODS_TRANSPORT' },
+  { type: 'large-truck', label: 'Large Heavy Truck', desc: 'e.g. 10/12/14 Wheeler Multi-Axle (10+ Tons)', category: 'GOODS_TRANSPORT' }
 ];
 
 export default function FareManagement() {
@@ -28,6 +38,7 @@ export default function FareManagement() {
   const isSuperAdmin = Boolean(user?.isSuperAdmin);
 
   const [categories, setCategories] = useState([]);
+  const [categoryTab, setCategoryTab] = useState('ALL');
   const [fares, setFares] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -65,13 +76,21 @@ export default function FareManagement() {
         const catRes = await fareService.getCategories();
         cats = catRes.data?.data?.categories || [];
       } catch (err) {
-        // Fallback to static if endpoint fails
-        cats = FALLBACK_CATEGORIES.map(c => ({
-          type: c.type,
-          label: c.label,
-          desc: c.desc,
-          hasFare: false
-        }));
+        cats = [];
+      }
+
+      // Ensure all fallback categories exist
+      const allTypes = new Set(cats.map(c => c.type));
+      for (const fc of FALLBACK_CATEGORIES) {
+        if (!allTypes.has(fc.type)) {
+          cats.push({
+            type: fc.type,
+            label: fc.label,
+            desc: fc.desc,
+            category: fc.category,
+            hasFare: false
+          });
+        }
       }
 
       // 2. Fetch full fare list
@@ -82,8 +101,11 @@ export default function FareManagement() {
       // Merge fare metadata into categories
       const mergedCats = (cats.length > 0 ? cats : FALLBACK_CATEGORIES).map(c => {
         const matchingFare = loadedFares.find(f => f.vehicleType === c.type);
+        const fallback = FALLBACK_CATEGORIES.find(fc => fc.type === c.type);
+        const categoryGroup = c.category || fallback?.category || (isPassengerCategory(c.type) ? (c.type.includes('electric') ? 'EV_PASSENGER' : 'TAXI') : 'GOODS_TRANSPORT');
         return {
           ...c,
+          category: categoryGroup,
           hasFare: Boolean(matchingFare),
           fare: matchingFare || null,
           perKmRate: matchingFare?.perKmRate ?? c.perKmRate ?? null,
@@ -138,24 +160,27 @@ export default function FareManagement() {
     e.preventDefault();
     if (!editingTarget) return;
 
+    const targetType = editingTarget.type || editingTarget.vehicleType;
+    const isPassenger = isPassengerCategory(targetType);
+
     const perKmRate = Number(editForm.perKmRate);
-    const perTonRate = Number(editForm.perTonRate);
+    const perTonRate = isPassenger ? 0 : Number(editForm.perTonRate);
     const minimumFare = Number(editForm.minimumFare);
-    const loadingCharge = Number(editForm.loadingCharge);
-    const unloadingCharge = Number(editForm.unloadingCharge);
+    const loadingCharge = isPassenger ? 0 : Number(editForm.loadingCharge);
+    const unloadingCharge = isPassenger ? 0 : Number(editForm.unloadingCharge);
     const waitingCharge = Number(editForm.waitingCharge);
     const extraDistanceCharge = Number(editForm.extraDistanceCharge);
 
     if (
       !Number.isFinite(perKmRate) || perKmRate < 0 ||
-      !Number.isFinite(perTonRate) || perTonRate < 0 ||
+      (!isPassenger && (!Number.isFinite(perTonRate) || perTonRate < 0)) ||
       !Number.isFinite(minimumFare) || minimumFare < 0 ||
-      !Number.isFinite(loadingCharge) || loadingCharge < 0 ||
-      !Number.isFinite(unloadingCharge) || unloadingCharge < 0 ||
+      (!isPassenger && (!Number.isFinite(loadingCharge) || loadingCharge < 0)) ||
+      (!isPassenger && (!Number.isFinite(unloadingCharge) || unloadingCharge < 0)) ||
       !Number.isFinite(waitingCharge) || waitingCharge < 0 ||
       !Number.isFinite(extraDistanceCharge) || extraDistanceCharge < 0
     ) {
-      setError('Please enter valid, non-negative numbers for all rate fields.');
+      setError('Please enter valid, non-negative numbers for all required rate fields.');
       return;
     }
 
@@ -260,15 +285,16 @@ export default function FareManagement() {
 
   // Live Simulator calculation
   const selectedCat = categories.find((c) => c.type === calcCategory);
+  const isCalcPassenger = isPassengerCategory(calcCategory);
   const ratePerKm = selectedCat?.perKmRate || 0;
-  const ratePerTon = selectedCat?.perTonRate || 0;
+  const ratePerTon = isCalcPassenger ? 0 : (selectedCat?.perTonRate || 0);
   const minFare = selectedCat?.minimumFare || 0;
 
   const numericWeight = Number(calcWeight) || 0;
-  const weightInTon = calcWeightUnit === 'ton' ? numericWeight : numericWeight / 1000;
+  const weightInTon = isCalcPassenger ? 0 : (calcWeightUnit === 'ton' ? numericWeight : numericWeight / 1000);
   const distanceKm = Number(calcDistance) || 0;
   const distCharge = distanceKm * ratePerKm;
-  const wtCharge = weightInTon * ratePerTon;
+  const wtCharge = isCalcPassenger ? 0 : weightInTon * ratePerTon;
   const formulaTotal = distCharge + wtCharge;
   const finalCalculatedFare = Math.max(formulaTotal, minFare);
 
@@ -374,6 +400,34 @@ export default function FareManagement() {
           </span>
         </div>
 
+        <div style={{ display: 'flex', gap: '8px', padding: '12px 20px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', flexWrap: 'wrap' }}>
+          {[
+            { key: 'ALL', label: 'All Categories' },
+            { key: 'EV_PASSENGER', label: 'EV Passenger' },
+            { key: 'TAXI', label: 'Taxi' },
+            { key: 'GOODS_TRANSPORT', label: 'Goods Transport' }
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setCategoryTab(tab.key)}
+              style={{
+                padding: '6px 14px',
+                borderRadius: '20px',
+                border: '1px solid',
+                borderColor: categoryTab === tab.key ? '#0284c7' : '#cbd5e1',
+                background: categoryTab === tab.key ? '#0284c7' : '#ffffff',
+                color: categoryTab === tab.key ? '#ffffff' : '#475569',
+                fontSize: '13px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '14px' }}>
             <thead>
@@ -395,15 +449,18 @@ export default function FareManagement() {
                     Loading category pricing configurations...
                   </td>
                 </tr>
-              ) : categories.length === 0 ? (
+              ) : categories.filter((c) => categoryTab === 'ALL' || c.category === categoryTab).length === 0 ? (
                 <tr>
                   <td colSpan="7" style={{ padding: '36px', textAlign: 'center', color: '#64748b' }}>
-                    No vehicle categories found.
+                    No vehicle categories found in this section.
                   </td>
                 </tr>
               ) : (
-                categories.map((c) => {
+                categories
+                  .filter((c) => categoryTab === 'ALL' || c.category === categoryTab)
+                  .map((c) => {
                   const hasRates = c.perKmRate != null;
+                  const isPassenger = isPassengerCategory(c.type);
                   return (
                     <tr key={c.type} style={{ borderBottom: '1px solid #f1f5f9' }}>
                       <td style={{ padding: '14px 18px' }}>
@@ -420,7 +477,15 @@ export default function FareManagement() {
                       </td>
 
                       <td style={{ padding: '14px 18px', fontWeight: '700', color: hasRates ? '#059669' : '#94a3b8', fontSize: '15px' }}>
-                        {hasRates ? `₹${c.perTonRate}` : '—'}
+                        {isPassenger ? (
+                          <span style={{ color: '#94a3b8', fontSize: '12px', fontStyle: 'italic', fontWeight: '500' }}>
+                            N/A (Passenger)
+                          </span>
+                        ) : hasRates ? (
+                          `₹${c.perTonRate}`
+                        ) : (
+                          '—'
+                        )}
                       </td>
 
                       <td style={{ padding: '14px 18px', fontWeight: '700', color: hasRates ? '#334155' : '#94a3b8', fontSize: '15px' }}>
@@ -549,31 +614,33 @@ export default function FareManagement() {
                 <span style={{ fontSize: '11px', color: '#64748b' }}>Applied to actual OpenRouteService (ORS) road distance.</span>
               </div>
 
-              {/* FIELD 2: Rate Per Ton */}
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
-                  2. Rate Per Ton (₹) *
-                </label>
-                <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: '12px', top: '10px', color: '#64748b', fontWeight: '600' }}>₹</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    required
-                    placeholder="e.g. 80.00"
-                    value={editForm.perTonRate}
-                    onChange={(e) => setEditForm({ ...editForm, perTonRate: e.target.value })}
-                    style={{ width: '100%', padding: '10px 12px 10px 28px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
-                  />
+              {/* FIELD 2: Rate Per Ton (Cargo only) */}
+              {!isPassengerCategory(editingTarget?.type || editingTarget?.vehicleType) && (
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
+                    2. Rate Per Ton (₹) *
+                  </label>
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: '12px', top: '10px', color: '#64748b', fontWeight: '600' }}>₹</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      required
+                      placeholder="e.g. 80.00"
+                      value={editForm.perTonRate}
+                      onChange={(e) => setEditForm({ ...editForm, perTonRate: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px 10px 28px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                    />
+                  </div>
+                  <span style={{ fontSize: '11px', color: '#64748b' }}>Applied to cargo weight converted to tons (KG / 1000).</span>
                 </div>
-                <span style={{ fontSize: '11px', color: '#64748b' }}>Applied to cargo weight converted to tons (KG / 1000).</span>
-              </div>
+              )}
 
               {/* FIELD 3: Minimum Fare */}
               <div style={{ marginBottom: '22px' }}>
                 <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
-                  3. Minimum Fare (₹) *
+                  {isPassengerCategory(editingTarget?.type || editingTarget?.vehicleType) ? '2. Minimum Fare (₹) *' : '3. Minimum Fare (₹) *'}
                 </label>
                 <div style={{ position: 'relative' }}>
                   <span style={{ position: 'absolute', left: '12px', top: '10px', color: '#64748b', fontWeight: '600' }}>₹</span>
@@ -592,14 +659,16 @@ export default function FareManagement() {
               </div>
 
               {[
-                ['loadingCharge', 'Loading Charge (₹)', 'Flat per booking when loading is requested'],
-                ['unloadingCharge', 'Unloading Charge (₹)', 'Flat per booking when unloading is requested'],
+                ...(!isPassengerCategory(editingTarget?.type || editingTarget?.vehicleType) ? [
+                  ['loadingCharge', 'Loading Charge (₹)', 'Flat per booking when loading is requested'],
+                  ['unloadingCharge', 'Unloading Charge (₹)', 'Flat per booking when unloading is requested']
+                ] : []),
                 ['waitingCharge', 'Waiting Charge (₹ / hour)', 'Prorated per hour from recorded waiting time'],
                 ['extraDistanceCharge', 'Extra Distance Charge (₹ / km)', 'Applied per km beyond the estimated route']
               ].map(([field, label, hint], index) => (
                 <div key={field} style={{ marginBottom: '16px' }}>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#334155', marginBottom: '6px' }}>
-                    {index + 4}. {label}
+                    {index + (isPassengerCategory(editingTarget?.type || editingTarget?.vehicleType) ? 3 : 4)}. {label}
                   </label>
                   <div style={{ position: 'relative' }}>
                     <span style={{ position: 'absolute', left: '12px', top: '10px', color: '#64748b', fontWeight: '600' }}>₹</span>
@@ -766,25 +835,32 @@ export default function FareManagement() {
 
           <div>
             <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#475569', marginBottom: '6px' }}>
-              Cargo Weight
+              Cargo Weight {isCalcPassenger && '(Not Applicable for Passenger Rides)'}
             </label>
             <div style={{ display: 'flex', gap: '8px' }}>
               <input
                 type="number"
                 min="0"
-                value={calcWeight}
+                disabled={isCalcPassenger}
+                value={isCalcPassenger ? 0 : calcWeight}
                 onChange={(e) => setCalcWeight(e.target.value)}
-                style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', background: isCalcPassenger ? '#f1f5f9' : '#fff' }}
               />
               <select
+                disabled={isCalcPassenger}
                 value={calcWeightUnit}
                 onChange={(e) => setCalcWeightUnit(e.target.value)}
-                style={{ width: '80px', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px' }}
+                style={{ width: '80px', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', background: isCalcPassenger ? '#f1f5f9' : '#fff' }}
               >
                 <option value="kg">KG</option>
                 <option value="ton">Tons</option>
               </select>
             </div>
+            {isCalcPassenger && (
+              <span style={{ fontSize: '11px', color: '#0284c7', display: 'block', marginTop: '4px' }}>
+                Passenger ride: Calculated strictly by road distance.
+              </span>
+            )}
           </div>
         </div>
 
@@ -794,12 +870,19 @@ export default function FareManagement() {
             <span>Distance Charge ({distanceKm} km × ₹{ratePerKm}/km):</span>
             <strong style={{ color: '#0284c7' }}>₹{distCharge.toFixed(2)}</strong>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
-            <span>Weight Charge ({weightInTon.toFixed(2)} tons × ₹{ratePerTon}/ton):</span>
-            <strong style={{ color: '#059669' }}>₹{wtCharge.toFixed(2)}</strong>
-          </div>
+          {isCalcPassenger ? (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px', color: '#64748b' }}>
+              <span>Weight Charge:</span>
+              <span>₹0.00 (Passenger ride)</span>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
+              <span>Weight Charge ({weightInTon.toFixed(2)} tons × ₹{ratePerTon}/ton):</span>
+              <strong style={{ color: '#059669' }}>₹{wtCharge.toFixed(2)}</strong>
+            </div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px', color: '#64748b' }}>
-            <span>Formula Subtotal (Distance + Weight):</span>
+            <span>Formula Subtotal ({isCalcPassenger ? 'Distance only' : 'Distance + Weight'}):</span>
             <span>₹{formulaTotal.toFixed(2)}</span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px', color: '#64748b' }}>
